@@ -209,11 +209,12 @@ nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activat
           existing.product_id = id;
           existing.sku = sku || existing.sku;
           existing.name = item.name || existing.name;
+          if (item.image_url) existing.image_url = item.image_url;
           byProductId.set(id, existing);
           updated++;
         } else {
           const p = {id:'ozon-'+id,product_id:id,sku,
-            name:item.name || sku || 'Товар '+id,settings:{...blank}};
+            name:item.name || sku || 'Товар '+id,image_url:item.image_url || '',settings:{...blank}};
           next.push(p); byProductId.set(id,p);
           if (sku) bySku.set(sku,p);
           added++;
@@ -460,34 +461,65 @@ render();
 #premium22 .p23-photo-note{font-size:11px;color:#8ca5c5;margin:0 2px 13px;line-height:1.4}
 #premium22 .p22-head h3{font-size:16px!important;line-height:1.4}
 @media(max-width:380px){#premium22 .p22-icon{width:58px;flex-basis:58px;height:65px}#premium22 .p22-itemtext b{font-size:13px}}
-</style><script id="premium-v23-products">
+</style><style id="premium-v24">
+#premium22 .p22-item{min-height:91px!important;align-items:center!important;padding:10px!important;gap:11px!important}
+#premium22 .p22-icon{width:66px!important;height:70px!important;flex:0 0 66px!important;overflow:hidden!important;font-size:25px!important}
+#premium22 .p22-icon img{width:100%;height:100%;object-fit:cover;display:block;border-radius:11px}
+#premium22 .p22-itemtext b{font-size:13px!important;line-height:1.35!important}
+#premium22 .p23-status{display:inline-block;margin-top:5px;border-radius:20px;padding:4px 8px;font-size:10px;font-weight:700;color:#a9c8e8;background:#17324e}
+#premium22 .p23-status.good{color:#86efac;background:#103d35}
+#premium22 .p23-status.attention{color:#fcd77c;background:#45351d}
+#p24short{margin-top:7px}
+#p24titlefull{overflow-wrap:anywhere}
+</style><script id="premium-v24-products">
 (function(){'use strict';
 const root=document.getElementById('premium22');if(!root)return;
-const list=root.querySelector('#p22list');if(!list)return;
-const summary=document.createElement('div');summary.className='p23-photo-note';summary.textContent='Карточки товаров · названия сокращены для удобства. Фотографии появятся после подключения изображений Ozon.';list.parentNode.insertBefore(summary,list);
-function cleanTitle(s){
- s=String(s||'Товар').trim();
- // Prefer recognizable model and color, without changing stored original title.
- s=s.replace(/\s*[·•]\s*.*$/,'').replace(/\s*\([^)]{8,}\)/g,'').replace(/\s+/g,' ');
- const words=s.split(' ');if(words.length>9)s=words.slice(0,9).join(' ')+'…';
- return s.length>78?s.slice(0,75).trim()+'…':s;
+const list=root.querySelector('#p22list');const detail=root.querySelector('#p22detail');if(!list||!detail)return;
+const note=document.createElement('div');note.className='p22-muted';note.style.margin='0 2px 13px';note.textContent='Короткие названия можно исправить вручную. Фото появятся после обновления каталога с сервера.';list.before(note);
+const edit=document.createElement('div');edit.innerHTML='<label for="p24short">Короткое название (можно изменить)</label><input id="p24short" maxlength="90" placeholder="Например, Биокамин TORR · белый"><div class="p22-muted" id="p24titlefull" style="margin-top:8px"></div><button type="button" id="p24save" style="width:100%;margin:11px 0 0">Сохранить название</button>';
+const editor=detail.querySelector('.p22-editor');editor.parentNode.insertBefore(edit,editor);
+const getCatalog=()=>{try{const a=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]');return Array.isArray(a)?a:[]}catch(_){return[]}};
+const getRules=()=>{try{return JSON.parse(localStorage.getItem('ozon_repricer_v20')||'{}')||{}}catch(_){return{}}};
+function shorten(title){
+ let t=String(title||'Товар').replace(/\s+/g,' ').trim();
+ const color=(t.match(/\b(белый|белая|черный|чёрный|черная|чёрная|графит|серый|серая|бежевый|коричневый)\b/i)||[])[0];
+ const model=(t.match(/\b(TORR|Neo\s*40|Nova\s*36|Nova|Neo)\b/i)||[])[0];
+ if(/биокамин/i.test(t)&&model)return 'Биокамин '+model+(color?' · '+color:'');
+ if(/камин электрический|электрокамин/i.test(t)&&model)return 'Электрокамин '+model+(color?' · '+color:'');
+ t=t.replace(/\s*[·•]\s*.*$/,'').replace(/\s*\([^)]{5,}\)/g,'').trim();
+ const words=t.split(' ');return words.slice(0,6).join(' ')+(words.length>6?'…':'');
 }
-function getData(){try{const p=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]');const r=JSON.parse(localStorage.getItem('ozon_repricer_v20')||'{}');return {p:Array.isArray(p)?p:[],r:r||{}}}catch(_){return {p:[],r:{}}}}
-function decorate(){const {p,r}=getData();const byName=new Map(p.map(x=>[String(x.name||''),x]));
+let selectedId='';
+function decorate(){
+ const products=getCatalog(),rules=getRules();
+ const byName=new Map(products.map(x=>[String(x.name||''),x]));
  for(const row of list.querySelectorAll('button.p22-item')){
-  if(row.dataset.p23==='1')continue;row.dataset.p23='1';
-  const name=row.querySelector('.p22-itemtext b');const meta=row.querySelector('.p22-itemtext small');const ico=row.querySelector('.p22-icon');if(!name||!meta||!ico)continue;
-  const original=name.textContent;const product=byName.get(original);name.textContent=cleanTitle(original);name.title=original;
-  ico.textContent='♢';ico.setAttribute('aria-label','Изображение товара пока недоступно');
-  if(!product)continue;const rule=r[product.id];const tag=document.createElement('span');tag.className='p23-status';
-  if(!rule?.target){tag.textContent='Цель не задана'}
-  else if(!rule?.actual){tag.textContent='Нет цены покупателя'}
+  if(row.dataset.p24==='1')continue;row.dataset.p24='1';
+  const title=row.querySelector('.p22-itemtext b'),meta=row.querySelector('.p22-itemtext small'),ico=row.querySelector('.p22-icon');
+  if(!title||!meta||!ico)continue;
+  const original=title.textContent,p=byName.get(original);if(!p)continue;
+  title.textContent=p.short_name||shorten(p.name);title.title=p.name;
+  ico.textContent='◇';
+  if(typeof p.image_url==='string'&&/^https:\/\//i.test(p.image_url)){
+   const img=document.createElement('img');img.src=p.image_url;img.alt='Фото товара';img.loading='lazy';img.referrerPolicy='no-referrer';img.onerror=()=>{img.remove();ico.textContent='◇'};ico.replaceChildren(img);
+  }
+  const rule=rules[p.id],tag=document.createElement('span');tag.className='p23-status';
+  if(!rule?.target)tag.textContent='Цель не задана';
+  else if(!rule?.actual)tag.textContent='Нет цены покупателя';
   else if(!rule.checkedAt||Date.now()-rule.checkedAt>=900000){tag.textContent='Нужна проверка';tag.classList.add('attention')}
   else if(Math.abs(Number(rule.actual)-Number(rule.target))<=5){tag.textContent='В пределах ±5 ₽';tag.classList.add('good')}
   else{tag.textContent='Вне целевого диапазона';tag.classList.add('attention')}
-  meta.insertAdjacentElement('afterend',tag);
+  meta.after(tag);
+  row.addEventListener('click',()=>{selectedId=String(p.id);updateEditor()});
  }
 }
+function updateEditor(){const p=getCatalog().find(x=>String(x.id)===selectedId);if(!p)return;edit.querySelector('#p24short').value=p.short_name||shorten(p.name);edit.querySelector('#p24titlefull').textContent='Полное название Ozon: '+p.name}
+edit.querySelector('#p24save').addEventListener('click',()=>{
+ const value=edit.querySelector('#p24short').value.trim();if(!value){alert('Введите короткое название');return}
+ const items=getCatalog(),p=items.find(x=>String(x.id)===selectedId);if(!p){alert('Сначала выберите товар');return}
+ p.short_name=value;try{localStorage.setItem('ozon_products_v09',JSON.stringify(items))}catch(_){alert('Не удалось сохранить название');return}
+ root.querySelector('#p22reload').click();updateEditor();
+});
 new MutationObserver(decorate).observe(list,{childList:true});decorate();
 })();
 </script></body></html>
