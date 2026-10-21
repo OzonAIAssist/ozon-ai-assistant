@@ -26,176 +26,184 @@ function activate(id){Object.entries(sections).forEach(([k,v])=>v.classList.togg
 nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activate(b.dataset.tab)));activate('home');
 })();
 </script>
-<script id="products-v09">
+<script id="products-v10">
 (function () {
   'use strict';
   const section = document.getElementById('tab-prices');
   if (!section || typeof safePrice !== 'function') return;
-
   const storageKey = 'ozon_products_v09';
-  let products = [];
-  let selectedId = null;
+  const endpoint = 'https://ozon-ai-assistant-api.onrender.com/api/products';
+  let products = [], active = null;
   try {
-    const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    if (Array.isArray(stored)) products = stored.slice(0, 50);
-  } catch (e) {}
+    const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    if (Array.isArray(saved)) products = saved;
+  } catch (_) {}
 
   const card = document.createElement('div');
   card.className = 'card';
   card.innerHTML = `
-    <h3>Мои товары · v0.9</h3>
-    <small>До 50 товаров. Данные сохраняются только в этом браузере.</small>
-    <label for="v09-name">Название товара</label>
-    <input id="v09-name" maxlength="100" placeholder="Например, Комод белый">
-    <label for="v09-sku">Артикул продавца (необязательно)</label>
-    <input id="v09-sku" maxlength="60" placeholder="Например, KOMOD-01">
-    <p><button type="button" id="v09-add">+ Добавить товар</button></p>
-    <div id="v09-list"></div>
-    <small>Выбери товар, чтобы загрузить его расходы в калькулятор ниже.
-    После изменений нажми «Сохранить товар».</small>
-  `;
+    <h3>Мои товары · v1.0</h3>
+    <small>Синхронизация из Ozon · только чтение. Себестоимость хранится на этом iPhone.</small>
+    <label for="v10token">Пароль доступа к серверу (APP_ACCESS_TOKEN, НЕ API-ключ Ozon)</label>
+    <input id="v10token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Введите пароль доступа">
+    <p><button type="button" id="v10sync">↻ Синхронизировать товары из Ozon</button></p>
+    <p id="v10status" aria-live="polite"></p>
+    <label for="v10search">Поиск по названию или артикулу</label>
+    <input id="v10search" placeholder="Поиск товаров">
+    <label for="v10name">Название товара для ручного добавления</label>
+    <input id="v10name" maxlength="100">
+    <label for="v10sku">Артикул (необязательно)</label>
+    <input id="v10sku" maxlength="60">
+    <p><button type="button" id="v10add">+ Добавить вручную</button></p>
+    <p id="v10count"></p>
+    <div id="v10list"></div>
+    <small>Выберите товар, укажите его расходы в калькуляторе ниже и нажмите «Сохранить товар». Пароль не сохраняется.</small>`;
   section.insertBefore(card, section.children[1] || null);
-  const list = card.querySelector('#v09-list');
+  const list = card.querySelector('#v10list');
+  const status = card.querySelector('#v10status');
 
-  function saveAll() {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(products));
-      return true;
-    } catch (e) {
-      alert('Не удалось сохранить товары в браузере.');
-      return false;
-    }
+  function persist() {
+    try { localStorage.setItem(storageKey, JSON.stringify(products)); return true; }
+    catch (_) { alert('Не удалось сохранить каталог в памяти браузера.'); return false; }
   }
-
-  function readSettings() {
+  function snapshot() {
     const x = getPriceSettings();
     return {
-      mode: x.mode, fixed: x.fixedPrice, min: x.priceMin,
-      max: x.priceMax, cost: x.cost, logistics: x.logistics,
-      other: x.other, profit: x.profit,
-      commissionPct: x.commissionPct, taxPct: x.taxPct,
-      adsPct: x.adsPct
+      mode: x.mode, fixed: x.fixedPrice, min: x.priceMin, max: x.priceMax,
+      cost: x.cost, logistics: x.logistics, other: x.other, profit: x.profit,
+      commissionPct: x.commissionPct, taxPct: x.taxPct, adsPct: x.adsPct
     };
   }
-
-  function loadSettings(settings) {
-    document.getElementById('priceMode').value = settings.mode || 'fixed';
+  function apply(s) {
+    document.getElementById('priceMode').value = s.mode || 'fixed';
     const ids = {
-      fixed: 'fixedPrice', min: 'priceMin', max: 'priceMax',
-      cost: 'cost', logistics: 'logistics', other: 'other',
-      profit: 'profit', commissionPct: 'commissionPct',
-      taxPct: 'taxPct', adsPct: 'adsPct'
+      fixed:'fixedPrice', min:'priceMin', max:'priceMax', cost:'cost',
+      logistics:'logistics', other:'other', profit:'profit',
+      commissionPct:'commissionPct', taxPct:'taxPct', adsPct:'adsPct'
     };
-    for (const [field, id] of Object.entries(ids)) {
-      if (settings[field] !== undefined) {
-        document.getElementById(id).value = settings[field];
-      }
+    for (const [field,id] of Object.entries(ids)) {
+      document.getElementById(id).value = s[field] === undefined ? '' : s[field];
     }
-    togglePriceMode();
-    calcPrice();
+    togglePriceMode(); calcPrice();
   }
-
-  function action(label, handler) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = label;
-    button.style.margin = '5px 5px 5px 0';
-    button.addEventListener('click', handler);
-    return button;
+  function button(label, fn) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = label;
+    b.style.margin = '5px 5px 5px 0'; b.addEventListener('click', fn);
+    return b;
   }
-
-  function renderProducts() {
+  function render() {
+    const q = card.querySelector('#v10search').value.trim().toLowerCase();
+    const matching = products.filter(p => (p.name+' '+(p.sku||'')).toLowerCase().includes(q));
+    card.querySelector('#v10count').textContent = 'Всего товаров: '+products.length+
+      (q ? ' · найдено: '+matching.length : '');
     list.replaceChildren();
-    if (!products.length) {
-      const empty = document.createElement('p');
-      empty.className = 'muted';
-      empty.textContent = 'Товаров пока нет.';
-      list.appendChild(empty);
-    }
-    for (const product of products) {
+    for (const p of matching.slice(0,100)) {
       const row = document.createElement('div');
       row.style.cssText = 'padding:12px 0;border-top:1px solid #334155';
       const title = document.createElement('strong');
-      title.textContent = product.name + (product.sku ? ' · ' + product.sku : '');
-      row.appendChild(title);
-      row.appendChild(document.createElement('br'));
-
-      row.appendChild(action(
-        selectedId === product.id ? '✓ Выбран' : 'Выбрать',
-        () => {
-          selectedId = product.id;
-          loadSettings(product.settings);
-          renderProducts();
-        }
-      ));
-
-      if (selectedId === product.id) {
-        row.appendChild(action('Сохранить товар', () => {
-          const settings = readSettings();
-          const result = safePrice(settings);
-          if (result.status === 'blocked') {
-            alert('Товар не сохранён: ' + result.reason);
-            return;
-          }
-          const previous = product.settings;
-          product.settings = settings;
-          if (saveAll()) {
-            renderProducts();
-            alert('Настройки товара сохранены на этом устройстве.');
-          } else {
-            product.settings = previous;
-          }
-        }));
-      }
-
-      row.appendChild(action('Удалить', () => {
-        if (!confirm('Удалить товар «' + product.name + '»?')) return;
-        const previous = products;
-        products = products.filter(p => p.id !== product.id);
-        if (!saveAll()) {
-          products = previous;
-          return;
-        }
-        if (selectedId === product.id) selectedId = null;
-        renderProducts();
+      title.textContent = p.name + (p.sku ? ' · '+p.sku : '');
+      row.append(title, document.createElement('br'));
+      row.append(button(active === p.id ? '✓ Выбран' : 'Выбрать', () => {
+        active = p.id; apply(p.settings || {}); render();
       }));
-      list.appendChild(row);
+      if (active === p.id) row.append(button('Сохранить товар', () => {
+        const settings = snapshot(), result = safePrice(settings);
+        if (result.status === 'blocked') {
+          alert('Сохранение заблокировано: '+result.reason); return;
+        }
+        const previous = p.settings;
+        p.settings = settings;
+        if (!persist()) p.settings = previous;
+        else alert('Расходы и настройки товара сохранены на этом устройстве.');
+      }));
+      row.append(button('Удалить', () => {
+        if (!confirm('Удалить товар из приложения? В Ozon он останется.')) return;
+        const previous = products;
+        products = products.filter(x => x.id !== p.id);
+        if (!persist()) products = previous;
+        else { if (active === p.id) active = null; render(); }
+      }));
+      list.append(row);
+    }
+    if (matching.length > 100) {
+      const note = document.createElement('small');
+      note.textContent = 'Показаны первые 100. Уточните поиск, чтобы увидеть остальные.';
+      list.append(note);
     }
   }
-
-  card.querySelector('#v09-add').addEventListener('click', () => {
-    const name = card.querySelector('#v09-name').value.trim();
-    const sku = card.querySelector('#v09-sku').value.trim();
-    if (!name) {
-      alert('Введите название товара.');
-      return;
-    }
-    if (products.length >= 50) {
-      alert('Можно добавить не более 50 товаров.');
-      return;
-    }
-    const settings = readSettings();
-    const result = safePrice(settings);
-    if (result.status === 'blocked') {
-      alert('Товар не добавлен: ' + result.reason);
-      return;
-    }
-    const product = {
-      id: String(Date.now()) + '-' + Math.random().toString(36).slice(2),
-      name, sku, settings
-    };
-    products.push(product);
-    if (!saveAll()) {
-      products.pop();
-      return;
-    }
-    selectedId = product.id;
-    card.querySelector('#v09-name').value = '';
-    card.querySelector('#v09-sku').value = '';
-    renderProducts();
+  card.querySelector('#v10search').addEventListener('input', render);
+  card.querySelector('#v10add').addEventListener('click', () => {
+    const name = card.querySelector('#v10name').value.trim();
+    const sku = card.querySelector('#v10sku').value.trim();
+    if (!name) { alert('Введите название товара.'); return; }
+    const s = snapshot(), result = safePrice(s);
+    if (result.status === 'blocked') { alert('Проверьте настройки цены: '+result.reason); return; }
+    const p = {id:'local-'+Date.now()+'-'+Math.random().toString(36).slice(2),name,sku,settings:s};
+    products.push(p);
+    if (!persist()) { products.pop(); return; }
+    active = p.id;
+    card.querySelector('#v10name').value = '';
+    card.querySelector('#v10sku').value = '';
+    render();
   });
 
-  renderProducts();
+  card.querySelector('#v10sync').addEventListener('click', async () => {
+    const tokenInput = card.querySelector('#v10token');
+    const token = tokenInput.value.trim();
+    if (!token) { alert('Введите APP_ACCESS_TOKEN из Render, не API-ключ Ozon.'); return; }
+    const sync = card.querySelector('#v10sync');
+    sync.disabled = true;
+    status.textContent = 'Загрузка товаров… Бесплатный сервер может просыпаться до минуты.';
+    try {
+      const response = await fetch(endpoint, {
+        headers: {Authorization:'Bearer '+token}, cache:'no-store'
+      });
+      if (!response.ok) throw new Error(response.status === 401 ?
+        'Неверный пароль доступа.' : 'Ошибка сервера HTTP '+response.status);
+      const data = await response.json();
+      if (!Array.isArray(data.items)) throw new Error('Неожиданный ответ сервера.');
+      const next = products.map(p => ({...p}));
+      const byProductId = new Map(next.filter(p => p.product_id)
+        .map(p => [String(p.product_id), p]));
+      const bySku = new Map(next.filter(p => p.sku).map(p => [String(p.sku),p]));
+      const blank = {mode:'fixed',fixed:'',min:'',max:'',cost:'',
+        logistics:'',other:'',profit:'',commissionPct:'',taxPct:'',adsPct:''};
+      let added = 0, updated = 0;
+      for (const item of data.items) {
+        const id = String(item.product_id || '');
+        const sku = String(item.offer_id || '');
+        if (!id) continue;
+        let existing = byProductId.get(id) || (sku ? bySku.get(sku) : null);
+        if (existing) {
+          existing.product_id = id;
+          existing.sku = sku || existing.sku;
+          existing.name = item.name || existing.name;
+          byProductId.set(id, existing);
+          updated++;
+        } else {
+          const p = {id:'ozon-'+id,product_id:id,sku,
+            name:item.name || sku || 'Товар '+id,settings:{...blank}};
+          next.push(p); byProductId.set(id,p);
+          if (sku) bySku.set(sku,p);
+          added++;
+        }
+      }
+      const previous = products;
+      products = next;
+      if (!persist()) { products = previous; throw new Error('Недостаточно места для каталога.'); }
+      render();
+      status.textContent = 'Готово! Получено '+data.items.length+
+        ', добавлено '+added+', обновлено '+updated+
+        '. Существующие расходы сохранены; у новых товаров заполните расходы.';
+    } catch (e) {
+      status.textContent = 'Синхронизация не выполнена: '+e.message;
+    } finally {
+      tokenInput.value = '';
+      sync.disabled = false;
+    }
+  });
+  render();
 })();
 </script>
 </body></html>
