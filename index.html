@@ -628,4 +628,68 @@ panel.querySelector('#p26save').addEventListener('click',()=>{
  show();
 });
 })();
-</script></body></html>
+</script>
+<style id="premium-v271-diagnostic-style">
+#premium22 .p271-panel{margin:15px 0;padding:14px;border:1px solid #31547c;border-radius:16px;background:#102741}
+#premium22 .p271-panel h3{margin:0 0 7px;font-size:17px}
+#premium22 .p271-panel p{color:#b0c7e5;font-size:12px;line-height:1.5}
+#premium22 #p271check{width:100%;margin:10px 0}
+#premium22 #p271out{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:#d7e6fa;line-height:1.6}
+#premium22 .p271-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+#premium22 .p271-grid div{padding:10px;border-radius:12px;background:#0a1b31}
+#premium22 .p271-grid small{display:block;color:#a7bfdc}
+#premium22 .p271-grid strong{display:block;margin-top:4px;font-size:16px}
+</style>
+<script id="premium-v271-diagnostic">
+(function(){
+'use strict';
+const root=document.getElementById('premium22');
+const detail=root?.querySelector('#p22detail');
+const list=root?.querySelector('#p22list');
+if(!detail||!list)return;
+const panel=document.createElement('section');
+panel.className='p271-panel';
+panel.innerHTML='<h3>Цены из Ozon API</h3><p>Безопасная проверка цен продавца. Соинвест и скидка Ozon Карты не вычисляются по неподтверждённым данным.</p><button id="p271check" type="button">Проверить цены Ozon</button><div id="p271out" aria-live="polite">Проверка ещё не запускалась.</div>';
+const finance=detail.querySelector('.p26-finance');
+if(finance)finance.insertAdjacentElement('afterend',panel);else detail.appendChild(panel);
+const button=panel.querySelector('#p271check'),out=panel.querySelector('#p271out');
+function currentProduct(){
+ const id=document.getElementById('r20product')?.value;
+ let items=[];try{items=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]')}catch(_){}
+ return Array.isArray(items)?items.find(p=>String(p.id)===String(id)):null;
+}
+function displayValue(value){return value===null||value===undefined||value===''?'Нет данных':String(value)}
+function showResult(data){
+ const prices=data.seller_prices||{};
+ const pairs=[['Цена продавца',prices.price],['Старая цена',prices.old_price],['Маркетинговая цена',prices.marketing_price],['Минимальная цена',prices.min_price]];
+ const grid=document.createElement('div');grid.className='p271-grid';
+ for(const [label,value] of pairs){const cell=document.createElement('div'),small=document.createElement('small'),strong=document.createElement('strong');small.textContent=label;strong.textContent=displayValue(value);cell.append(small,strong);grid.appendChild(cell)}
+ out.replaceChildren(grid);
+ const note=document.createElement('p');
+ note.textContent='Цена с Ozon Картой: нет подтверждённых данных. Скидка Ozon Карты: нет подтверждённых данных. Соинвест: нет подтверждённых данных.';
+ out.appendChild(note);
+ const info=document.createElement('p');
+ info.textContent='Источник: '+displayValue(data.source)+' · Проверено: '+(data.checked_at?new Date(data.checked_at).toLocaleString('ru-RU'):'нет данных')+'. Поля API: '+(data.available_fields||[]).join(', ')+'. Поля цены: '+(data.price_fields||[]).join(', ');
+ out.appendChild(info);
+}
+list.addEventListener('click',e=>{if(e.target.closest('button.p22-item'))out.textContent='Проверка ещё не запускалась.'});
+button.addEventListener('click',async()=>{
+ const p=currentProduct();
+ const offer=String(p?.sku||p?.offer_id||'').trim();
+ if(!offer){out.textContent='У товара нет артикула Ozon (offer_id). Сначала синхронизируй каталог.';return}
+ const token=document.getElementById('v10token')?.value.trim();
+ if(!token){out.textContent='Открой раздел «Синхронизация каталога с Ozon» и введи APP_ACCESS_TOKEN. После этого вернись к товару и нажми кнопку ещё раз.';return}
+ button.disabled=true;out.textContent='Проверяем данные Ozon… Это может занять до минуты.';
+ try{
+  const url='https://ozon-ai-assistant-api.onrender.com/api/price-diagnostic?offer_id='+encodeURIComponent(offer);
+  const response=await fetch(url,{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+  const data=await response.json();
+  if(!response.ok){out.textContent=response.status===401?'Неверный пароль доступа APP_ACCESS_TOKEN.':(data.error||'Ошибка сервера')+(data.details?' ('+data.details+')':'');return}
+  if(!data.found){out.textContent='Артикул не найден в ответе Ozon API. Проверь синхронизацию каталога.';return}
+  showResult(data);
+ }catch(error){out.textContent='Не удалось выполнить проверку: '+(error?.message||'ошибка сети')}
+ finally{button.disabled=false}
+});
+})();
+</script>
+</body></html>
