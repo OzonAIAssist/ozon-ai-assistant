@@ -629,7 +629,7 @@ panel.querySelector('#p26save').addEventListener('click',()=>{
 });
 })();
 </script>
-<style id="premium-v271-diagnostic-style">
+<style id="premium-v272-diagnostic-style">
 #premium22 .p271-panel{margin:15px 0;padding:14px;border:1px solid #31547c;border-radius:16px;background:#102741}
 #premium22 .p271-panel h3{margin:0 0 7px;font-size:17px}
 #premium22 .p271-panel p{color:#b0c7e5;font-size:12px;line-height:1.5}
@@ -640,7 +640,7 @@ panel.querySelector('#p26save').addEventListener('click',()=>{
 #premium22 .p271-grid small{display:block;color:#a7bfdc}
 #premium22 .p271-grid strong{display:block;margin-top:4px;font-size:16px}
 </style>
-<script id="premium-v271-diagnostic">
+<script id="premium-v272-diagnostic">
 (function(){
 'use strict';
 const root=document.getElementById('premium22');
@@ -661,7 +661,7 @@ function currentProduct(){
 function displayValue(value){return value===null||value===undefined||value===''?'Нет данных':String(value)}
 function showResult(data){
  const prices=data.seller_prices||{};
- const pairs=[['Цена продавца',prices.price],['Старая цена',prices.old_price],['Маркетинговая цена',prices.marketing_price],['Минимальная цена',prices.min_price]];
+ const pairs=[['Цена продавца',prices.price],['Старая цена',prices.old_price],['Маркетинговая цена',prices.marketing_price],['Минимальная цена',prices.min_price],['Чистая цена (net_price)',prices.net_price],['Цена marketing_seller_price',prices.marketing_seller_price],['Заявленная цена',prices.declared_price],['Розничная цена',prices.retail_price]];
  const grid=document.createElement('div');grid.className='p271-grid';
  for(const [label,value] of pairs){const cell=document.createElement('div'),small=document.createElement('small'),strong=document.createElement('strong');small.textContent=label;strong.textContent=displayValue(value);cell.append(small,strong);grid.appendChild(cell)}
  out.replaceChildren(grid);
@@ -671,6 +671,9 @@ function showResult(data){
  const info=document.createElement('p');
  info.textContent='Источник: '+displayValue(data.source)+' · Проверено: '+(data.checked_at?new Date(data.checked_at).toLocaleString('ru-RU'):'нет данных')+'. Поля API: '+(data.available_fields||[]).join(', ')+'. Поля цены: '+(data.price_fields||[]).join(', ');
  out.appendChild(info);
+ const extra=document.createElement('p');const diagnostic=data.extra_diagnostic||{};
+ extra.textContent='Дополнительные поля (диагностика, не подтверждённые скидки): '+JSON.stringify(diagnostic);
+ out.appendChild(extra);
 }
 list.addEventListener('click',e=>{if(e.target.closest('button.p22-item'))out.textContent='Проверка ещё не запускалась.'});
 button.addEventListener('click',async()=>{
