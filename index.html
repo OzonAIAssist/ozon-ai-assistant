@@ -25,4 +25,177 @@ const nav=document.createElement('nav');nav.className='bottom-nav';nav.setAttrib
 function activate(id){Object.entries(sections).forEach(([k,v])=>v.classList.toggle('active',k===id));nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));if(id==='analytics')try{draw()}catch(e){}window.scrollTo(0,0)}
 nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activate(b.dataset.tab)));activate('home');
 })();
-</script></body></html>
+</script>
+<script id="products-v09">
+(function () {
+  'use strict';
+  const section = document.getElementById('tab-prices');
+  if (!section || typeof safePrice !== 'function') return;
+
+  const storageKey = 'ozon_products_v09';
+  let products = [];
+  let selectedId = null;
+  try {
+    const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    if (Array.isArray(stored)) products = stored.slice(0, 50);
+  } catch (e) {}
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <h3>Мои товары · v0.9</h3>
+    <small>До 50 товаров. Данные сохраняются только в этом браузере.</small>
+    <label for="v09-name">Название товара</label>
+    <input id="v09-name" maxlength="100" placeholder="Например, Комод белый">
+    <label for="v09-sku">Артикул продавца (необязательно)</label>
+    <input id="v09-sku" maxlength="60" placeholder="Например, KOMOD-01">
+    <p><button type="button" id="v09-add">+ Добавить товар</button></p>
+    <div id="v09-list"></div>
+    <small>Выбери товар, чтобы загрузить его расходы в калькулятор ниже.
+    После изменений нажми «Сохранить товар».</small>
+  `;
+  section.insertBefore(card, section.children[1] || null);
+  const list = card.querySelector('#v09-list');
+
+  function saveAll() {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(products));
+      return true;
+    } catch (e) {
+      alert('Не удалось сохранить товары в браузере.');
+      return false;
+    }
+  }
+
+  function readSettings() {
+    const x = getPriceSettings();
+    return {
+      mode: x.mode, fixed: x.fixedPrice, min: x.priceMin,
+      max: x.priceMax, cost: x.cost, logistics: x.logistics,
+      other: x.other, profit: x.profit,
+      commissionPct: x.commissionPct, taxPct: x.taxPct,
+      adsPct: x.adsPct
+    };
+  }
+
+  function loadSettings(settings) {
+    document.getElementById('priceMode').value = settings.mode || 'fixed';
+    const ids = {
+      fixed: 'fixedPrice', min: 'priceMin', max: 'priceMax',
+      cost: 'cost', logistics: 'logistics', other: 'other',
+      profit: 'profit', commissionPct: 'commissionPct',
+      taxPct: 'taxPct', adsPct: 'adsPct'
+    };
+    for (const [field, id] of Object.entries(ids)) {
+      if (settings[field] !== undefined) {
+        document.getElementById(id).value = settings[field];
+      }
+    }
+    togglePriceMode();
+    calcPrice();
+  }
+
+  function action(label, handler) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.style.margin = '5px 5px 5px 0';
+    button.addEventListener('click', handler);
+    return button;
+  }
+
+  function renderProducts() {
+    list.replaceChildren();
+    if (!products.length) {
+      const empty = document.createElement('p');
+      empty.className = 'muted';
+      empty.textContent = 'Товаров пока нет.';
+      list.appendChild(empty);
+    }
+    for (const product of products) {
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:12px 0;border-top:1px solid #334155';
+      const title = document.createElement('strong');
+      title.textContent = product.name + (product.sku ? ' · ' + product.sku : '');
+      row.appendChild(title);
+      row.appendChild(document.createElement('br'));
+
+      row.appendChild(action(
+        selectedId === product.id ? '✓ Выбран' : 'Выбрать',
+        () => {
+          selectedId = product.id;
+          loadSettings(product.settings);
+          renderProducts();
+        }
+      ));
+
+      if (selectedId === product.id) {
+        row.appendChild(action('Сохранить товар', () => {
+          const settings = readSettings();
+          const result = safePrice(settings);
+          if (result.status === 'blocked') {
+            alert('Товар не сохранён: ' + result.reason);
+            return;
+          }
+          const previous = product.settings;
+          product.settings = settings;
+          if (saveAll()) {
+            renderProducts();
+            alert('Настройки товара сохранены на этом устройстве.');
+          } else {
+            product.settings = previous;
+          }
+        }));
+      }
+
+      row.appendChild(action('Удалить', () => {
+        if (!confirm('Удалить товар «' + product.name + '»?')) return;
+        const previous = products;
+        products = products.filter(p => p.id !== product.id);
+        if (!saveAll()) {
+          products = previous;
+          return;
+        }
+        if (selectedId === product.id) selectedId = null;
+        renderProducts();
+      }));
+      list.appendChild(row);
+    }
+  }
+
+  card.querySelector('#v09-add').addEventListener('click', () => {
+    const name = card.querySelector('#v09-name').value.trim();
+    const sku = card.querySelector('#v09-sku').value.trim();
+    if (!name) {
+      alert('Введите название товара.');
+      return;
+    }
+    if (products.length >= 50) {
+      alert('Можно добавить не более 50 товаров.');
+      return;
+    }
+    const settings = readSettings();
+    const result = safePrice(settings);
+    if (result.status === 'blocked') {
+      alert('Товар не добавлен: ' + result.reason);
+      return;
+    }
+    const product = {
+      id: String(Date.now()) + '-' + Math.random().toString(36).slice(2),
+      name, sku, settings
+    };
+    products.push(product);
+    if (!saveAll()) {
+      products.pop();
+      return;
+    }
+    selectedId = product.id;
+    card.querySelector('#v09-name').value = '';
+    card.querySelector('#v09-sku').value = '';
+    renderProducts();
+  });
+
+  renderProducts();
+})();
+</script>
+</body></html>
