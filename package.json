@@ -1,0 +1,8 @@
+{
+  "name": "ozon-ai-assistant-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Read-only Ozon Seller API proxy for Ozon AI Assistant",
+  "scripts": {"start": "node server.js"},
+  "engines": {"node": ">=20"}
+}
