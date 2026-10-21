@@ -182,7 +182,7 @@ nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activat
     const tokenInput = document.getElementById('v10token');
     const token = tokenInput.value.trim();
     if (!token) { alert('Введите APP_ACCESS_TOKEN из Render, не API-ключ Ozon.'); return; }
-    const sync = card.querySelector('#v10sync');
+    const sync = document.getElementById('v10sync');
     sync.disabled = true;
     status.textContent = 'Загрузка товаров… Бесплатный сервер может просыпаться до минуты.';
     try {
