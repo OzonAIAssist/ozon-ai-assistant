@@ -523,4 +523,55 @@ edit.querySelector('#p24save').addEventListener('click',()=>{
 });
 new MutationObserver(decorate).observe(list,{childList:true});decorate();
 })();
-</script></body></html>
+</script>
+<style id="premium-v25-modal">
+/* Full product photo, no cropping. */
+#premium22 .p22-icon{width:82px!important;height:94px!important;flex:0 0 82px!important;background:#edf1f7!important;border-radius:13px!important;overflow:hidden!important}
+#premium22 .p22-icon img{width:100%!important;height:100%!important;object-fit:contain!important;object-position:center center!important;display:block!important;border-radius:0!important}
+#premium22 .p22-item{align-items:center!important;min-height:116px!important}
+#premium22 .p22-icon:not(:has(img)){background:#183b61!important}
+#p25backdrop{position:fixed;inset:0;background:#020814d9;z-index:110;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+#p25backdrop[hidden]{display:none!important}
+#premium22 #p22detail.p25-modal:not([hidden]){display:block!important;position:fixed!important;inset:env(safe-area-inset-top) 0 0!important;z-index:120!important;margin:0!important;border-radius:24px 24px 0 0!important;padding:18px 17px calc(24px + env(safe-area-inset-bottom))!important;max-width:680px!important;max-height:100dvh!important;overflow-y:auto!important;overscroll-behavior:contain!important;background:#0a1c34!important;box-shadow:0 -15px 60px #0009!important}
+.p25-back{display:flex;align-items:center;gap:8px;background:transparent!important;box-shadow:none!important;border:0!important;color:#91c5ff!important;padding:5px 3px 16px!important;font-size:15px!important}
+.p25-cover{height:220px;display:grid;place-items:center;background:#f4f6fa;border-radius:16px;overflow:hidden;margin:8px 0 16px}
+.p25-cover img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+.p25-cover span{color:#7b8da8;font-size:14px}
+body.p25-open{overflow:hidden!important}
+@media(min-width:681px){#premium22 #p22detail.p25-modal:not([hidden]){left:50%!important;right:auto!important;width:680px!important;transform:translateX(-50%)}}
+@media(max-width:390px){#premium22 .p22-icon{width:70px!important;flex-basis:70px!important;height:82px!important}.p25-cover{height:190px}}
+</style>
+<script id="premium-v25-modal-script">
+(function(){'use strict';
+const root=document.getElementById('premium22');if(!root)return;
+const detail=root.querySelector('#p22detail'),list=root.querySelector('#p22list');if(!detail||!list)return;
+const backdrop=document.createElement('div');backdrop.id='p25backdrop';backdrop.hidden=true;document.body.appendChild(backdrop);
+const back=document.createElement('button');back.type='button';back.className='p25-back';back.textContent='‹  Назад к товарам';detail.prepend(back);
+const cover=document.createElement('div');cover.className='p25-cover';const empty=document.createElement('span');empty.textContent='Фото товара пока недоступно';cover.appendChild(empty);
+const head=detail.querySelector('.p22-head');head?.insertAdjacentElement('beforebegin',cover);
+detail.classList.add('p25-modal');detail.setAttribute('role','dialog');detail.setAttribute('aria-modal','true');detail.setAttribute('aria-label','Информация о товаре');
+// The old selection handler scrolls to the details. Suppress only that scroll;
+// the existing selection, calculations and save actions remain unchanged.
+detail.scrollIntoView=function(){};
+let priorScroll=0;
+function getCatalog(){try{const x=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]');return Array.isArray(x)?x:[]}catch(_){return[]}}
+function show(){
+ const id=document.getElementById('r20product')?.value;
+ const product=getCatalog().find(p=>String(p.id)===String(id));if(!product)return;
+ cover.replaceChildren();
+ if(typeof product.image_url==='string'&&/^https:\/\//i.test(product.image_url)){
+  const img=document.createElement('img');img.src=product.image_url;img.alt='Фотография '+(product.short_name||product.name||'товара');img.referrerPolicy='no-referrer';img.onerror=()=>{cover.replaceChildren();const e=document.createElement('span');e.textContent='Фото товара недоступно';cover.appendChild(e)};cover.appendChild(img);
+ }else{const e=document.createElement('span');e.textContent='Фото товара пока недоступно';cover.appendChild(e)}
+ priorScroll=window.scrollY;
+ backdrop.hidden=false;document.body.classList.add('p25-open');
+ detail.hidden=false;detail.scrollTop=0;
+ back.focus({preventScroll:true});
+}
+function close(){backdrop.hidden=true;document.body.classList.remove('p25-open');detail.hidden=true;window.scrollTo(0,priorScroll)}
+list.addEventListener('click',e=>{if(e.target.closest('button.p22-item'))queueMicrotask(show)});
+back.addEventListener('click',close);backdrop.addEventListener('click',close);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!backdrop.hidden)close()});
+const nav=document.querySelector('.bottom-nav');nav?.addEventListener('click',()=>{if(!backdrop.hidden)close()});
+})();
+</script>
+</body></html>
