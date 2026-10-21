@@ -574,4 +574,58 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!backdrop.hidden)cl
 const nav=document.querySelector('.bottom-nav');nav?.addEventListener('click',()=>{if(!backdrop.hidden)close()});
 })();
 </script>
-</body></html>
+<style id="premium-v26-style">
+#premium22 .p26-finance{margin:14px 0;padding:15px;background:#112a48;border:1px solid #2c4e73;border-radius:17px}
+#premium22 .p26-finance h3{font-size:17px!important;margin:0 0 6px!important}
+#premium22 .p26-finance .p26-note{color:#a8bfd9;font-size:12px;line-height:1.5;margin:0 0 12px}
+#premium22 .p26-metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+#premium22 .p26-metric{background:#0b1c32;border:1px solid #29476c;border-radius:13px;padding:12px;min-width:0}
+#premium22 .p26-metric span{display:block;color:#b3c9e3;font-size:12px}
+#premium22 .p26-metric strong{display:block;font-size:20px;margin:7px 0}
+#premium22 .p26-metric small{color:#91accd;font-size:11px}
+#premium22 .p26-finance details{margin-top:14px;border-top:1px solid #29476c;padding-top:12px}
+#premium22 .p26-finance summary{color:#a8ceff;cursor:pointer;font-weight:650}
+#premium22 .p26-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:9px 0 13px}
+#premium22 .p26-fields label{display:block;font-size:12px;color:#b3c9e3}
+#premium22 .p26-fields input{width:100%;min-width:0;font-size:16px!important;margin-top:6px}
+#premium22 #p26save{width:100%}
+</style><script id="premium-v26-finance">
+(function(){'use strict';
+const root=document.getElementById('premium22');if(!root)return;
+const detail=root.querySelector('#p22detail'),list=root.querySelector('#p22list');if(!detail||!list)return;
+const panel=document.createElement('section');panel.className='p26-finance';
+panel.innerHTML=`<h3>Скидки и соинвест</h3><p class="p26-note">Два отдельных показателя. Пока только ручные данные — Ozon API не подтверждён как источник этих значений.</p>
+<div class="p26-metrics"><div class="p26-metric"><span>Соинвест Ozon</span><strong id="p26co">Нет данных</strong><small id="p26cop">— %</small></div><div class="p26-metric"><span>Скидка Ozon Карты</span><strong id="p26card">Нет данных</strong><small id="p26cardp">— %</small></div></div>
+<p class="p26-note" id="p26updated" style="margin:11px 0 0">Данные ещё не вводились</p>
+<details><summary>Ввести или изменить значения вручную</summary><p class="p26-note" style="margin-top:9px">Указывай проценты по данным Ozon: база расчёта может отличаться для каждого показателя.</p>
+<div class="p26-fields"><label>Соинвест, ₽<input id="p26coRub" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Нет данных"></label><label>Соинвест, %<input id="p26coPct" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="Нет данных"></label><label>Ozon Карта, ₽<input id="p26cardRub" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Нет данных"></label><label>Ozon Карта, %<input id="p26cardPct" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="Нет данных"></label></div>
+<button id="p26save" type="button">Сохранить показатели</button></details>`;
+const prices=detail.querySelector('.p22-prices');if(prices)prices.insertAdjacentElement('afterend',panel);else detail.append(panel);
+const key='ozon_discount_metrics_v26';let active='';
+function all(){try{const x=JSON.parse(localStorage.getItem(key)||'{}');return x&&typeof x==='object'?x:{}}catch(e){return{}}}
+function money(n){return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n)+' ₽'}
+function pct(n){return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n)+' %'}
+function valid(n,max){return typeof n==='number'&&Number.isFinite(n)&&n>=0&&(max==null||n<=max)}
+function show(){const id=document.getElementById('r20product')?.value;if(!id)return;active=String(id);const d=all()[active]||{};
+ for(const [field,view,format] of [['coRub','p26co',money],['coPct','p26cop',pct],['cardRub','p26card',money],['cardPct','p26cardp',pct]]){
+  const input=panel.querySelector('#p26'+field);input.value=valid(d[field],field.endsWith('Pct')?100:null)?d[field]:'';
+  const out=panel.querySelector('#'+view);out.textContent=valid(d[field],field.endsWith('Pct')?100:null)?format(d[field]):(field.endsWith('Rub')?'Нет данных':'— %');
+ }
+ panel.querySelector('#p26updated').textContent=d.updated?'Введено вручную: '+new Date(d.updated).toLocaleString('ru-RU'):'Данные ещё не вводились';
+ panel.querySelector('details').open=false;
+}
+list.addEventListener('click',e=>{if(e.target.closest('button.p22-item'))queueMicrotask(show)});
+panel.querySelector('#p26save').addEventListener('click',()=>{
+ if(!active){alert('Сначала выбери товар');return}
+ const record={};for(const field of ['coRub','coPct','cardRub','cardPct']){
+  const raw=panel.querySelector('#p26'+field).value.trim().replace(',','.');
+  if(raw==='')continue;
+  const n=Number(raw);if(!valid(n,field.endsWith('Pct')?100:null)){alert('Проверь значения: суммы должны быть неотрицательными, проценты — от 0 до 100.');return}
+  record[field]=n;
+ }
+ record.updated=new Date().toISOString();const data=all();data[active]=record;
+ try{localStorage.setItem(key,JSON.stringify(data))}catch(e){alert('Не удалось сохранить данные на iPhone');return}
+ show();
+});
+})();
+</script></body></html>
