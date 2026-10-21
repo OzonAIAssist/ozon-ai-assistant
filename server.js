@@ -1,7 +1,6 @@
 'use strict';
 const http = require('node:http');
 const crypto = require('node:crypto');
-
 const PORT = Number(process.env.PORT || 10000);
 const CLIENT_ID = process.env.OZON_CLIENT_ID || '';
 const API_KEY = process.env.OZON_API_KEY || '';
@@ -9,132 +8,13 @@ const ACCESS_TOKEN = process.env.APP_ACCESS_TOKEN || '';
 const ORIGIN = (process.env.ALLOWED_ORIGIN || 'https://ozonaiassist.github.io').trim().replace(/\/+$/, '');
 const API_BASE = 'https://api-seller.ozon.ru';
 const MAX_ITEMS = 20000;
-
-function cors(origin) {
-  return {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-    'Access-Control-Max-Age': '600',
-    'Vary': 'Origin'
-  };
-}
-function reply(res, status, body, origin) {
-  res.writeHead(status, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
-    'X-Content-Type-Options': 'nosniff',
-    ...cors(origin)
-  });
-  res.end(JSON.stringify(body));
-}
-function authorized(req) {
-  const auth = req.headers.authorization || '';
-  const supplied = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  if (!supplied || !ACCESS_TOKEN) return false;
-  const a = Buffer.from(supplied);
-  const b = Buffer.from(ACCESS_TOKEN);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
-async function ozon(path, body) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
-  try {
-    const response = await fetch(API_BASE + path, {
-      method: 'POST',
-      headers: {
-        'Client-Id': CLIENT_ID,
-        'Api-Key': API_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
-    if (!response.ok) throw new Error('Ozon API returned HTTP ' + response.status);
-    return await response.json();
-  } finally {
-    clearTimeout(timer);
-  }
-}
-async function products() {
-  let lastId = '';
-  const all = [];
-  const seen = new Set();
-  while (all.length < MAX_ITEMS) {
-    const data = await ozon('/v3/product/list', {
-      filter: { visibility: 'ALL' }, last_id: lastId, limit: 1000
-    });
-    const result = data.result || {};
-    const items = Array.isArray(result.items) ? result.items : [];
-    for (const item of items) {
-      const id = String(item.product_id ?? '');
-      if (!id || seen.has(id)) continue;
-      seen.add(id);
-      all.push({ product_id: id, offer_id: String(item.offer_id ?? '') });
-    }
-    const next = String(result.last_id || '');
-    if (!next || next === lastId || !items.length) break;
-    lastId = next;
-  }
-  if (all.length >= MAX_ITEMS) throw new Error('Слишком много товаров: достигнут лимит безопасности.');
-  const names = new Map();
-  for (let i = 0; i < all.length; i += 1000) {
-    const batch = all.slice(i, i + 1000);
-    const data = await ozon('/v3/product/info/list', {
-      product_id: batch.map(x => Number(x.product_id))
-    });
-    for (const item of data.items || []) {
-      names.set(String(item.id ?? item.product_id), {
-        name: String(item.name || ''),
-        offer_id: String(item.offer_id || ''),
-        image_url: String(item.primary_image || (Array.isArray(item.images) ? item.images[0] : '') || '')
-      });
-    }
-  }
-  return all.map(item => ({
-    ...item,
-    name: names.get(item.product_id)?.name || '',
-    offer_id: names.get(item.product_id)?.offer_id || item.offer_id,
-    image_url: names.get(item.product_id)?.image_url || ''
-  }));
-}
-
-if (!CLIENT_ID || !API_KEY || !ACCESS_TOKEN) {
-  console.error('Missing required environment variables: OZON_CLIENT_ID, OZON_API_KEY, APP_ACCESS_TOKEN');
-  process.exit(1);
-}
-const server = http.createServer(async (req, res) => {
-  const origin = req.headers.origin || '';
-  const allowed = !origin || origin === ORIGIN;
-  // Only log request method, path and origin. Never log passwords or API keys.
-  console.log('[request]', req.method, req.url, 'origin:', origin || '(none)',
-    'allowed:', allowed);
-  if (!allowed) return reply(res, 403, { error: 'Origin not allowed' }, ORIGIN);
-
-  // Explicit CORS preflight handling for Safari and other browsers.
-  if (req.method === 'OPTIONS') {
-    if (req.url !== '/api/products' && req.url !== '/health') {
-      return reply(res, 404, { error: 'Not found' }, ORIGIN);
-    }
-    res.writeHead(204, { ...cors(ORIGIN), 'Cache-Control': 'no-store' });
-    return res.end();
-  }
-  if (req.url === '/health' && req.method === 'GET') {
-    return reply(res, 200, { status: 'ok' }, ORIGIN);
-  }
-  if (req.url !== '/api/products' || req.method !== 'GET') {
-    return reply(res, 404, { error: 'Not found' }, ORIGIN);
-  }
-  if (!authorized(req)) return reply(res, 401, { error: 'Unauthorized' }, ORIGIN);
-  try {
-    const items = await products();
-    return reply(res, 200, { count: items.length, items }, ORIGIN);
-  } catch (error) {
-    console.error('Product import failed:', error.message);
-    return reply(res, 502, {
-      error: 'Не удалось загрузить товары из Ozon. Проверьте права ключа и журнал сервера.'
-    }, ORIGIN);
-  }
-});
-server.listen(PORT, '0.0.0.0', () =>
-  console.log('Ozon read-only API server listening on port ' + PORT));
+function cors(origin) { return {'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Max-Age':'600','Vary':'Origin'}; }
+function reply(res,status,body,origin) { res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...cors(origin)});res.end(JSON.stringify(body)); }
+function authorized(req) {const auth=req.headers.authorization||'';const supplied=auth.startsWith('Bearer ')?auth.slice(7):'';if(!supplied||!ACCESS_TOKEN)return false;const a=Buffer.from(supplied),b=Buffer.from(ACCESS_TOKEN);return a.length===b.length&&crypto.timingSafeEqual(a,b);}
+async function ozon(path,body){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),25000);try{const response=await fetch(API_BASE+path,{method:'POST',headers:{'Client-Id':CLIENT_ID,'Api-Key':API_KEY,'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});if(!response.ok)throw new Error('Ozon API returned HTTP '+response.status);return await response.json();}finally{clearTimeout(timer)}}
+async function products(){let lastId='';const all=[],seen=new Set();while(all.length<MAX_ITEMS){const data=await ozon('/v3/product/list',{filter:{visibility:'ALL'},last_id:lastId,limit:1000});const result=data.result||{};const items=Array.isArray(result.items)?result.items:[];for(const item of items){const id=String(item.product_id??'');if(!id||seen.has(id))continue;seen.add(id);all.push({product_id:id,offer_id:String(item.offer_id??'')});}const next=String(result.last_id||'');if(!next||next===lastId||!items.length)break;lastId=next;}if(all.length>=MAX_ITEMS)throw new Error('Слишком много товаров: достигнут лимит безопасности.');const names=new Map();for(let i=0;i<all.length;i+=1000){const batch=all.slice(i,i+1000);const data=await ozon('/v3/product/info/list',{product_id:batch.map(x=>Number(x.product_id))});for(const item of data.items||[]){names.set(String(item.id??item.product_id),{name:String(item.name||''),offer_id:String(item.offer_id||''),image_url:String(item.primary_image||(Array.isArray(item.images)?item.images[0]:'')||'')});}}return all.map(item=>({...item,name:names.get(item.product_id)?.name||'',offer_id:names.get(item.product_id)?.offer_id||item.offer_id,image_url:names.get(item.product_id)?.image_url||''}));}
+// Diagnostic: read seller-side price fields only. No card-price or co-invest claims.
+async function priceDiagnostic(offerId){const body={filter:{offer_id:[offerId],visibility:'ALL'},limit:1000};const data=await ozon('/v5/product/info/prices',body);const rows=Array.isArray(data.items)?data.items:(Array.isArray(data.result?.items)?data.result.items:[]);const item=rows.find(x=>String(x.offer_id||'')===offerId);if(!item)return {found:false,offer_id:offerId,available_fields:[],seller_prices:{},card_price:null,card_discount:null,coinvest:null};const prices=item.price&&typeof item.price==='object'?item.price:{};const permitted=['price','old_price','marketing_price','marketing_seller_price','min_price','currency_code','vat'];const safe={};for(const key of permitted){const val=prices[key]??item[key];if(['string','number'].includes(typeof val))safe[key]=val;}return {found:true,offer_id:offerId,available_fields:Object.keys(item).filter(k=>!['images','primary_image'].includes(k)).sort(),price_fields:Object.keys(prices).sort(),seller_prices:safe,card_price:null,card_discount:null,coinvest:null,note:'Поля цены покупателя с Ozon Картой, скидки по карте и соинвеста не подтверждены этим методом.'};}
+if(!CLIENT_ID||!API_KEY||!ACCESS_TOKEN){console.error('Missing required environment variables: OZON_CLIENT_ID, OZON_API_KEY, APP_ACCESS_TOKEN');process.exit(1)}
+const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||origin===ORIGIN;const path=new URL(req.url||'/', 'http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!['/api/products','/api/price-diagnostic','/health'].includes(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(req.method!=='GET'||!['/api/products','/api/price-diagnostic'].includes(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);if(path.pathname==='/api/price-diagnostic'){const offerId=path.searchParams.get('offer_id')||'';if(!offerId||offerId.length>120||/[\x00-\x1f]/.test(offerId))return reply(res,400,{error:'Укажите корректный offer_id'},ORIGIN);try{return reply(res,200,{checked_at:new Date().toISOString(),source:'Ozon Seller API /v5/product/info/prices',...(await priceDiagnostic(offerId))},ORIGIN)}catch(error){console.error('Price diagnostic failed:',error.message);return reply(res,502,{error:'Не удалось получить цены из Ozon',details:error.message.startsWith('Ozon API returned HTTP ')?error.message:undefined},ORIGIN)}}try{const items=await products();return reply(res,200,{count:items.length,items},ORIGIN)}catch(error){console.error('Product import failed:',error.message);return reply(res,502,{error:'Не удалось загрузить товары из Ozon. Проверьте права ключа и журнал сервера.'},ORIGIN)}});
+server.listen(PORT,'0.0.0.0',()=>console.log('Ozon read-only API server listening on port '+PORT));
