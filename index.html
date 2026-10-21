@@ -179,7 +179,7 @@ nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activat
   });
 
   card.querySelector('#v10sync').addEventListener('click', async () => {
-    const tokenInput = card.querySelector('#v10token');
+    const tokenInput = document.getElementById('v10token');
     const token = tokenInput.value.trim();
     if (!token) { alert('Введите APP_ACCESS_TOKEN из Render, не API-ключ Ozon.'); return; }
     const sync = card.querySelector('#v10sync');
@@ -209,6 +209,7 @@ nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activat
           existing.product_id = id;
           existing.sku = sku || existing.sku;
           existing.name = item.name || existing.name;
+          if (typeof item.image_url === 'string' && /^https:\/\//i.test(item.image_url)) existing.image_url = item.image_url;
           if (item.image_url) existing.image_url = item.image_url;
           byProductId.set(id, existing);
           updated++;
