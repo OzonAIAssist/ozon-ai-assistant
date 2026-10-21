@@ -86,14 +86,16 @@ async function products() {
     for (const item of data.items || []) {
       names.set(String(item.id ?? item.product_id), {
         name: String(item.name || ''),
-        offer_id: String(item.offer_id || '')
+        offer_id: String(item.offer_id || ''),
+        image_url: String(item.primary_image || (Array.isArray(item.images) ? item.images[0] : '') || '')
       });
     }
   }
   return all.map(item => ({
     ...item,
     name: names.get(item.product_id)?.name || '',
-    offer_id: names.get(item.product_id)?.offer_id || item.offer_id
+    offer_id: names.get(item.product_id)?.offer_id || item.offer_id,
+    image_url: names.get(item.product_id)?.image_url || ''
   }));
 }
 
