@@ -444,4 +444,50 @@ setInterval(()=>{if(document.getElementById('tab-prices')?.classList.contains('a
 render();
 })();
 </script>
-</body></html>
+<style id="premium-v23">
+/* Compact premium product cards; legacy data and sync remain untouched. */
+#premium22 .p22-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+#premium22 .p22-item{min-height:104px;align-items:flex-start;gap:12px;padding:13px!important;background:linear-gradient(125deg,#112b4b,#0b1c31)!important;border:1px solid #23476d!important;box-shadow:0 5px 18px #0002!important}
+#premium22 .p22-item.selected{border-color:#3988ff!important}
+#premium22 .p22-icon{width:68px;height:73px;flex:0 0 68px;background:linear-gradient(145deg,#183e6b,#10253e);border:1px solid #305479;border-radius:13px;font-size:28px;color:#72b6ff}
+#premium22 .p22-itemtext{padding-top:2px}
+#premium22 .p22-itemtext b{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35;font-size:14px}
+#premium22 .p22-itemtext small{white-space:normal;font-size:11px!important;line-height:1.4;margin-top:6px}
+#premium22 .p23-status{display:inline-block;margin-top:7px;border-radius:20px;padding:4px 8px;font-size:10px;font-weight:700;color:#a9c8e8;background:#17324e}
+#premium22 .p23-status.good{color:#86efac;background:#103d35}
+#premium22 .p23-status.attention{color:#fcd77c;background:#45351d}
+#premium22 .p22-arrow{align-self:center}
+#premium22 .p23-photo-note{font-size:11px;color:#8ca5c5;margin:0 2px 13px;line-height:1.4}
+#premium22 .p22-head h3{font-size:16px!important;line-height:1.4}
+@media(max-width:380px){#premium22 .p22-icon{width:58px;flex-basis:58px;height:65px}#premium22 .p22-itemtext b{font-size:13px}}
+</style><script id="premium-v23-products">
+(function(){'use strict';
+const root=document.getElementById('premium22');if(!root)return;
+const list=root.querySelector('#p22list');if(!list)return;
+const summary=document.createElement('div');summary.className='p23-photo-note';summary.textContent='Карточки товаров · названия сокращены для удобства. Фотографии появятся после подключения изображений Ozon.';list.parentNode.insertBefore(summary,list);
+function cleanTitle(s){
+ s=String(s||'Товар').trim();
+ // Prefer recognizable model and color, without changing stored original title.
+ s=s.replace(/\s*[·•]\s*.*$/,'').replace(/\s*\([^)]{8,}\)/g,'').replace(/\s+/g,' ');
+ const words=s.split(' ');if(words.length>9)s=words.slice(0,9).join(' ')+'…';
+ return s.length>78?s.slice(0,75).trim()+'…':s;
+}
+function getData(){try{const p=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]');const r=JSON.parse(localStorage.getItem('ozon_repricer_v20')||'{}');return {p:Array.isArray(p)?p:[],r:r||{}}}catch(_){return {p:[],r:{}}}}
+function decorate(){const {p,r}=getData();const byName=new Map(p.map(x=>[String(x.name||''),x]));
+ for(const row of list.querySelectorAll('button.p22-item')){
+  if(row.dataset.p23==='1')continue;row.dataset.p23='1';
+  const name=row.querySelector('.p22-itemtext b');const meta=row.querySelector('.p22-itemtext small');const ico=row.querySelector('.p22-icon');if(!name||!meta||!ico)continue;
+  const original=name.textContent;const product=byName.get(original);name.textContent=cleanTitle(original);name.title=original;
+  ico.textContent='♢';ico.setAttribute('aria-label','Изображение товара пока недоступно');
+  if(!product)continue;const rule=r[product.id];const tag=document.createElement('span');tag.className='p23-status';
+  if(!rule?.target){tag.textContent='Цель не задана'}
+  else if(!rule?.actual){tag.textContent='Нет цены покупателя'}
+  else if(!rule.checkedAt||Date.now()-rule.checkedAt>=900000){tag.textContent='Нужна проверка';tag.classList.add('attention')}
+  else if(Math.abs(Number(rule.actual)-Number(rule.target))<=5){tag.textContent='В пределах ±5 ₽';tag.classList.add('good')}
+  else{tag.textContent='Вне целевого диапазона';tag.classList.add('attention')}
+  meta.insertAdjacentElement('afterend',tag);
+ }
+}
+new MutationObserver(decorate).observe(list,{childList:true});decorate();
+})();
+</script></body></html>
