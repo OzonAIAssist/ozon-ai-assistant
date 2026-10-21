@@ -265,4 +265,183 @@ function tick(){const p=catalog().find(p=>String(p.id)===product.value),r=p?rule
 fill();setInterval(tick,60000);product.addEventListener('change',tick);card.querySelector('#r20save').addEventListener('click',tick);tick();
 })();
 </script>
+
+<style id="premium-v22">
+:root{--pbg:#071120;--pcard:#10233d;--pborder:#254368;--pblue:#2477ff;--pmuted:#9db2d0}
+body{background:#071120!important}
+header{padding:13px 16px!important;background:#09182d!important;box-shadow:none!important}
+header b{font-size:19px!important}
+header b:before{width:29px!important;height:29px!important;font-size:18px!important;margin-right:8px!important}
+header div{display:none!important}
+main{padding:14px 13px 30px!important}
+.premium-hero{display:none!important}
+.demo-banner{display:none!important}
+.tab-heading{font-size:23px!important;margin:4px 0 15px!important}
+.card{padding:16px!important;border-radius:19px!important;margin-bottom:13px!important}
+.card h3{font-size:18px!important}
+.bottom-nav{border-radius:15px 15px 0 0!important;padding-top:5px!important}
+.bottom-nav button{font-size:10px!important;min-height:49px!important}
+.bottom-nav span{font-size:20px!important;margin-bottom:1px!important}
+#tab-prices>.card{display:none}
+#tab-prices #premium22{display:block!important}
+#premium22{background:none!important;border:0!important;box-shadow:none!important;padding:0!important}
+.p22-kicker{color:#8aa9cf;font-size:12px;margin:-8px 0 16px}
+.p22-toolbar{display:flex;gap:9px;margin-bottom:11px}
+.p22-toolbar input{flex:1;min-width:0}
+.p22-toolbar button{white-space:nowrap;font-size:13px!important}
+.p22-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.p22-summary>div{border:1px solid #284568;background:linear-gradient(160deg,#14325b,#0d2038);border-radius:15px;padding:12px 10px}
+.p22-summary strong{font-size:23px;display:block;margin:3px 0}
+.p22-summary small{font-size:11px!important}
+.p22-item{width:100%;display:flex;align-items:center;text-align:left;gap:10px;background:#10233d!important;border:1px solid #2a4668!important;box-shadow:none!important;padding:12px!important;margin-bottom:9px;min-height:76px;border-radius:16px!important}
+.p22-item.selected{border-color:#3988ff!important;box-shadow:0 0 0 1px #3988ff44!important}
+.p22-icon{display:grid;place-items:center;flex:0 0 40px;height:42px;border-radius:12px;background:#173c72;color:#8ec5ff;font-size:20px}
+.p22-itemtext{flex:1;min-width:0}
+.p22-itemtext b{display:block;font-size:13px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p22-itemtext small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:5px}
+.p22-arrow{color:#7caeff;font-size:23px}
+.p22-box{background:linear-gradient(150deg,#122947,#0d1c33);border:1px solid #2b486d;border-radius:19px;padding:16px;margin-top:15px}
+.p22-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:12px}
+.p22-head h3{margin:0!important}
+.p22-chip{font-size:11px;color:#a8c6e8;border:1px solid #36557a;background:#142d4c;border-radius:40px;padding:6px 9px;white-space:nowrap}
+.p22-prices{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0}
+.p22-price{background:#0a1a31;border:1px solid #274467;border-radius:14px;padding:12px}
+.p22-price span{display:block;font-size:11px;color:#a2b9d7;min-height:30px}
+.p22-price strong{font-size:23px;display:block;margin-top:6px}
+.p22-price small{font-size:11px!important}
+.p22-status{padding:12px;border-radius:13px;background:#132d39;color:#b5f4d5;font-size:13px;line-height:1.5;margin:12px 0}
+.p22-warning{background:#33291c;color:#ffe4a3}
+.p22-editor label{font-size:12px!important;margin-top:12px!important}
+.p22-editor input{font-size:16px!important}
+.p22-editor button{width:100%;margin-top:12px}
+.p22-muted{font-size:12px;color:#9eb5d1;line-height:1.5}
+.p22-actions{display:flex;gap:9px;flex-wrap:wrap;margin:13px 0}
+.p22-actions button{font-size:12px!important}
+.p22-details{margin-top:12px;border-top:1px solid #28466a;padding-top:13px}
+.p22-details summary{cursor:pointer;color:#a8caff;font-weight:650}
+.p22-details .card{display:block!important;margin:12px 0!important}
+.p22-sync label{margin-top:12px!important}
+.p22-sync button{width:100%;margin:10px 0 0}
+.p22-sync .p22-muted{margin-top:10px}
+#p22result{white-space:pre-wrap}
+@media(max-width:380px){.p22-summary strong{font-size:19px}.p22-itemtext b{font-size:12px}}
+</style>
+
+<script id="premium-v22-controller">
+(function(){
+'use strict';
+const section=document.getElementById('tab-prices');
+const legacy=section?.querySelector('#r20product')?.closest('.card');
+const catalogCard=section?.querySelector('#v10token')?.closest('.card');
+const expenseCard=section?.querySelector('#priceMode')?.closest('.card');
+if(!section||!legacy||!catalogCard||!expenseCard)return;
+const ui=document.createElement('div');ui.id='premium22';ui.className='card';
+ui.innerHTML=`<div class="p22-kicker">Москва · Ozon Карта · безопасное наблюдение</div>
+<div class="p22-summary"><div><small>Товаров</small><strong id="p22total">—</strong><small>В каталоге</small></div><div><small>С целью</small><strong id="p22targets">—</strong><small>Настроены</small></div><div><small>Проверить</small><strong id="p22due">—</strong><small>Нет свежей цены</small></div></div>
+<div class="p22-toolbar"><input id="p22search" placeholder="Поиск товара или артикула" aria-label="Поиск товара"><button id="p22reload" type="button">↻ Список</button></div>
+<div id="p22list"></div>
+<div class="p22-box" id="p22detail" hidden>
+<div class="p22-head"><h3 id="p22name">Товар</h3><span class="p22-chip">Наблюдение</span></div>
+<div class="p22-muted" id="p22sku"></div>
+<div class="p22-prices"><div class="p22-price"><span>Целевая цена</span><strong id="p22targetview">— ₽</strong><small>Твоя настройка</small></div><div class="p22-price"><span>Цена с Ozon Картой</span><strong id="p22actualview">— ₽</strong><small id="p22fresh">Нет данных</small></div></div>
+<div class="p22-status p22-warning" id="p22result">Укажи целевую цену</div>
+<div class="p22-editor"><label for="p22target">Цель покупателя, ₽</label><input id="p22target" type="number" min="1" step="1" placeholder="Например, 1500">
+<label for="p22actual">Наблюдаемая цена с Ozon Картой в Москве, ₽</label><input id="p22actual" type="number" min="1" step="1" placeholder="Если проверена вручную">
+<button type="button" id="p22save">Сохранить и сравнить</button></div>
+<div class="p22-status">🛡 Защита прибыли: автоматическая запись цен отключена. При угрозе убытка изменения блокируются.</div>
+<div class="p22-muted" id="p22time">Допуск ±5 ₽ · Проверка каждые 15 минут пока вручную</div>
+<details class="p22-details"><summary>Расходы и расчёт безопасной цены</summary><div id="p22expenses"></div></details></div>
+<details class="p22-box p22-sync"><summary>Синхронизация каталога с Ozon</summary><div id="p22sync"></div></details>
+<details class="p22-box"><summary>Добавить товар вручную</summary><div id="p22manual"></div></details>
+<div class="p22-muted" style="margin:14px 4px">Цена с Ozon Картой не поступает автоматически. Данные вводятся вручную; приложение не изменяет цены Ozon.</div>`;
+section.insertBefore(ui,legacy);
+ui.querySelector('#p22expenses').appendChild(expenseCard);
+const syncArea=ui.querySelector('#p22sync');
+for(const id of ['v10token','v10sync','v10status']){
+ const el=catalogCard.querySelector('#'+id);
+ if(!el)continue;
+ if(id==='v10token'){const label=el.previousElementSibling;if(label?.tagName==='LABEL')syncArea.appendChild(label)}
+ syncArea.appendChild(el);
+}
+const manual=ui.querySelector('#p22manual');
+for(const id of ['v10name','v10sku','v10add']){
+ const el=catalogCard.querySelector('#'+id);
+ if(!el)continue;
+ if(id!=='v10add'){const label=el.previousElementSibling;if(label?.tagName==='LABEL')manual.appendChild(label)}
+ manual.appendChild(el);
+}
+const search=ui.querySelector('#p22search'),list=ui.querySelector('#p22list'),select=legacy.querySelector('#r20product');
+let chosen='';
+const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)||'null')??fallback}catch(_){return fallback}};
+const catalog=()=>{const a=read('ozon_products_v09',[]);return Array.isArray(a)?a:[]};
+const rules=()=>read('ozon_repricer_v20',{});
+function money(n){return Number(n).toLocaleString('ru-RU')+' ₽'}
+function render(){
+ const items=catalog(),r=rules(),q=search.value.trim().toLowerCase();
+ const matches=items.filter(p=>(p.name+' '+(p.sku||'')).toLowerCase().includes(q));
+ ui.querySelector('#p22total').textContent=items.length;
+ ui.querySelector('#p22targets').textContent=items.filter(p=>Number(r[p.id]?.target)>0).length;
+ ui.querySelector('#p22due').textContent=items.filter(p=>!r[p.id]?.checkedAt||Date.now()-r[p.id].checkedAt>=900000).length;
+ list.replaceChildren();
+ for(const p of matches.slice(0,100)){
+  const b=document.createElement('button');b.type='button';b.className='p22-item'+(String(p.id)===chosen?' selected':'');
+  const ico=document.createElement('span');ico.className='p22-icon';ico.textContent='◇';
+  const middle=document.createElement('span');middle.className='p22-itemtext';
+  const name=document.createElement('b');name.textContent=p.name||'Товар';
+  const meta=document.createElement('small');const rule=r[p.id];
+  meta.textContent=(p.sku?'Арт. '+p.sku+' · ':'')+(Number(rule?.target)>0?'Цель '+money(rule.target):'Цель не задана');
+  middle.append(name,meta);const arrow=document.createElement('span');arrow.className='p22-arrow';arrow.textContent='›';
+  b.append(ico,middle,arrow);b.addEventListener('click',()=>open(p.id));list.appendChild(b);
+ }
+ if(!matches.length){const note=document.createElement('div');note.className='p22-muted';note.textContent=items.length?'Ничего не найдено.':'Каталог пуст. Открой синхронизацию ниже.';list.append(note)}
+ if(matches.length>100){const note=document.createElement('div');note.className='p22-muted';note.textContent='Показаны первые 100 товаров. Уточни поиск.';list.append(note)}
+ update();
+}
+function update(){
+ const p=catalog().find(x=>String(x.id)===chosen),box=ui.querySelector('#p22detail');
+ box.hidden=!p;if(!p)return;
+ const r=rules()[p.id];
+ ui.querySelector('#p22name').textContent=p.name||'Товар';
+ ui.querySelector('#p22sku').textContent=p.sku?'Артикул: '+p.sku:'';
+ ui.querySelector('#p22targetview').textContent=Number(r?.target)>0?money(r.target):'— ₽';
+ ui.querySelector('#p22actualview').textContent=Number(r?.actual)>0?money(r.actual):'— ₽';
+ const age=r?.checkedAt?Date.now()-r.checkedAt:Infinity;
+ ui.querySelector('#p22fresh').textContent=age===Infinity?'Нет данных':age>=900000?'Нужна проверка':'Проверено вручную';
+ const result=ui.querySelector('#p22result');
+ if(!r?.target){result.textContent='Укажи целевую цену покупателя.';result.className='p22-status p22-warning'}
+ else if(!r?.actual){result.textContent='Нет подтверждённой цены покупателя. Изменения заблокированы.';result.className='p22-status p22-warning'}
+ else{const diff=Number(r.actual)-Number(r.target);result.textContent=(Math.abs(diff)<=5?'✓ В пределах допуска':diff<0?'Цена ниже цели — требуется анализ':'Цена выше цели — требуется анализ')+' · Отклонение '+(diff>0?'+':'')+diff+' ₽. Изменения Ozon выключены.';result.className='p22-status'+(Math.abs(diff)>5?' p22-warning':'')}
+ ui.querySelector('#p22time').textContent='Допуск ±5 ₽ · 15 минут · '+(age>=900000?'Пора проверить цену вручную':'Следующая проверка ещё не наступила');
+}
+function open(id){
+ chosen=String(id);select.value=chosen;
+ select.dispatchEvent(new Event('change',{bubbles:true}));
+ ui.querySelector('#p22target').value=legacy.querySelector('#r20target').value;
+ ui.querySelector('#p22actual').value=legacy.querySelector('#r20actual').value;
+ render();
+ ui.querySelector('#p22detail').scrollIntoView({behavior:'smooth',block:'start'});
+}
+ui.querySelector('#p22save').addEventListener('click',()=>{
+ if(!chosen){alert('Выбери товар');return}
+ select.value=chosen;
+ legacy.querySelector('#r20target').value=ui.querySelector('#p22target').value;
+ legacy.querySelector('#r20actual').value=ui.querySelector('#p22actual').value;
+ legacy.querySelector('#r20save').click();
+ render();
+});
+search.addEventListener('input',render);
+ui.querySelector('#p22reload').addEventListener('click',()=>{
+ legacy.querySelector('#r20refresh').click();render();
+});
+const syncButton=ui.querySelector('#v10sync');
+syncButton?.addEventListener('click',()=>{setTimeout(()=>{legacy.querySelector('#r20refresh').click();render()},1800);});
+const status=ui.querySelector('#v10status');
+if(status&&window.MutationObserver){
+ new MutationObserver(()=>{if(status.textContent.startsWith('Готово!')){legacy.querySelector('#r20refresh').click();render()}}).observe(status,{childList:true,characterData:true,subtree:true});
+}
+ui.querySelector('#v10add')?.addEventListener('click',()=>{setTimeout(()=>{legacy.querySelector('#r20refresh').click();render()},100)});
+setInterval(()=>{if(document.getElementById('tab-prices')?.classList.contains('active'))render()},60000);
+render();
+})();
+</script>
 </body></html>
