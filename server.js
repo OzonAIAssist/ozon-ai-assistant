@@ -106,7 +106,7 @@ const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaign
 const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||origin===ORIGIN;const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
 
 if(path.pathname==='/api/orders'){
- const days=Math.min(30,Math.max(1,Number(path.searchParams.get('days')||7)||7));
+ const days=Math.min(35,Math.max(1,Number(path.searchParams.get('days')||7)||7));
  const since=new Date(Date.now()-(days-1)*86400000).toISOString();
  const to=new Date().toISOString();
  const orders=[];let cursor='',truncated=false;const usedCursors=new Set();

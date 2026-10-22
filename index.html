@@ -1205,6 +1205,12 @@ panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-s
 host.prepend(panel);
 const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50list'),summary=panel.querySelector('#h50summary');
 let days=7,orders=[],expanded=new Set(),finances=new Map(),request=0;
+let monthOrders=null,monthPartial=false,monthError=false;
+const moscowDay=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
+const monthKey=()=>moscowDay(new Date()).slice(0,7);
+const currentMonthOrders=()=>Array.isArray(monthOrders)?monthOrders.filter(o=>{const d=new Date(o.created_at);return Number.isFinite(d.getTime())&&moscowDay(d).startsWith(monthKey())}):null;
+const monthTitle=()=>new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',month:'long',year:'numeric'}).format(new Date());
+
 const token=()=>document.getElementById('v10token')?.value.trim()||sessionStorage.getItem('hogar_session_access_v44')||'';
 const row=(name,value)=>'<div class="h50-line"><span>'+esc(name)+'</span><b>'+esc(value)+'</b></div>';
 let filter='all';
@@ -1217,11 +1223,22 @@ function draw(){
  const units=orders.reduce((s,o)=>s+(o.products||[]).reduce((a,p)=>a+(Number(p.quantity)||0),0),0);
  summary.innerHTML=[['all','Все отправления',orders.length],['delivered','Доставлено',delivered],['other','Остальные',other],['units','Единиц товаров',units]].map(([key,k,v])=>'<button type="button" class="h50-tile h57-stat '+(filter===key?'h57-selected':'')+'" data-filter="'+(key==='units'?'all':key)+'"><small>'+k+'</small><b>'+fmt(v)+'</b></button>').join('');
  const percent=orders.length?Math.round(100*delivered/orders.length):0;
- const bar=panel.querySelector('#h57bar');if(bar)bar.innerHTML='<div class="h57-progress"><i style="width:'+percent+'%"></i></div><div class="h57-legend"><span>● Доставлено '+delivered+' ('+percent+'%)</span><span>● Остальные '+other+'</span></div>';
+ const bar=panel.querySelector('#h57bar');
+ if(bar){
+  const mo=currentMonthOrders();
+  if(!mo){bar.innerHTML='<div class="h65-month-title">Отправления за '+esc(monthTitle())+'</div><p class="h50-note">'+(monthError?'Не удалось получить месячные данные Ozon. Попробуйте обновить.':'Загружаем отдельную сводку за месяц…')+'</p>'}
+  else{
+   const done=mo.filter(o=>o.delivered).length;
+   const transit=mo.filter(o=>['delivering','arbitration','last_mile','sent_by_seller','awaiting_deliver'].includes(String(o.status).toLowerCase())).length;
+   const rest=mo.length-done-transit;
+   const pct=mo.length?Math.round(done/mo.length*100):0;
+   bar.innerHTML='<div class="h65-month-title">Отправления за '+esc(monthTitle())+'</div><div class="h65-month-sub">С начала месяца · по дате создания · актуальный статус Ozon</div><div class="h65-month-grid"><div class="h65-month-card h65-done"><span>✓ Доставлено</span><strong>'+done+'</strong><small>Получено покупателями</small></div><div class="h65-month-card h65-transit"><span>↗ В пути</span><strong>'+transit+'</strong><small>На этапе доставки</small></div></div>'+(rest?'<div class="h65-other">Другие статусы <b>'+rest+'</b></div>':'')+'<div class="h65-month-progress"><i style="width:'+pct+'%"></i></div><div class="h65-month-foot"><span>Доставлено '+pct+'%</span><span>Всего '+mo.length+'</span></div>'+(monthPartial?'<p class="h50-note">Ozon ограничил объём выгрузки. Месячные показатели могут быть неполными.</p>':'');
+  }
+ }
  const byDay=new Map();
  orders.forEach(o=>{const d=new Date(o.created_at);if(!Number.isFinite(d.getTime()))return;const key=d.toISOString().slice(0,10);byDay.set(key,(byDay.get(key)||0)+1)});
  const chart=panel.querySelector('#h57chart');
- if(chart){const entries=[...byDay].sort((a,b)=>a[0].localeCompare(b[0]));const max=Math.max(1,...entries.map(x=>x[1]));chart.innerHTML=entries.length?'<div class="h57-chart">'+entries.map(([day,count])=>'<div class="h57-chart-col" title="'+esc(day)+': '+count+'"><b>'+count+'</b><div class="h57-chart-track"><i style="height:'+Math.max(5,100*count/max)+'%"></i></div><small>'+esc(day.slice(8))+'</small></div>').join('')+'</div><p class="h50-note">По дате создания отправления · число внизу — день месяца</p>':'<p class="h50-note">Нет данных для графика.</p>'}
+ if(chart){const entries=[...byDay].sort((a,b)=>a[0].localeCompare(b[0]));const max=Math.max(1,...entries.map(x=>x[1]));chart.innerHTML=entries.length?'<div class="h57-chart h65-chart">'+entries.map(([day,count])=>'<div class="h57-chart-col" title="'+esc(day)+': '+count+'"><b>'+count+'</b><div class="h57-chart-track"><i style="height:'+Math.max(5,100*count/max)+'%"></i></div><small>'+esc(day.slice(8))+'</small></div>').join('')+'</div><p class="h50-note">По дате создания отправления · число внизу — день месяца</p>':'<p class="h50-note">Нет данных для графика.</p>'}
  panel.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('h57-selected',b.dataset.filter===filter));
  const shown=orders.filter(o=>filter==='all'||(filter==='delivered'?o.delivered:!o.delivered));
  const count=panel.querySelector('#h57count');if(count)count.textContent='Показано: '+shown.length+' из '+orders.length;
@@ -1254,6 +1271,16 @@ async function load(){
   if(seq!==request)return;panel.classList.remove('h63-api-error');orders=d.orders||[];finances.clear();
   status.textContent='FBS · Загружено отправлений: '+orders.length+(d.partial?' · Достигнут лимит выгрузки, список может быть неполным':'');
   draw();
+  // Independent month-to-date request; period buttons only affect the order list and daily chart.
+  monthOrders=null;monthError=false;draw();
+  const elapsed=Number(moscowDay(new Date()).slice(8));
+  try{
+   const mr=await fetch(base+'/api/orders?days='+Math.min(35,elapsed+2),{headers:{Authorization:'Bearer '+t},cache:'no-store'});
+   const md=await mr.json();
+   if(!mr.ok)throw Error('Month HTTP '+mr.status);
+   if(seq!==request)return;
+   monthOrders=Array.isArray(md.orders)?md.orders:[];monthPartial=!!md.partial;monthError=false;draw();
+  }catch(monthEx){if(seq!==request)return;monthOrders=null;monthError=true;draw();}
  }catch(e){if(seq!==request)return;panel.classList.add('h63-api-error');const denied=/403|доступ|запрет/i.test(e.message);status.textContent=(denied?'Данные заказов недоступны: Ozon отклонил запрос Seller API (403). Проверьте права FBS у API-ключа в кабинете Ozon.':'Не удалось получить актуальные заказы FBS: '+e.message)+ ' · Показатели скрыты, чтобы не принимать отсутствие доступа за ноль заказов.';}
 }
 async function finance(id){
@@ -1587,4 +1614,33 @@ for(const h of pane.querySelectorAll('.card h3')){const t=h.textContent||'';cons
 })();
 </script>
 <style id="hogar-v64-icon-tidy">#tab-more .hogar64-icon-heading:before{content:none!important}</style>
+
+<style id="hogar-v65-monthly">
+#h50 .h65-month-title{font-size:19px;font-weight:800;color:#3c281c;text-transform:none;margin:4px 0 3px}
+#h50 .h65-month-sub{font-size:13px;color:#8f6d57;margin-bottom:13px;line-height:1.4}
+#h50 .h65-month-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#h50 .h65-month-card{min-width:0;padding:17px 13px;border-radius:18px;display:flex;flex-direction:column;gap:8px}
+#h50 .h65-month-card span{font-size:15px;font-weight:750}
+#h50 .h65-month-card strong{font-size:36px;line-height:1.1;font-weight:850;font-variant-numeric:tabular-nums}
+#h50 .h65-month-card small{font-size:12px;line-height:1.4}
+#h50 .h65-done{background:#e5f5e9;border:1px solid #a4d7b4;color:#207348}
+#h50 .h65-done strong{color:#17683d}
+#h50 .h65-transit{background:#fff0df;border:1px solid #edcda9;color:#995a30}
+#h50 .h65-transit strong{color:#724027}
+#h50 .h65-other{display:flex;justify-content:space-between;margin-top:12px;font-size:15px;color:#87624b}
+#h50 .h65-month-progress{height:11px;border-radius:20px;background:#f4d7ba;overflow:hidden;margin-top:17px}
+#h50 .h65-month-progress i{display:block;height:100%;background:#2aa66b;border-radius:20px}
+#h50 .h65-month-foot{display:flex;justify-content:space-between;color:#94735e;font-size:13px;margin-top:7px}
+#h50 .h57-info{padding:0!important}
+#h50 #h57bar{padding:17px 14px;background:#fff9f2;border:1px solid #ecd5bf;border-radius:20px}
+#h50 #h57chart{background:#fff9f2;border:1px solid #ecd5bf;border-radius:20px;padding:15px 12px 8px}
+#h50 .h65-chart{height:170px;gap:9px;padding:8px 0 0;align-items:flex-end}
+#h50 .h65-chart .h57-chart-col{min-width:28px;gap:7px;font-size:13px}
+#h50 .h65-chart .h57-chart-col b{font-size:14px;color:#70472f}
+#h50 .h65-chart .h57-chart-col small{font-size:12px;color:#86634d}
+#h50 .h65-chart .h57-chart-track{height:105px;max-width:30px;border-radius:10px;background:#f5e4d2!important}
+#h50 .h65-chart .h57-chart-track i{border-radius:10px;background:linear-gradient(180deg,#ffb675,#f47d37)!important}
+#h50 .h50-section-title{font-size:19px!important;margin-top:22px!important}
+@media(max-width:370px){#h50 .h65-month-card{padding:13px 9px}#h50 .h65-month-card span{font-size:13px}#h50 .h65-month-card small{font-size:11px}}
+</style>
 </body></html>
