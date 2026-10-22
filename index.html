@@ -695,4 +695,58 @@ button.addEventListener('click',async()=>{
 });
 })();
 </script>
+
+<style id="premium-v28-product-design">
+#premium22 #p22detail.p25-modal{background:linear-gradient(165deg,#102b4b,#09192e 48%)!important;padding-top:15px!important}
+#premium22 #p22detail .p28-hero{display:grid;grid-template-columns:112px minmax(0,1fr);gap:13px;align-items:center;background:#142f4e;border:1px solid #315476;border-radius:18px;padding:12px;margin:12px 0 14px}
+#premium22 #p22detail .p28-image{height:118px;border-radius:13px;background:#f4f6f9;display:grid;place-items:center;overflow:hidden}
+#premium22 #p22detail .p28-image img{display:block;width:100%;height:100%;object-fit:contain}
+#premium22 #p22detail .p28-placeholder{font-size:35px;color:#6e9bc8}
+#premium22 #p22detail .p28-eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#9fc4ec}
+#premium22 #p22detail .p28-title{font-size:17px;line-height:1.3;color:#f2f7ff;font-weight:750;margin:7px 0;overflow-wrap:anywhere}
+#premium22 #p22detail .p28-sku{font-size:11px;color:#a9c5e4;overflow-wrap:anywhere}
+#premium22 #p22detail .p22-prices{gap:10px}
+#premium22 #p22detail .p22-price{background:#102947;border:1px solid #355579;border-radius:17px;padding:14px 11px}
+#premium22 #p22detail .p22-price strong{font-size:clamp(18px,5.3vw,25px);letter-spacing:-.04em;overflow-wrap:anywhere}
+#premium22 #p22detail .p22-price:nth-child(2){background:#102d28;border-color:#2c735d}
+#premium22 #p22detail .p22-price:nth-child(2) strong{color:#7de0ad}
+#premium22 #p22detail .p22-editor{border:1px solid #294d72;border-radius:17px;padding:13px;background:#102640}
+#premium22 #p22detail #p22save{min-height:47px;border-radius:13px!important}
+#premium22 #p22detail .p26-finance,#premium22 #p22detail .p271-panel{border-radius:18px}
+#premium22 #p22detail .p28-note{color:#9cb8d7;font-size:11px;margin:-4px 0 12px}
+@media(max-width:365px){#premium22 #p22detail .p28-hero{grid-template-columns:88px minmax(0,1fr)}#premium22 #p22detail .p28-image{height:98px}#premium22 #p22detail .p28-title{font-size:15px}}
+</style>
+<script id="premium-v28-product-hero">
+(function(){'use strict';
+const root=document.getElementById('premium22'),detail=root?.querySelector('#p22detail'),list=root?.querySelector('#p22list');
+if(!detail||!list)return;
+const hero=document.createElement('div');hero.className='p28-hero';
+const photo=document.createElement('div');photo.className='p28-image';
+const text=document.createElement('div');
+const eyebrow=document.createElement('div');eyebrow.className='p28-eyebrow';eyebrow.textContent='Карточка товара';
+const title=document.createElement('div');title.className='p28-title';
+const sku=document.createElement('div');sku.className='p28-sku';
+text.append(eyebrow,title,sku);hero.append(photo,text);
+const head=detail.querySelector('.p22-head');if(head)head.insertAdjacentElement('afterend',hero);else detail.prepend(hero);
+const note=document.createElement('div');note.className='p28-note';note.textContent='Цена с Ozon Картой вводится вручную · Автоматическое изменение цен отключено';
+const prices=detail.querySelector('.p22-prices');if(prices)prices.insertAdjacentElement('afterend',note);
+function refresh(){
+ if(detail.hidden)return;
+ const id=document.getElementById('r20product')?.value;
+ let catalog=[];try{catalog=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]')}catch(_){}
+ const p=Array.isArray(catalog)?catalog.find(x=>String(x.id)===String(id)):null;
+ title.textContent=p?.name||detail.querySelector('#p22name')?.textContent||'Товар';
+ sku.textContent=p?.sku?'Артикул: '+p.sku:'';
+ photo.replaceChildren();
+ const url=p?.image_url||p?.image||p?.primary_image||'';
+ if(typeof url==='string'&&/^https:\/\//.test(url)){
+  const img=document.createElement('img');img.alt='Фото товара';img.loading='lazy';img.referrerPolicy='no-referrer';
+  img.onerror=()=>{photo.replaceChildren();const icon=document.createElement('span');icon.className='p28-placeholder';icon.textContent='◇';photo.append(icon)};
+  img.src=url;photo.append(img);
+ }else{const icon=document.createElement('span');icon.className='p28-placeholder';icon.textContent='◇';photo.append(icon)}
+}
+list.addEventListener('click',e=>{if(e.target.closest('button.p22-item'))setTimeout(refresh,0)});
+detail.addEventListener('click',e=>{if(e.target.closest('.p25-back'))return;});
+})();
+</script>
 </body></html>
