@@ -110,7 +110,7 @@ if(path.pathname==='/api/orders'){
  const since=new Date(Date.now()-(days-1)*86400000).toISOString();
  const to=new Date().toISOString();
  const orders=[];let cursor='',truncated=false;const usedCursors=new Set();
- const safeError=e=>{const code=Number(e.status);return {code:Number.isInteger(code)?code:null,reason:code===429?'Ozon ограничил частоту запросов':code===401||code===403?'Ozon отклонил доступ Seller API':code===400?'Ozon не принял параметры запроса FBS':code===404?'Метод FBS недоступен':'Ошибка запроса FBS к Ozon'};};
+ const safeError=e=>{const code=Number(e.status);return {code:Number.isInteger(code)?code:null,reason:code===429?'Ozon ограничил частоту запросов':code===401?'Ozon не принял ключ Seller API':code===403?'Ozon запретил доступ к FBS для текущего Seller API-ключа; проверьте права ключа в кабинете Ozon':code===400?'Ozon не принял параметры запроса FBS':code===404?'Метод FBS недоступен':'Ошибка запроса FBS к Ozon'};};
  try{
   for(let page=0;page<20;page++){
    const d=await ozon('/v4/posting/fbs/list',{filter:{since,to},limit:100,cursor,sort_dir:'desc',with:{analytics_data:false,financial_data:false}});

@@ -62,9 +62,12 @@ intro(sections.home,'Главная');intro(sections.ads,'Реклама');intro
 sections.ads.appendChild(cards[0]);sections.analytics.appendChild(cards[1]);sections.prices.appendChild(cards[2]);sections.more.appendChild(cards[3]);
 const homeCard=document.createElement('div');homeCard.className='card';homeCard.innerHTML='<div class="muted">Прогнозная прибыль по заказам · 30 дней</div><div class="demo-stat">+184 650 ₽</div><small>Иллюстративные данные, не из Ozon</small><hr style="border:0;border-top:1px solid #334155;margin:16px 0"><div class="demo-row"><span>Фактическая прибыль</span><b>+167 420 ₽</b></div><small>После возвратов и корректировок · пример</small>';sections.home.appendChild(homeCard);
 const homeMore=document.createElement('div');homeMore.className='card';homeMore.innerHTML='<h3>Рекомендации ИИ · примеры</h3><p>⚠️ Проверить цену комода — прибыль ниже целевой.</p><p>◉ Проверить рекламную кампанию — автоматической остановки нет.</p><small>Рекомендации не связаны с реальным аккаунтом продавца.</small>';sections.home.appendChild(homeMore);
-const analyticsNote=document.createElement('div');analyticsNote.className='card';analyticsNote.innerHTML='<h3>Раздельный учёт прибыли</h3><div class="demo-row"><span>Прогноз по заказам</span><b>184 650 ₽</b></div><div class="demo-row"><span>После сверки</span><b>167 420 ₽</b></div><small>Данные примерные. Реальный расчёт требует подтверждения комиссий, логистики, налогов и рекламы.</small>';sections.analytics.prepend(analyticsNote);
+/* No fictional profit figures. */
+const demoChart=document.getElementById('chart')?.closest('.card');
+if(demoChart && sections.analytics.contains(demoChart))demoChart.remove();
+const analyticsInfo=document.createElement('div');analyticsInfo.className='card';analyticsInfo.innerHTML='<h3>Аналитика магазина</h3><p>Здесь будут только подтверждённые показатели Ozon. Рекламные расходы и результаты доступны во вкладке «Реклама», заказы FBS — во вкладке «Заказы».</p><small>Почасовые демонстрационные графики и примерные суммы прибыли скрыты.</small>';sections.analytics.prepend(analyticsInfo);
 const sec=document.createElement('div');sec.className='card';sec.innerHTML='<h3>Настройки безопасности · концепция</h3><div class="demo-row"><span>Тайм-аут сессии</span><b>30 мин</b></div><div class="demo-row"><span>Резервные коды</span><b>5 шт.</b></div><div class="demo-row"><span>Смена Telegram</span><b>1 раз / 24 ч</b></div><div class="security-warning">Это только демонстрация требований. Реальной авторизации и восстановления доступа здесь нет.</div>';sections.more.appendChild(sec);
-const nav=document.createElement('nav');nav.className='bottom-nav';nav.setAttribute('aria-label','Разделы приложения');nav.innerHTML='<div>'+[['home','⌂','Главная'],['ads','◉','Реклама'],['prices','▤','Цены'],['analytics','▥','Аналитика'],['orders','▣','Заказы'],['more','☰','Ещё']].map(([id,ico,name])=>'<button type="button" data-tab="'+id+'"><span>'+ico+'</span>'+name+'</button>').join('')+'</div>';document.body.appendChild(nav);
+const nav=document.createElement('nav');nav.className='bottom-nav';nav.setAttribute('aria-label','Разделы приложения');nav.innerHTML='<div>'+[['home','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>','Главная'],['ads','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11v3a2 2 0 0 0 2 2h2l2 4h3l-2-5 7-3V5l-9 4H6a2 2 0 0 0-2 2z"/><path d="M20 8v4"/></svg>','Реклама'],['prices','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V4h8l10 10-7 7L3 10z"/><circle cx="8" cy="8" r="1"/></svg>','Цены'],['analytics','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V12M10 20V5M16 20v-9M22 20V8"/></svg>','Аналитика'],['orders','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 9-4 9 4v10l-9 4-9-4z"/><path d="m3 7 9 5 9-5M12 12v9"/></svg>','Заказы'],['more','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>','Ещё']].map(([id,ico,name])=>'<button type="button" data-tab="'+id+'"><span>'+ico+'</span>'+name+'</button>').join('')+'</div>';document.body.appendChild(nav);
 function activate(id){Object.entries(sections).forEach(([k,v])=>v.classList.toggle('active',k===id));nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));if(id==='analytics')try{draw()}catch(e){}window.scrollTo(0,0)}
 nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activate(b.dataset.tab)));activate('home');
 })();
@@ -749,7 +752,7 @@ detail.addEventListener('click',e=>{if(e.target.closest('.p25-back'))return;});
 (function(){'use strict';
 const main=document.querySelector('main');if(!main)return;
 const dashboard=document.createElement('section');dashboard.id='hogar30';
-dashboard.innerHTML='<div class="h30-kicker">HOGAR · SELLER CONTROL</div><div class="h30-title">Панель магазина</div><div class="h30-sub">Ozon AI Assistant by Hogar · Обзор данных магазина</div><div class="h30-status">● Безопасный режим · Автоматическое изменение цен отключено</div><div class="h30-grid"><div class="h30-tile"><div class="h30-label">📦 Товары</div><div class="h30-value" id="h30products">—</div><div class="h30-desc">Из сохранённого каталога</div></div><div class="h30-tile"><div class="h30-label">💳 Цели по ценам</div><div class="h30-value" id="h30targets">—</div><div class="h30-desc">Товаров с заданной целью</div></div><div class="h30-tile"><div class="h30-label">📦 Остатки FBS / FBO</div><div class="h30-value">—</div><div class="h30-desc">Ожидает подключения API</div></div><div class="h30-tile"><div class="h30-label">🛒 Заказы</div><div class="h30-value">—</div><div class="h30-desc">Ожидает подключения API</div></div><div class="h30-tile"><div class="h30-label">📈 Продажи</div><div class="h30-value">—</div><div class="h30-desc">Ожидает подключения API</div></div><div class="h30-tile"><div class="h30-label">₽ Выручка</div><div class="h30-value">—</div><div class="h30-desc">Ожидает подключения API</div></div></div><div class="h30-heading">🔔 Важные события</div><div class="h30-events" id="h30events">После подключения заказов и остатков здесь появятся предупреждения. Данные не подменяются примерными значениями.</div><button type="button" id="h30refresh">↻ Обновить показатели</button><div class="h30-meta" id="h30time">Показатели из памяти этого устройства</div>';
+dashboard.innerHTML='<div class="h30-kicker">HOGAR · SELLER CONTROL</div><div class="h30-title">Панель магазина</div><div class="h30-sub">Ozon AI Assistant by Hogar · Обзор данных магазина</div><div class="h30-status">● Безопасный режим · Автоматическое изменение цен отключено</div><div class="h30-grid"><div class="h30-tile"><div class="h30-label">📦 Товары</div><div class="h30-value" id="h30products">—</div><div class="h30-desc">Из сохранённого каталога</div></div><div class="h30-tile"><div class="h30-label">💳 Цели по ценам</div><div class="h30-value" id="h30targets">—</div><div class="h30-desc">Товаров с заданной целью</div></div><div class="h30-tile"><div class="h30-label">📦 Остатки FBS</div><div class="h30-value">—</div><div class="h30-desc">Пока нет данных</div></div><div class="h30-tile h61-go-orders" role="button" tabindex="0"><div class="h30-label">🛒 Заказы FBS</div><div class="h30-value">↗</div><div class="h30-desc">Открыть реальные заказы</div></div><div class="h30-tile"><div class="h30-label">📈 Продажи</div><div class="h30-value">—</div><div class="h30-desc">Данные не получены</div></div><div class="h30-tile"><div class="h30-label">₽ Выручка</div><div class="h30-value">—</div><div class="h30-desc">Не рассчитана</div></div></div><div class="h30-heading">🔔 Важные события</div><div class="h30-events" id="h30events">После подключения заказов и остатков здесь появятся предупреждения. Данные не подменяются примерными значениями.</div><button type="button" id="h30refresh">↻ Обновить показатели</button><div class="h30-meta" id="h30time">Показатели из памяти этого устройства</div>';
 const home=document.getElementById('tab-home');if(home){const heading=home.querySelector('.tab-heading');if(heading)heading.insertAdjacentElement('afterend',dashboard);else home.prepend(dashboard)}else{main.insertBefore(dashboard,main.firstChild)}
 function read(k,defaultValue){try{return JSON.parse(localStorage.getItem(k)||'null')??defaultValue}catch(_){return defaultValue}}
 function refresh(){
@@ -1373,4 +1376,68 @@ button:disabled{opacity:.55}
 #h50 .h58-price{white-space:nowrap!important;word-break:keep-all!important;overflow-wrap:normal!important;min-width:max-content!important;color:#3b271c!important}
 @media(max-width:390px){header b{font-size:17px!important}.bottom-nav button{font-size:9px!important}.bottom-nav span{font-size:19px!important}#h50{padding:11px!important}}
 </style>
+
+<style id="hogar-redesign-v61">
+:root{color-scheme:light!important;--warm:#fff4e8;--paper:#fffdf9;--ink:#382419;--muted:#8c705b;--border:#efdac5;--orange:#ed752f}
+html,body{background:var(--warm)!important;color:var(--ink)!important}
+body{background:linear-gradient(180deg,#f6dcc3,#fff4e8 280px,#fff4e8)!important}
+header{background:linear-gradient(105deg,#482c22,#8c5134)!important;padding:16px 17px!important;min-height:79px!important;display:flex;flex-direction:column;justify-content:center}
+header:after,header:before{display:none!important}
+header b{max-width:none!important;font-size:18px!important;line-height:1.25!important;letter-spacing:-.02em}
+header b:before{content:"";display:inline-block;width:30px;height:30px;margin-right:10px;vertical-align:middle;border-radius:9px;background:radial-gradient(ellipse at 50% 78%,#ffdb86 0 11%,#f68a38 14% 34%,#b74e26 37% 60%,#633021 65%);box-shadow:inset 0 0 0 2px #ffffff55}
+header div{font-size:10px!important;margin-top:4px}
+main{padding:15px 13px 35px!important}
+.card,.section-pane .card{background:var(--paper)!important;color:var(--ink)!important;border:1px solid var(--border)!important;box-shadow:0 4px 16px #a2673310!important;border-radius:19px!important}
+.card h3,.card h4,.card p,.card b,.card strong{color:var(--ink)!important}
+.card small,.card label,.card .muted{color:var(--muted)!important}
+.card .demo-row{color:#856750!important}
+.card .demo-row b{color:#3a281e!important}
+#hogar30{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;color:var(--ink)!important}
+#hogar30 .h30-kicker{color:#c17943!important;letter-spacing:.14em;font-size:10px}
+#hogar30 .h30-title{font-size:25px!important;color:var(--ink)!important}
+#hogar30 .h30-sub{color:var(--muted)!important}
+#hogar30 .h30-status{background:#e7f5e9!important;border:1px solid #c5e6ce!important;color:#24764b!important}
+#hogar30 .h30-grid{gap:10px!important}
+#hogar30 .h30-tile{background:#fffdf9!important;border:1px solid var(--border)!important;border-radius:17px!important;box-shadow:0 4px 15px #a2673310!important}
+#hogar30 .h30-label{color:#856b56!important;font-size:12px!important}
+#hogar30 .h30-value{color:#40291d!important;font-size:26px!important}
+#hogar30 .h30-desc{color:#a0846e!important}
+#hogar30 .h30-heading{color:var(--ink)!important}
+#hogar30 .h30-events{background:#fffdf9!important;border:1px solid var(--border)!important;color:#8a6c56!important}
+#hogar30 #h30refresh{background:linear-gradient(120deg,#fca352,#eb712b)!important;border:0!important}
+#hogar30 .h30-meta{color:#a4866e!important}
+#hogar30 .h61-go-orders{cursor:pointer;border-color:#e9c3a3!important}
+#premium22 .p22-item,#premium22 .p22-summary>div{background:#fffdf9!important;color:var(--ink)!important;border-color:var(--border)!important}
+#premium22 .p22-item *{color:inherit}
+#premium22 .p22-item small{color:var(--muted)!important}
+#premium22 .p22-summary strong{color:var(--ink)!important}
+#premium22 .p22-itemtext b{color:var(--ink)!important}
+#premium22 #p22detail .h30-edit{background:#fff8f0!important;border-color:var(--border)!important}
+#h31ads,#h44ads,#h44ads *,#h31ads *{color:var(--ink)}
+#h31ads [class*="h32-"],#h44ads [class*="h44-"]{background-color:transparent}
+#h31ads .h32-hist,#h44ads .h44-card{background:#fffdf9!important;border-color:var(--border)!important}
+#h31ads button,#h44ads button{color:#fff!important}
+#h50{background:#fffdf9!important;border-color:var(--border)!important}
+#h50 .h50-order,#h50 .h57-order{background:#fffdf9!important}
+#h50 .h50-body{background:#fff8f0!important}
+#h50 .h58-price{white-space:nowrap!important;overflow-wrap:normal!important;word-break:normal!important}
+#h50 .h57-stat.h58-delivered{background:#e4f6e8!important;border-color:#a8d9b7!important}
+#h50 .h57-stat.h58-delivered b{color:#167e50!important}
+#h50 .h57-progress{background:#f6dcc3!important}
+#h50 .h57-progress i{background:#28a66e!important}
+.bottom-nav{background:#fffaf4fa!important;border-color:#efd8c4!important;border-radius:22px 22px 0 0!important;padding:6px 5px max(8px,env(safe-area-inset-bottom))!important}
+.bottom-nav>div{display:flex!important;gap:2px!important;overflow:visible!important}
+.bottom-nav button{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:4px!important;min-height:51px!important;padding:6px 0!important;border-radius:13px!important;background:transparent!important;color:#8d674f!important;font-size:10px!important;font-weight:650!important}
+.bottom-nav button span{display:flex!important;align-items:center!important;justify-content:center!important;height:23px!important;margin:0!important;color:inherit!important}
+.bottom-nav button svg{display:block}
+.bottom-nav button.active{background:linear-gradient(145deg,#ff9d4d,#ef6d2a)!important;color:#fff!important;box-shadow:0 4px 11px #d86d3444!important}
+#h50 .h57-filters button{font-size:12px!important}
+@media(max-width:380px){header b{font-size:16px!important}.bottom-nav button{font-size:9px!important}.bottom-nav button svg{width:19px;height:19px}}
+</style>
+<script id="hogar-v61-nav-order" >
+(function(){
+const tile=document.querySelector('#hogar30 .h61-go-orders');
+if(tile){const go=()=>document.querySelector('.bottom-nav [data-tab="orders"]')?.click();tile.addEventListener('click',go);tile.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}})}
+})();
+</script>
 </body></html>
