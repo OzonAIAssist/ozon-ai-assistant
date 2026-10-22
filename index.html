@@ -1538,4 +1538,53 @@ if(tile){const go=()=>document.querySelector('.bottom-nav [data-tab="orders"]')?
 #h50 .h58-product-name{min-width:0!important;overflow-wrap:break-word!important}
 @media(max-width:420px){#premium22 #p22detail{padding:12px!important}#h50 .h58-product-values{min-width:90px!important;flex-basis:90px!important}}
 </style>
+
+<style id="hogar-v64-unified">
+/* Product modal: override high-specificity legacy p25-modal background */
+#premium22 #p22detail.p25-modal:not([hidden]),#premium22 #p22detail.p25-modal{background:#fff8ef!important;background-image:none!important;color:#3d291f!important;border:1px solid #ebd2bb!important;box-shadow:0 10px 40px #5b351b28!important}
+#premium22 #p22detail.p25-modal .p22-head h3,#premium22 #p22detail.p25-modal .p22-muted,#premium22 #p22detail.p25-modal .p28-note{color:#54392a!important}
+#premium22 #p22detail.p25-modal .h30-edit{background:#fff9f2!important;border-color:#e8cdb4!important}
+#premium22 #p22detail.p25-modal .h30-pencil{background:#f7e4d1!important;color:#8b512f!important;border-color:#e8c5a4!important}
+#premium22 #p22detail.p25-modal .p26-finance,#premium22 #p22detail.p25-modal .p271-panel,#premium22 #p22detail.p25-modal .p22-box{background:#fffdf9!important;color:#422c1e!important;border-color:#ead5c0!important}
+#premium22 #p22detail.p25-modal .p26-finance *,#premium22 #p22detail.p25-modal .p271-panel *{color:#493122!important}
+#premium22 #p22detail.p25-modal .p26-finance button,#premium22 #p22detail.p25-modal .p271-panel button{color:white!important}
+#premium22 .p22-kicker{color:#80614c!important;position:relative!important;z-index:1!important;margin:0 0 15px!important;padding:0 2px!important;line-height:1.5!important}
+#tab-prices>.tab-heading{margin-bottom:12px!important}
+#premium22 .p22-summary{margin-top:5px!important}
+/* Advertising: cover original and nested subpanels */
+#tab-ads #h44,#tab-ads #h44 .h44-summary,#tab-ads #h44 .h44-details{background:#fffdf9!important;background-image:none!important;color:#3c291e!important;border-color:#ead4bf!important}
+#tab-ads #h44 button:not(.h44-tab):not(.h46-selected),#h50 #h50refresh,#h50 .h50-refresh,#h50 #h50refresh button{background:#fff0df!important;color:#875132!important;border:1px solid #e9c7a9!important;box-shadow:none!important}
+#tab-ads #h44 .h44-tab[aria-selected=true]{background:#e7f4e9!important;border-color:#a4d2b0!important;color:#28724c!important}
+/* FBS success states: green only for delivered, orange for generic selection */
+#h50 .h57-filters button.h57-selected:nth-child(2){background:#e0f3e6!important;color:#207548!important;border:1px solid #79bf92!important;box-shadow:none!important}
+#h50 .h57-filters button.h57-selected:nth-child(2)::before{content:'✓ ';font-weight:800}
+#h50 .h57-order:has(.h57-order-meta em){border-color:#e9d4bf!important}
+#h50 .h57-order:has(.h57-order-meta em[style*="green"]),#h50 .h57-order:has(.h57-order-meta em[style*="достав"]){border-color:#a6d6b5!important}
+#h50 .h57-order-meta em{background:#def4e5!important;color:#207849!important;border:0!important}
+#h50 .h58-product-name,#h50 .h58-product-line .h58-product-name{color:#493021!important}
+#h50 .h58-product-line{border-bottom:1px solid #e7cdb6!important}
+#h50 .h58-product-values small{color:#94725c!important}
+#h50 .h58-product-values strong{color:#3e291d!important}
+#h50 .h57-order-details,#h50 .h57-order-body{background:#fff9f2!important;color:#493122!important;border-color:#ead7c4!important}
+#h50 .h57-order-details button,#h50 .h57-order-body button{background:linear-gradient(130deg,#ff9c4b,#f4772d)!important;color:white!important;border-color:#ee914e!important}
+#h50 .h57-order-details hr,#h50 .h57-order-body hr{border-color:#e8cbb2!important}
+/* Green delivered metric, with no change to actual data */
+#h50 .h50-summary button:nth-child(2),#h50 .h57-summary button:nth-child(2),#h50 .h50-summary>div:nth-child(2),#h50 .h57-summary>div:nth-child(2){background:#e8f5ea!important;border-color:#a8d7b7!important;color:#286e48!important}
+#h50 .h50-summary>div:nth-child(2) strong,#h50 .h57-summary>div:nth-child(2) strong{color:#226c45!important}
+/* Security headings generated dynamically */
+#tab-more .card h3{color:#3d291e!important}
+#tab-more .card h3:before{content:none!important}
+#tab-more .card:first-of-type h3:before{content:'➤'!important;color:#c66b38!important;margin-right:12px!important}
+#tab-more .card:nth-of-type(2) h3:before{content:'♢'!important;color:#c66b38!important;margin-right:12px!important}
+@media(max-width:430px){#premium22 #p22detail.p25-modal:not([hidden]){padding:14px 14px calc(30px + env(safe-area-inset-bottom))!important}#h50 .h57-filters button{font-size:12px!important}}
+</style>
+
+<script id="hogar-v64-security-icons">
+(function(){'use strict';
+const pane=document.getElementById('tab-more');if(!pane)return;
+const icons={telegram:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',security:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>'};
+for(const h of pane.querySelectorAll('.card h3')){const t=h.textContent||'';const key=/telegram/i.test(t)?'telegram':/Настройки безопасности/i.test(t)?'security':null;if(!key||h.querySelector('.hogar64-icon'))continue;const span=document.createElement('span');span.className='hogar64-icon';span.style.cssText='display:inline-flex;vertical-align:middle;margin-right:11px;color:#c66b38';span.innerHTML=icons[key];h.prepend(span);h.classList.add('hogar64-icon-heading')}
+})();
+</script>
+<style id="hogar-v64-icon-tidy">#tab-more .hogar64-icon-heading:before{content:none!important}</style>
 </body></html>
