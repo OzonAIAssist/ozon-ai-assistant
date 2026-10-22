@@ -865,12 +865,13 @@ function card(c){
  '<div class="h34-slider-labels"><small>Экономия</small><b data-reach-mode="'+id+'">'+(reach<34?'Экономия':reach>66?'Больше показов':'Баланс')+'</b><small>Больше показов</small></div>'+
  '<label class="h31-check"><input type="checkbox" data-field="budgetGuard" data-id="'+id+'" '+(c.budgetGuard!==false?'checked':'')+'> Экономить, если 80% дневного бюджета потрачено слишком рано</label>'+
  '<p class="h31-small">Бюджет не перераспределяется между кампаниями. Режим экономии будет действовать после подключения серверной стратегии.</p>'+
- field(c,id,'Лимит изменения ставки за один шаг, %','changeLimit')+
- '<div class="h31-two">'+field(c,id,'Начало','from','time')+field(c,id,'Окончание','to','time')+'</div>'+
- '<button data-action="save" data-id="'+id+'">Сохранить черновик</button>';
- return '<div class="h31-card" data-campaign="'+id+'"><div class="h31-line"><div><b>'+esc(c.name)+'</b><div class="h31-small">Локальный черновик · не Ozon</div></div><div><small>Кампания</small><button class="h31-toggle" data-action="toggle" data-id="'+id+'" aria-pressed="'+!!c.enabled+'" aria-label="Кампания">'+(c.enabled?'●':'○')+'</button></div></div>'+
- '<div class="h31-controls"><button class="h31-outline" data-action="expand" data-id="'+id+'">'+(c.expanded?'Свернуть':'Развернуть')+'</button><button class="h31-outline" data-action="delete" data-id="'+id+'">Удалить</button></div>'+
- (c.expanded?'<div class="h32-subnav"><button data-action="view" data-id="'+id+'" data-view="settings" aria-pressed="'+(c.view!=='history')+'">Стратегия и бюджет</button><button data-action="view" data-id="'+id+'" data-view="history" aria-pressed="'+(c.view==='history')+'">История</button></div>'+content:'')+'</div>';
+ '<div class="h36-limit"><div><b>Шаг изменения ставки</b><small>Максимум за одно решение</small></div><div class="h36-stepper"><button type="button" data-action="step-down" data-id="'+id+'" aria-label="Уменьшить шаг">−</button><input type="number" min="1" max="100" step="1" inputmode="numeric" data-field="changeLimit" data-id="'+id+'" value="'+esc(c.changeLimit??10)+'" aria-label="Шаг изменения ставки, процентов"><span>%</span><button type="button" data-action="step-up" data-id="'+id+'" aria-label="Увеличить шаг">+</button></div></div>'+
+ '<div class="h36-schedule"><div class="h36-section-title">Расписание показов</div><div class="h36-times"><label>Включать<input type="time" data-field="from" data-id="'+id+'" value="'+esc(c.from||'09:00')+'"></label><span class="h36-time-sep">→</span><label>Выключать<input type="time" data-field="to" data-id="'+id+'" value="'+esc(c.to||'22:00')+'"></label></div></div>'+
+ '<div class="h36-savebar"><button type="button" class="h36-save" data-action="save" data-id="'+id+'">✓ Сохранить настройки</button><div class="h31-small">Только на этом устройстве · без отправки в Ozon</div></div>';
+ return '<div class="h31-card h36-campaign '+(c.expanded?'h36-open':'h36-closed')+'" data-campaign="'+id+'"><div class="h36-campaign-head">'+
+ '<button type="button" class="h36-campaign-title" data-action="expand" data-id="'+id+'" aria-expanded="'+!!c.expanded+'"><span class="h36-campaign-symbol">◈</span><span class="h36-campaign-name"><b>'+esc(c.name)+'</b><small>Черновик · '+(c.enabled?'Включена':'Выключена')+'</small></span><span class="h36-chevron">'+(c.expanded?'⌃':'⌄')+'</span></button>'+
+ '<button type="button" class="h31-toggle h36-main-toggle" data-action="toggle" data-id="'+id+'" aria-pressed="'+!!c.enabled+'" aria-label="'+(c.enabled?'Выключить':'Включить')+' кампанию">'+(c.enabled?'●':'○')+'</button></div>'+
+ (c.expanded?'<div class="h36-open-actions"><button class="h31-outline h36-delete" data-action="delete" data-id="'+id+'">Удалить черновик</button></div><div class="h32-subnav"><button data-action="view" data-id="'+id+'" data-view="settings" aria-pressed="'+(c.view!=='history')+'">Стратегия и бюджет</button><button data-action="view" data-id="'+id+'" data-view="history" aria-pressed="'+(c.view==='history')+'">История</button></div>'+content:'')+'</div>';
 }
 const root=document.createElement('div');root.id='h31ads';host.prepend(root);
 function render(){root.innerHTML='<div class="h31-top"><div class="h31-muted">HOGAR · ADS CONTROL CENTER</div><h2>Реклама</h2><div class="h31-warning">Ozon Performance API пока не подключён. Реальные кампании, бюджеты и статистика не загружаются; черновики не меняют рекламу на Ozon.</div></div>'+
@@ -878,6 +879,11 @@ function render(){root.innerHTML='<div class="h31-top"><div class="h31-muted">HO
  '<div class="h31-card"><div class="h31-line"><b>Кампании</b><button data-action="add">+ Черновик</button></div><p class="h31-muted">Каждая кампания настраивается отдельно. Фоновая проверка каждые 15 минут будет доступна после настройки сервера.</p></div>'+
  (state.campaigns.length?state.campaigns.map(card).join(''):'<div class="h31-card h31-muted">Пока нет подключённых кампаний. Можно создать черновик настроек.</div>')}
 root.addEventListener('click',e=>{
+ // A tap anywhere on the campaign header expands/collapses it; the switch remains independent.
+ const header=e.target.closest('.h36-campaign-head');
+ if(header&&!e.target.closest('.h36-main-toggle')&&!e.target.closest('.h36-campaign-title')){
+   header.querySelector('.h36-campaign-title')?.click();return;
+ }
  const b=e.target.closest('button[data-action]');if(!b)return;
  const a=b.dataset.action,c=state.campaigns.find(x=>x.id===b.dataset.id);
  if(a==='add')state.campaigns.push(blank());
@@ -886,9 +892,11 @@ root.addEventListener('click',e=>{
  else if(a==='toggle'&&c)c.enabled=!c.enabled;
  else if(a==='strategy-toggle'&&c)c.auto=!c.auto;
  else if(a==='view'&&c)c.view=b.dataset.view;
+ else if((a==='step-up'||a==='step-down')&&c){c.changeLimit=String(Math.max(1,Math.min(100,(Number(c.changeLimit)||10)+(a==='step-up'?1:-1))))}
  else if(a==='delete'&&c){if(!confirm('Удалить черновик?'))return;state.campaigns=state.campaigns.filter(x=>x.id!==c.id)}
  else if(a==='help'&&c){const h=root.querySelector('[data-explanation="'+c.id+'"]');h.hidden=!h.hidden;return}
- else if(a==='save'&&c){if(c.min!==''&&c.max!==''&&Number(c.max)<Number(c.min)){alert('Максимальная ставка должна быть не ниже минимальной');return}
+ else if(a==='save'&&c){if(!Number.isInteger(Number(c.changeLimit))||Number(c.changeLimit)<1||Number(c.changeLimit)>100){alert('Шаг изменения ставки должен быть от 1 до 100%');return}
+ if(c.min!==''&&c.max!==''&&Number(c.max)<Number(c.min)){alert('Максимальная ставка должна быть не ниже минимальной');return}
  if(['budget','weeklyBudget','min','max'].some(k=>c[k]!==''&&c[k]!=null&&(!Number.isFinite(Number(c[k]))||Number(c[k])<0))){alert('Проверьте бюджет и ставки');return}
  if(!persist(storage,state))return;alert('Черновик сохранён на устройстве. Ozon не изменён.');return}
  persist(storage,state);render();
@@ -938,4 +946,41 @@ new MutationObserver(drawWatch).observe(list,{childList:true});drawWatch();
 #premium22 .h34-master{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#102b47;border:1px solid #30577b;border-radius:14px;padding:12px;margin:0 0 13px}
 #premium22 .h34-master label{margin:0!important;font-size:13px!important}
 #premium22 .h34-master input{width:24px;min-height:24px;accent-color:#42d7a0}
-</style></body></html>
+</style>
+<style id="hogar-v36-polish">
+#h31ads .h36-campaign{padding:0!important;overflow:hidden;border-radius:22px!important}
+#h31ads .h36-campaign-head{display:flex;align-items:center;gap:9px;padding:13px 14px}
+#h31ads .h36-campaign-title{min-width:0;flex:1;display:flex;align-items:center;gap:11px;text-align:left;background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;min-height:58px}
+#h31ads .h36-campaign-symbol{width:43px;height:43px;flex:0 0 43px;display:grid;place-items:center;background:linear-gradient(145deg,#174577,#1a3056);border:1px solid #356293;border-radius:14px;color:#7ad7ff;font-size:23px}
+#h31ads .h36-campaign-name{min-width:0;flex:1;display:block}
+#h31ads .h36-campaign-name b{display:block;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#h31ads .h36-campaign-name small{display:block;margin-top:5px;font-size:11px!important;color:#91afcf!important}
+#h31ads .h36-chevron{font-size:25px;color:#80b7ed;margin-right:2px}
+#h31ads .h36-main-toggle{flex:0 0 45px;min-width:45px;min-height:43px;padding:0!important;box-shadow:none!important}
+#h31ads .h36-open-actions{padding:0 15px 12px;display:flex;justify-content:flex-end}
+#h31ads .h36-delete{font-size:11px!important;min-height:32px!important;padding:5px 12px!important;color:#a7bad1!important}
+#h31ads .h36-campaign>.h32-subnav{margin:0 14px 13px}
+#h31ads .h36-campaign>.h32-subnav~*{margin-left:14px;margin-right:14px}
+#h31ads .h36-campaign>.h32-subnav~.h36-savebar{margin-bottom:17px}
+#h31ads .h36-limit{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#0a1d33;border:1px solid #2c4c73;border-radius:15px;padding:13px 11px;margin:17px 0}
+#h31ads .h36-limit>b{font-size:13px}
+#h31ads .h36-limit>div:first-child{flex:1;min-width:0}
+#h31ads .h36-limit>div:first-child b{font-size:13px;display:block}
+#h31ads .h36-limit>div:first-child small{font-size:10px!important;display:block;margin-top:4px}
+#h31ads .h36-stepper{display:flex;align-items:center;gap:4px;background:#102b4b;border:1px solid #325781;border-radius:12px;padding:4px}
+#h31ads .h36-stepper button{width:30px;min-height:32px!important;padding:0!important;border:0!important;box-shadow:none!important;background:#1d497a!important;font-size:20px}
+#h31ads .h36-stepper input{width:37px!important;min-height:34px!important;padding:3px 0!important;border:0!important;box-shadow:none!important;text-align:center;font-size:16px!important;appearance:textfield;-moz-appearance:textfield}
+#h31ads .h36-stepper input::-webkit-inner-spin-button,#h31ads .h36-stepper input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+#h31ads .h36-stepper span{font-size:12px;color:#a4c7e7}
+#h31ads .h36-schedule{background:#0a1d33;border:1px solid #2c4c73;border-radius:16px;padding:14px;margin:15px 0}
+#h31ads .h36-section-title{font-size:14px;font-weight:700;margin-bottom:8px}
+#h31ads .h36-times{display:grid;grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr);gap:9px;align-items:end}
+#h31ads .h36-times label{min-width:0;font-size:11px!important;margin:0!important}
+#h31ads .h36-times input{width:100%!important;max-width:100%;min-width:0;min-height:47px!important;padding:8px 6px!important;margin-top:8px;font-size:16px!important;text-align:center}
+#h31ads .h36-time-sep{color:#72adf1;text-align:center;margin-bottom:15px}
+#h31ads .h36-savebar{padding:5px 0 0;text-align:center}
+#h31ads .h36-save{display:block;width:100%;min-height:51px!important;font-size:15px!important;border-radius:14px!important;background:linear-gradient(110deg,#2180db,#315cd2)!important}
+#h31ads .h36-savebar .h31-small{margin-top:8px;font-size:11px!important}
+@media(max-width:370px){#h31ads .h36-campaign-head{padding:10px}#h31ads .h36-times{gap:5px}#h31ads .h36-times input{font-size:14px!important;padding:7px 3px!important}#h31ads .h36-limit{padding:10px 7px}}
+</style>
+<style id="hogar-v37-tap">#h31ads .h36-campaign-head{cursor:pointer;touch-action:manipulation}#h31ads .h36-campaign-title{cursor:pointer}</style></body></html>
