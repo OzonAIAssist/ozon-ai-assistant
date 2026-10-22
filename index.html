@@ -562,7 +562,7 @@ body.p25-open{overflow:hidden!important}
 const root=document.getElementById('premium22');if(!root)return;
 const detail=root.querySelector('#p22detail'),list=root.querySelector('#p22list');if(!detail||!list)return;
 const backdrop=document.createElement('div');backdrop.id='p25backdrop';backdrop.hidden=true;document.body.appendChild(backdrop);
-const back=document.createElement('button');back.type='button';back.className='p25-back';back.textContent='‹  Назад к товарам';detail.prepend(back);
+const back=document.createElement('button');back.type='button';back.className='p25-back';back.textContent='←  Все товары';detail.prepend(back);
 const cover=document.createElement('div');cover.className='p25-cover';const empty=document.createElement('span');empty.textContent='Фото товара пока недоступно';cover.appendChild(empty);
 const head=detail.querySelector('.p22-head');head?.insertAdjacentElement('beforebegin',cover);
 detail.classList.add('p25-modal');detail.setAttribute('role','dialog');detail.setAttribute('aria-modal','true');detail.setAttribute('aria-label','Информация о товаре');
@@ -626,7 +626,7 @@ const list=root?.querySelector('#p22list');
 if(!detail||!list)return;
 const panel=document.createElement('section');
 panel.className='p271-panel';
-panel.innerHTML='<h3>Цены из Ozon API</h3><p>Безопасная проверка цен продавца. Соинвест и скидка Ozon Карты не вычисляются по неподтверждённым данным.</p><button id="p271check" type="button">Проверить цены Ozon</button><div id="p271out" aria-live="polite">Проверка ещё не запускалась.</div>';
+panel.innerHTML='<h3><span class="h66-tag-icon" aria-hidden="true">⌑</span>Цены из Ozon API</h3><p>Безопасная проверка цен продавца. Соинвест и скидка Ozon Карты не вычисляются по неподтверждённым данным.</p><button id="p271check" type="button">Проверить цены Ozon</button><div id="p271out" aria-live="polite">Проверка ещё не запускалась.</div>';
 const finance=detail.querySelector('.p26-finance');
 if(finance)finance.insertAdjacentElement('afterend',panel);else detail.appendChild(panel);
 const button=panel.querySelector('#p271check'),out=panel.querySelector('#p271out');
@@ -1201,7 +1201,7 @@ const base='https://ozon-ai-assistant-api.onrender.com';
 const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const fmt=(v,suffix='')=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ru-RU',{maximumFractionDigits:2})+suffix:'—';
 const panel=document.createElement('section');panel.id='h50';
-panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-sub">Ozon · Заказы FBS · Только просмотр</p></div><button id="h50refresh" type="button">↻ Обновить</button></div><div class="h50-period"><button data-days="1" type="button">24 часа</button><button data-days="2" type="button">2 дня</button><button data-days="7" type="button">7 дней</button><button data-days="30" type="button">30 дней</button></div><div class="h50-status" id="h50status">Для загрузки заказов нужен доступ к серверу.</div><div class="h50-grid" id="h50summary"></div><div class="h57-info"><h3 class="h50-section-title">Статусы отправлений</h3><div id="h57bar"></div><h3 class="h50-section-title">Заказы по дням</h3><div id="h57chart"></div></div><h3 class="h50-section-title">Список заказов</h3><div class="h57-filters"><button type="button" data-filter="all">Все</button><button type="button" data-filter="delivered">Доставлено</button><button type="button" data-filter="other">Остальные</button></div><p id="h57count" class="h50-note"></p><div id="h50list"></div><p class="h50-note">Финансовая детализация доступна только для доставленных отправлений. Суммы и операции Ozon могут обновляться после доставки. Это не расчёт чистой прибыли.</p>';
+panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-sub">Ozon · Заказы FBS · Только просмотр</p></div><button id="h50refresh" type="button">↻ Обновить</button></div><div class="h50-period"><button data-days="1" type="button">24 часа</button><button data-days="2" type="button">2 дня</button><button data-days="7" type="button">7 дней</button><button data-days="32" type="button">Этот месяц</button></div><div class="h50-status" id="h50status">Для загрузки заказов нужен доступ к серверу.</div><div class="h50-grid" id="h50summary"></div><div class="h57-info"><h3 class="h50-section-title">Статусы отправлений</h3><div id="h57bar"></div></div><h3 class="h50-section-title">Список заказов</h3><div class="h57-filters"><button type="button" data-filter="all">Все</button><button type="button" data-filter="delivered">Доставлено</button><button type="button" data-filter="other">Остальные</button></div><p id="h57count" class="h50-note"></p><div id="h50list"></div><p class="h50-note">Финансовая детализация доступна только для доставленных отправлений. Суммы и операции Ozon могут обновляться после доставки. Это не расчёт чистой прибыли.</p>';
 host.prepend(panel);
 const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50list'),summary=panel.querySelector('#h50summary');
 let days=7,orders=[],expanded=new Set(),finances=new Map(),request=0;
@@ -1235,17 +1235,13 @@ function draw(){
    bar.innerHTML='<div class="h65-month-title">Отправления за '+esc(monthTitle())+'</div><div class="h65-month-sub">С начала месяца · по дате создания · актуальный статус Ozon</div><div class="h65-month-grid"><div class="h65-month-card h65-done"><span>✓ Доставлено</span><strong>'+done+'</strong><small>Получено покупателями</small></div><div class="h65-month-card h65-transit"><span>↗ В пути</span><strong>'+transit+'</strong><small>На этапе доставки</small></div></div>'+(rest?'<div class="h65-other">Другие статусы <b>'+rest+'</b></div>':'')+'<div class="h65-month-progress"><i style="width:'+pct+'%"></i></div><div class="h65-month-foot"><span>Доставлено '+pct+'%</span><span>Всего '+mo.length+'</span></div>'+(monthPartial?'<p class="h50-note">Ozon ограничил объём выгрузки. Месячные показатели могут быть неполными.</p>':'');
   }
  }
- const byDay=new Map();
- orders.forEach(o=>{const d=new Date(o.created_at);if(!Number.isFinite(d.getTime()))return;const key=d.toISOString().slice(0,10);byDay.set(key,(byDay.get(key)||0)+1)});
- const chart=panel.querySelector('#h57chart');
- if(chart){const entries=[...byDay].sort((a,b)=>a[0].localeCompare(b[0]));const max=Math.max(1,...entries.map(x=>x[1]));chart.innerHTML=entries.length?'<div class="h57-chart h65-chart">'+entries.map(([day,count])=>'<div class="h57-chart-col" title="'+esc(day)+': '+count+'"><b>'+count+'</b><div class="h57-chart-track"><i style="height:'+Math.max(5,100*count/max)+'%"></i></div><small>'+esc(day.slice(8))+'</small></div>').join('')+'</div><p class="h50-note">По дате создания отправления · число внизу — день месяца</p>':'<p class="h50-note">Нет данных для графика.</p>'}
  panel.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('h57-selected',b.dataset.filter===filter));
  const shown=orders.filter(o=>filter==='all'||(filter==='delivered'?o.delivered:!o.delivered));
  const count=panel.querySelector('#h57count');if(count)count.textContent='Показано: '+shown.length+' из '+orders.length;
  list.innerHTML=shown.length?shown.map(o=>{
   const id=String(o.posting_number),open=expanded.has(id),finance=finances.get(id),p=o.products?.[0]||{};
   const name=p.name||'Товар Ozon',extra=(o.products||[]).length>1?' · ещё '+((o.products||[]).length-1)+' поз.':'';
-  const items=(o.products||[]).map(x=>'<div class="h58-product-line"><div class="h58-product-name">'+esc(x.name||'Товар')+'</div><div class="h58-product-values"><small>'+esc(String(x.quantity||1))+' шт.</small><strong>'+esc(money(x.price))+'</strong></div></div>').join('');
+  const items=(o.products||[]).map((x,i)=>'<div class="h66-order-facts"><div><span>Сумма товара'+(o.products.length>1?' '+(i+1):'')+'</span><strong>'+esc(money(x.price))+'</strong></div><div><span>Количество</span><strong>'+esc(String(x.quantity||1))+' шт.</strong></div><div><span>Доставка</span><strong>FBS</strong></div></div>').join('');
   let fin='';
   if(o.delivered){
    fin='<div class="h50-finance"><h4>Начисления и удержания Ozon</h4><button type="button" data-finance="'+esc(id)+'">Загрузить финансовые операции</button>';
@@ -1266,9 +1262,10 @@ async function load(){
  const t=token();if(!t){status.textContent='Сначала введите пароль доступа к серверу в разделе «Цены» (синхронизация каталога).';return}
  const seq=++request;panel.classList.remove('h63-api-error');status.textContent='Загружаем заказы Ozon…';
  try{
-  const r=await fetch(base+'/api/orders?days='+days,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
+  const requestDays=days===32?Math.min(35,Number(moscowDay(new Date()).slice(8))+2):days;
+  const r=await fetch(base+'/api/orders?days='+requestDays,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?' · Код Ozon: '+(d.diagnostic.code||'неизвестен')+' · '+d.diagnostic.reason:''));
-  if(seq!==request)return;panel.classList.remove('h63-api-error');orders=d.orders||[];finances.clear();
+  if(seq!==request)return;panel.classList.remove('h63-api-error');orders=(d.orders||[]).filter(o=>days!==32||(o.created_at&&Number.isFinite(new Date(o.created_at).getTime())&&moscowDay(new Date(o.created_at)).startsWith(monthKey())));finances.clear();
   status.textContent='FBS · Загружено отправлений: '+orders.length+(d.partial?' · Достигнут лимит выгрузки, список может быть неполным':'');
   draw();
   // Independent month-to-date request; period buttons only affect the order list and daily chart.
@@ -1642,5 +1639,33 @@ for(const h of pane.querySelectorAll('.card h3')){const t=h.textContent||'';cons
 #h50 .h65-chart .h57-chart-track i{border-radius:10px;background:linear-gradient(180deg,#ffb675,#f47d37)!important}
 #h50 .h50-section-title{font-size:19px!important;margin-top:22px!important}
 @media(max-width:370px){#h50 .h65-month-card{padding:13px 9px}#h50 .h65-month-card span{font-size:13px}#h50 .h65-month-card small{font-size:11px}}
+</style>
+
+<style id="hogar-v66-final">
+/* Larger legible copy on all six tabs */
+#h50 .h50-tile small,#h50 .h50-note,#h50 .h65-month-sub,#h50 .h65-month-foot,#h50 .h65-month-card small{font-size:clamp(14px,3.6vw,16px)!important;line-height:1.45!important}
+#h50 .h50-tile b{font-size:clamp(25px,6vw,32px)!important}
+#h50 .h57-order-main small,#h50 .h57-order-meta small{font-size:14px!important}
+#h50 .h50-finance button,#h50 .h50-body button{background:linear-gradient(125deg,#ff9d51,#f5772d)!important;border:1px solid #ef9c65!important;color:#fff!important;box-shadow:none!important}
+#h50 .h50-tile[data-filter="delivered"]{background:#e3f4e8!important;border:1.5px solid #93d2a8!important}
+#h50 .h50-tile[data-filter="delivered"] small,#h50 .h50-tile[data-filter="delivered"] b{color:#176b41!important}
+#h50 .h50-tile[data-filter="delivered"] small::before{content:'✓ ';font-weight:800}
+#h50 .h66-order-facts{display:grid;gap:9px;margin:6px 0 14px}
+#h50 .h66-order-facts>div{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:8px 0;border-bottom:1px solid #ead7c5}
+#h50 .h66-order-facts span{font-size:15px;color:#8a6a56}
+#h50 .h66-order-facts strong{font-size:18px;color:#422b1f;text-align:right;white-space:nowrap}
+#tab-more .card h3::before,#tab-more .card:first-of-type h3::before,#tab-more .card:nth-of-type(2) h3::before{content:none!important;display:none!important}
+#tab-more .hogar64-icon-heading .hogar64-icon{margin-right:9px!important}
+#premium22 .p25-back{display:inline-flex!important;align-items:center!important;width:auto!important;background:transparent!important;color:#83583c!important;font-size:16px!important;font-weight:700!important;border:0!important;padding:8px 0 16px!important;box-shadow:none!important}
+#premium22 #p22detail .p22-head::before,#premium22 #p22detail .p22-head h3::before{content:none!important}
+#premium22 #p22detail .p271-panel h3{display:flex;align-items:center;gap:10px;font-size:21px!important}
+#premium22 #p22detail .h66-tag-icon{display:inline-flex;align-items:center;justify-content:center;background:#f9e5d4;color:#b85d2e!important;width:34px;height:34px;border-radius:10px;font-size:27px;line-height:1}
+#premium22 .p271-panel p,#premium22 #p271out,#premium22 .p271-grid small{font-size:14px!important;line-height:1.55!important}
+#premium22 .p22-sub,#premium22 .p22-muted,#premium22 .p22-small{font-size:14px!important}
+#premium22 #p22detail.p25-modal .p22-head button{background:#f9e7d7!important;color:#9d5b37!important;border:1px solid #ebc7ac!important;box-shadow:none!important}
+#premium22 .p22-caption,#premium22 .p22-description{font-size:15px!important}
+#premium22 .p22-intro,#premium22 .p22-summary{position:relative}
+#premium22 .p22-item small{font-size:14px!important}
+@media(max-width:390px){#h50 .h50-period button{font-size:13px!important;padding:10px 3px!important}}
 </style>
 </body></html>
