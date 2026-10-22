@@ -86,7 +86,7 @@ nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activat
     <h3>Мои товары · v1.0</h3>
     <small>Синхронизация из Ozon · только чтение. Себестоимость хранится на этом iPhone.</small>
     <label for="v10token">Пароль доступа к серверу (APP_ACCESS_TOKEN, НЕ API-ключ Ozon)</label>
-    <input id="v10token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Введите пароль доступа">
+    <input id="v10token" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" placeholder="Введите пароль доступа">
     <p><button type="button" id="v10sync">↻ Синхронизировать товары из Ozon</button></p>
     <p id="v10status" aria-live="polite"></p>
     <label for="v10search">Поиск по названию или артикулу</label>
@@ -824,123 +824,7 @@ const selector=document.getElementById('r20product');selector?.addEventListener(
 #h31ads{color:#eaf3ff}#h31ads .h31-top{padding:18px;background:linear-gradient(135deg,#12385e,#0b2037);border:1px solid #2b5378;border-radius:21px;margin-bottom:14px}#h31ads h2{margin:0 0 7px;font-size:25px}#h31ads .h31-muted{font-size:12px;color:#a6bfdc;line-height:1.5}#h31ads .h31-card{background:#132a45;border:1px solid #30516f;border-radius:18px;padding:15px;margin:12px 0}#h31ads .h31-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}#h31ads .h31-metric{background:#0b1e34;border-radius:12px;padding:12px}#h31ads .h31-metric b{display:block;font-size:21px;margin-top:6px}#h31ads .h31-controls{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}#h31ads button{min-height:39px;background:#205ca3!important}#h31ads button.h31-outline{background:#1c3857!important}#h31ads input,#h31ads select{background:#0b1d32!important;color:#f3f8ff!important;min-width:0}#h31ads label{margin:10px 0 4px}#h31ads .h31-line{display:flex;align-items:center;justify-content:space-between;gap:10px}#h31ads .h31-toggle{font-size:26px;line-height:1;background:transparent!important;padding:4px 8px!important;min-height:35px!important;color:#8da4bf!important}#h31ads .h31-toggle[aria-pressed=true]{color:#65dba8!important}#h31ads .h31-warning{background:#392c1a;border:1px solid #69522b;border-radius:12px;padding:12px;font-size:12px;color:#f4d99a}#h31ads .h31-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}#h31ads details{margin-top:12px}#h31ads summary{font-weight:650;cursor:pointer;padding:8px 0}#h31ads .h31-pills button{font-size:12px;padding:8px!important;min-height:32px!important}#h31ads .h31-pills button[aria-pressed=true]{background:#327ce0!important}#h31ads .h31-small{font-size:11px;color:#9ab6d5}#h31ads .h31-check{display:flex;align-items:center;gap:9px;font-size:13px;margin-top:12px}#h31ads .h31-check input{width:auto}#h31ads .h31-status{font-size:12px;color:#86dbb6}#h31ads .h31-danger{color:#ffb0aa;font-size:12px}
 #premium22 .h31-watch{background:transparent!important;border:0!important;padding:5px!important;min-height:35px!important;font-size:28px!important;flex-shrink:0}#premium22 .h31-watch[aria-pressed=true]{color:#69d9ac!important}#premium22 .h31-watch[aria-pressed=false]{color:#8295ae!important}
 </style>
-<script id="hogar-v35-ads">
-(function(){
-'use strict';
-const host=document.getElementById('tab-ads');
-if(!host)return;
-const storage='hogar_ads_strategies_v31', watchKey='hogar_price_watch_v31';
-const periods=[['today','Сегодня'],['yesterday','Вчера'],['7','7 дней'],['30','30 дней'],['custom','Даты']];
-const strategies=[['autopilot','Автопилот'],['funnel','По воронке'],['conversion','По конверсиям'],['positions','По позициям'],['reach','По охватам'],['rules','По правилам']];
-const explanations={
-autopilot:'Цель — максимальное число заказов в рамках бюджета. Если 80% дневного бюджета потрачено раньше 80% дня, стратегия переходит в экономный режим: не повышает ставки и может снижать их до заданного минимума.',
-funnel:'Сравнивает показы, клики и заказы, чтобы найти слабый этап воронки. Меняет ставки только при наличии достаточных достоверных данных.',
-conversion:'Ориентируется на конверсию кликов в заказы и старается повышать эффективность, не выходя за ограничения ставок.',
-positions:'Управляет ставками ради видимости в рекламной выдаче, если Ozon предоставляет необходимые показатели.',
-reach:'Стремится увеличить охват и показы, сохраняя ограничения по бюджету и ставкам.',
-rules:'Меняет ставки только по заранее заданным условиям. Реальные правила появятся после подключения серверной автоматизации.'
-};
-function read(k,d){try{return JSON.parse(localStorage.getItem(k)||'null')??d}catch(_){return d}}
-function persist(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(_){alert('Не удалось сохранить на устройстве');return false}}
-const state=read(storage,{campaigns:[],period:'today'});
-for(const c of state.campaigns||[]){c.auto=false;c.enabled=false;}
-persist(storage,state);if(!Array.isArray(state.campaigns))state.campaigns=[];state.campaigns.forEach(c=>{c.auto=false});persist(storage,state);
-function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function blank(){return {id:'local-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),name:'Новая кампания',budget:'',weeklyBudget:'',min:'',max:'',strategy:'autopilot',period:'today',enabled:false,auto:false,expanded:true,view:'settings',reach:50,changeLimit:'10',from:'09:00',to:'22:00',budgetGuard:true}}
-function metrics(labels){return '<div class="h31-grid">'+labels.map(x=>'<div class="h31-metric"><span class="h31-muted">'+x+'</span><b>—</b></div>').join('')+'</div>'}
-function periodNav(period,scope,id){return '<div class="h31-controls h31-pills">'+periods.map(([v,label])=>'<button type="button" data-action="period" data-scope="'+scope+'" data-id="'+esc(id)+'" data-period="'+v+'" aria-pressed="'+(period===v)+'">'+label+'</button>').join('')+'</div>'}
-function field(c,id,label,key,type='number'){return '<div><label>'+label+'</label><input type="'+type+'" '+(type==='number'?'min="0" ':'')+'data-field="'+key+'" data-id="'+id+'" value="'+esc(c[key]??'')+'"></div>'}
-function card(c){
- const id=esc(c.id),strategy=explanations[c.strategy]?c.strategy:'autopilot',reach=Number(c.reach??50);
- const content=c.view==='history'
- ?'<div class="h32-hist"><b>История решений</b><p class="h31-muted">Пока нет реальных изменений ставок. После подключения Ozon Performance API и сервера здесь будут время, старая и новая ставка, показатели и причина решения.</p><details><summary>Как будет выглядеть объяснение?</summary><p class="h31-small">Каждое действие будет иметь отдельную запись. Вы сможете открыть её и увидеть, почему алгоритм изменил ставку. Придуманных действий здесь не будет.</p></details></div>'
- :''+
- periodNav(c.period,'campaign',id)+(c.period==='custom'?'<div class="h31-two">'+field(c,id,'С даты','dateFrom','date')+field(c,id,'По дату','dateTo','date')+'</div>':'')+
- metrics(['Расходы','Заказы','Продажи','ДРР','Показы','Клики','CTR','Конверсия'])+
- '<div class="h31-two">'+field(c,id,'Бюджет в день, ₽','budget')+field(c,id,'Бюджет в неделю, ₽','weeklyBudget')+'</div>'+
- '<p class="h31-small">Бюджеты сейчас локальные. Для чтения и изменения на Ozon требуется поддержка соответствующих операций в Ozon Performance API.</p>'+
- '<div class="h32-switches"><b>Умная стратегия</b><span>Выключена <button class="h31-toggle" data-action="strategy-toggle" data-id="'+id+'" aria-pressed="'+!!c.auto+'" aria-label="Умная стратегия выключена — режим просмотра" disabled>'+(c.auto?'●':'○')+'</button></span></div>'+
- '<div class="h31-line"><label style="flex:1">Алгоритм<select data-field="strategy" data-id="'+id+'">'+strategies.map(([v,t])=>'<option value="'+v+'" '+(strategy===v?'selected':'')+'>'+t+'</option>').join('')+'</select></label><button type="button" class="h34-help" data-action="help" data-id="'+id+'" aria-label="Объяснить стратегию">ⓘ</button></div>'+
- '<div class="h34-explanation" data-explanation="'+id+'" hidden>'+esc(explanations[strategy])+'</div>'+
- '<div class="h31-two">'+field(c,id,'Мин. ставка, ₽','min')+field(c,id,'Макс. ставка, ₽','max')+'</div>'+
- '<label>Приоритет стратегии</label><input class="h34-slider" type="range" min="0" max="100" data-field="reach" data-id="'+id+'" value="'+esc(reach)+'">'+
- '<div class="h34-slider-labels"><small>Экономия</small><b data-reach-mode="'+id+'">'+(reach<34?'Экономия':reach>66?'Больше показов':'Баланс')+'</b><small>Больше показов</small></div>'+
- '<label class="h31-check"><input type="checkbox" data-field="budgetGuard" data-id="'+id+'" '+(c.budgetGuard!==false?'checked':'')+'> Экономить, если 80% дневного бюджета потрачено слишком рано</label>'+
- '<p class="h31-small">Бюджет не перераспределяется между кампаниями. Режим экономии будет действовать после подключения серверной стратегии.</p>'+
- '<div class="h36-limit"><div><b>Шаг изменения ставки</b><small>Максимум за одно решение</small></div><div class="h36-stepper"><button type="button" data-action="step-down" data-id="'+id+'" aria-label="Уменьшить шаг">−</button><input type="number" min="1" max="100" step="1" inputmode="numeric" data-field="changeLimit" data-id="'+id+'" value="'+esc(c.changeLimit??10)+'" aria-label="Шаг изменения ставки, процентов"><span>%</span><button type="button" data-action="step-up" data-id="'+id+'" aria-label="Увеличить шаг">+</button></div></div>'+
- '<div class="h36-schedule"><div class="h36-section-title">Расписание показов</div><div class="h36-times"><label>Включать<input type="time" data-field="from" data-id="'+id+'" value="'+esc(c.from||'09:00')+'"></label><span class="h36-time-sep">→</span><label>Выключать<input type="time" data-field="to" data-id="'+id+'" value="'+esc(c.to||'22:00')+'"></label></div></div>'+
- '<div class="h36-savebar"><button type="button" class="h36-save" data-action="save" data-id="'+id+'">✓ Сохранить настройки</button><div class="h31-small">Только на этом устройстве · без отправки в Ozon</div></div>';
- return '<div class="h31-card h36-campaign '+(c.expanded?'h36-open':'h36-closed')+'" data-campaign="'+id+'"><div class="h36-campaign-head">'+
- '<button type="button" class="h36-campaign-title" data-action="expand" data-id="'+id+'" aria-expanded="'+!!c.expanded+'"><span class="h36-campaign-symbol">◈</span><span class="h36-campaign-name"><b>'+esc(c.name)+'</b><small>Черновик · '+(c.enabled?'Включена':'Выключена')+'</small></span><span class="h36-chevron">'+(c.expanded?'⌃':'⌄')+'</span></button>'+
- '<button type="button" class="h38-rename" data-action="rename" data-id="'+id+'" aria-label="Переименовать кампанию">✎</button>'+
- '<button type="button" class="h31-toggle h36-main-toggle" data-action="toggle" data-id="'+id+'" aria-pressed="'+!!c.enabled+'" aria-label="'+(c.enabled?'Выключить':'Включить')+' кампанию">'+(c.enabled?'●':'○')+'</button></div>'+
- (!c.expanded?'<div class="h39-summary" data-action="expand" data-id="'+id+'" role="button" tabindex="0" aria-label="Развернуть кампанию"><div class="h39-stat"><small>Расход</small><b>— ₽</b></div><div class="h39-stat"><small>Заказы</small><b>—</b></div><div class="h39-stat"><small>ДРР</small><b>— %</b></div></div><div class="h39-foot" data-action="expand" data-id="'+id+'" role="button" tabindex="0"><span>Стратегия: '+esc(strategies.find(x=>x[0]===strategy)?.[1]||'Автопилот')+'</span><span>Сегодня</span></div>':'')+
- (c.expanded?'<div class="h36-open-actions"><button class="h31-outline h36-delete" data-action="delete" data-id="'+id+'">Удалить черновик</button></div><div class="h32-subnav"><button data-action="view" data-id="'+id+'" data-view="settings" aria-pressed="'+(c.view!=='history')+'">Стратегия и бюджет</button><button data-action="view" data-id="'+id+'" data-view="history" aria-pressed="'+(c.view==='history')+'">История</button></div>'+content:'')+'</div>';
-}
-const root=document.createElement('div');root.id='h31ads';host.prepend(root);
-function render(){root.innerHTML='<div class="h31-top"><div class="h31-muted">HOGAR · ADS CONTROL CENTER</div><h2>Реклама</h2><div class="h31-warning">Реальные рекламные кампании загружаются в блоке ниже. Умная стратегия выключена, изменение рекламы запрещено.</div></div>'+
- '<div class="h31-card"><b>Общая статистика</b>'+periodNav(state.period,'all','')+metrics(['Расходы','Заказы','Продажи','ДРР'])+'</div>'+
- '<div class="h31-card"><div class="h31-line"><b>Кампании</b><button data-action="add">+ Черновик</button></div><p class="h31-muted">Каждая кампания настраивается отдельно. Автоматическое управление рекламой отключено: сейчас рекламой управляет сторонний сервис.</p></div>'+
- (state.campaigns.length?state.campaigns.map(card).join(''):'<div class="h31-card h31-muted">Пока нет подключённых кампаний. Можно создать черновик настроек.</div>')}
-root.addEventListener('click',e=>{
- // A tap anywhere on the campaign header expands/collapses it; the switch remains independent.
- const header=e.target.closest('.h36-campaign-head');
- if(header&&!e.target.closest('.h36-main-toggle')&&!e.target.closest('.h38-rename')&&!e.target.closest('.h36-campaign-title')){
-   header.querySelector('.h36-campaign-title')?.click();return;
- }
- const collapsed=e.target.closest('.h36-campaign.h36-closed');
- if(collapsed&&!e.target.closest('button')&&e.target.closest('.h39-summary,.h39-foot')){
-  const c=state.campaigns.find(x=>x.id===collapsed.dataset.campaign);
-  if(c){c.expanded=true;persist(storage,state);render()}return;
- }
- const b=e.target.closest('button[data-action]');if(!b)return;
- const a=b.dataset.action,c=state.campaigns.find(x=>x.id===b.dataset.id);
- if(a==='add')state.campaigns.push(blank());
- else if(a==='period'){if(b.dataset.scope==='all')state.period=b.dataset.period;else if(c)c.period=b.dataset.period}
- else if(a==='expand'&&c)c.expanded=!c.expanded;
- else if(a==='rename'&&c){const v=prompt('Название кампании',c.name);if(v===null)return;const name=v.trim();if(!name||name.length>100){alert('Название должно содержать от 1 до 100 символов');return}c.name=name;}
- else if(a==='toggle'&&c)c.enabled=!c.enabled;
- else if(a==='strategy-toggle'&&c)c.auto=false;
- else if(a==='view'&&c)c.view=b.dataset.view;
- else if((a==='step-up'||a==='step-down')&&c){c.changeLimit=String(Math.max(1,Math.min(100,(Number(c.changeLimit)||10)+(a==='step-up'?1:-1))))}
- else if(a==='delete'&&c){if(!confirm('Удалить черновик?'))return;state.campaigns=state.campaigns.filter(x=>x.id!==c.id)}
- else if(a==='help'&&c){const h=root.querySelector('[data-explanation="'+c.id+'"]');h.hidden=!h.hidden;return}
- else if(a==='save'&&c){if(!Number.isInteger(Number(c.changeLimit))||Number(c.changeLimit)<1||Number(c.changeLimit)>100){alert('Шаг изменения ставки должен быть от 1 до 100%');return}
- if(c.min!==''&&c.max!==''&&Number(c.max)<Number(c.min)){alert('Максимальная ставка должна быть не ниже минимальной');return}
- if(['budget','weeklyBudget','min','max'].some(k=>c[k]!==''&&c[k]!=null&&(!Number.isFinite(Number(c[k]))||Number(c[k])<0))){alert('Проверьте бюджет и ставки');return}
- if(!persist(storage,state))return;alert('Черновик сохранён на устройстве. Ozon не изменён.');return}
- persist(storage,state);render();
-});
-root.addEventListener('input',e=>{
- const x=e.target,c=state.campaigns.find(v=>v.id===x.dataset.id);if(!c||!x.dataset.field)return;
- c[x.dataset.field]=x.type==='checkbox'?x.checked:x.value;persist(storage,state);
- if(x.dataset.field==='reach'){const v=Number(x.value);root.querySelector('[data-reach-mode="'+c.id+'"]').textContent=v<34?'Экономия':v>66?'Больше показов':'Баланс'}
- if(x.dataset.field==='strategy'){const h=root.querySelector('[data-explanation="'+c.id+'"]');if(h)h.textContent=explanations[c.strategy]||''}
-});
-render();
-// Monitoring controls are local preferences, not an active background monitoring service.
-const prices=document.getElementById('premium22'),list=prices?.querySelector('#p22list');
-if(!list)return;
-const bar=document.createElement('div');bar.className='h34-master';bar.innerHTML='<div><b>Отслеживание товаров</b><div class="h31-small" id="h34-count"></div></div><label><input type="checkbox" id="h34-all"> Все</label>';list.before(bar);
-const master=bar.querySelector('#h34-all'),counter=bar.querySelector('#h34-count');
-function catalog(){const x=read('ozon_products_v09',[]);return Array.isArray(x)?x:[]}
-function updateCount(){const items=catalog(),v=read(watchKey,{}),n=items.filter(p=>v[String(p.id)]!==false).length;counter.textContent='Включено '+n+' из '+items.length+' · только настройки';master.checked=!!items.length&&n===items.length;master.indeterminate=n>0&&n<items.length}
-function drawWatch(){
- const items=catalog(),settings=read(watchKey,{});
- for(const row of list.querySelectorAll('button.p22-item')){
-  const title=row.querySelector('.p22-itemtext b');if(!title)continue;
-  const p=items.find(p=>p.name===title.title||p.short_name===title.textContent||p.name===title.textContent);if(!p)continue;
-  let sw=row.querySelector('.h31-watch');if(!sw){sw=document.createElement('span');sw.className='h31-watch';sw.setAttribute('role','switch');sw.setAttribute('tabindex','0');row.append(sw);
-   const flip=e=>{if(e.type==='keydown'&&!['Enter',' '].includes(e.key))return;e.preventDefault();e.stopPropagation();const v=read(watchKey,{});v[String(p.id)]=v[String(p.id)]===false;persist(watchKey,v);drawWatch()};
-   sw.addEventListener('click',flip);sw.addEventListener('keydown',flip)}
-  const on=settings[String(p.id)]!==false;sw.textContent=on?'◉':'○';sw.setAttribute('aria-pressed',String(on));sw.setAttribute('aria-label','Отслеживание '+(p.short_name||p.name));
- }
- updateCount();
-}
-master.addEventListener('change',()=>{const v=read(watchKey,{});for(const p of catalog())v[String(p.id)]=master.checked;if(persist(watchKey,v))drawWatch()});
-new MutationObserver(drawWatch).observe(list,{childList:true});drawWatch();
-})();
-</script><style id="hogar-v35-final">
+<style id="hogar-v35-final">
 #tab-ads>.card{display:none!important}
 #tab-ads>.tab-heading{display:none!important}
 #h31ads .h34-slider{appearance:none!important;-webkit-appearance:none!important;display:block;width:100%;height:13px!important;min-height:13px!important;border:0!important;border-radius:30px!important;padding:0!important;margin:19px 0 10px;background:linear-gradient(90deg,#52d8e4 0%,#4b91ff 52%,#9a59f4 100%)!important;box-shadow:0 0 15px #3973c04a!important}
@@ -1027,63 +911,110 @@ new MutationObserver(drawWatch).observe(list,{childList:true});drawWatch();
 #h40-performance .h43-tab.h43-selected{background:#225c98!important;border-color:#6baff0!important;color:#fff!important}
 #h40-performance .h40-item[hidden],#h40-performance .h43-empty[hidden]{display:none!important}
 </style>
-<script id="hogar-performance-readonly">
+
+
+<style id="hogar-v44">
+#h44{padding:15px;border-radius:19px;background:linear-gradient(150deg,#132f50,#091b31);border:1px solid #30577e;color:#e9f3ff;box-sizing:border-box}
+#h44 *{box-sizing:border-box}
+#h44 .h44-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#h44 h2{font-size:21px;margin:0;line-height:1.25}
+#h44 .h44-safe{font-size:12px;line-height:1.55;color:#8ddab8;margin:12px 0}
+#h44 button{background:#225fa6;border:1px solid #447db8;border-radius:12px;padding:10px 12px;color:#eff7ff;font-weight:650;min-height:43px}
+#h44 .h44-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:16px 0 12px}
+#h44 .h44-tab{min-width:0;font-size:clamp(10px,3vw,13px);padding:10px 4px;overflow-wrap:anywhere}
+#h44 .h44-tab[aria-selected=true]{background:#327ee0;border-color:#82bbff}
+#h44 .h44-tab b{display:inline-block;margin-left:2px;font-size:11px}
+#h44 .h44-card{background:#102741;border:1px solid #34577a;border-radius:15px;margin:11px 0;overflow:hidden}
+#h44 .h44-title{display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:0;text-align:left;padding:14px 12px;min-height:64px}
+#h44 .h44-mark{flex:0 0 38px;height:38px;display:grid;place-items:center;border:1px solid #416e9b;border-radius:12px;background:#1a416b;color:#7ad7ff;font-size:21px}
+#h44 .h44-text{flex:1;min-width:0}
+#h44 .h44-text b{display:block;font-size:15px;overflow-wrap:anywhere}
+#h44 .h44-text small{display:block;font-size:11px;color:#9bb8d5;margin-top:5px}
+#h44 .h44-chevron{flex:0 0 38px;width:38px;height:38px;display:grid;place-items:center;background:#1a416b;border:1px solid #416e9b;border-radius:12px;color:#8ac6ff;font-size:20px}
+#h44 .h44-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:0 12px 12px}
+#h44 .h44-metric{background:#091c32;border:1px solid #244668;border-radius:11px;padding:10px 7px;min-width:0}
+#h44 .h44-metric small{display:block;color:#9ebad7;font-size:10px}
+#h44 .h44-metric strong{display:block;font-size:17px;margin-top:7px;white-space:nowrap}
+#h44 .h44-details{padding:0 13px 14px;border-top:1px solid #2c4b6c;color:#aac6e2;font-size:12px;line-height:1.6}
+#h44 .h44-details p{margin:10px 0 0}
+#h44 .h44-note{font-size:12px;color:#9bb7d5;line-height:1.55;margin:12px 0}
+#h44 .h44-error{color:#ffb3b3}
+#h44 .h44-muted{font-size:12px;color:#a8c1db}
+#h44 .h44-last{font-size:11px;color:#9bb7d5;margin:10px 0}
+#h44 .h44-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+#h44 .h44-actions button{font-size:12px}
+#h44 .h44-diagnostics{font-size:12px;line-height:1.65;overflow-wrap:anywhere}
+</style>
+<script id="hogar-v44-readonly">
 (function(){
 'use strict';
 const host=document.getElementById('tab-ads');if(!host)return;
-const panel=document.createElement('section');panel.id='h40-performance';
-panel.innerHTML='<div class="h40-top"><h3>Реклама Ozon · реальные кампании</h3><button type="button" id="h40-refresh">Обновить</button></div><p class="h40-safe">● Только просмотр · умная стратегия выключена · сторонний сервис продолжает управлять рекламой</p><div id="h40-results"><p>Нажмите «Обновить», чтобы загрузить кампании.</p></div><p class="h40-note">Расходы, заказы и ДРР подключим следующим этапом. Прочерки не означают нулевые показатели.</p>';
-const adsRoot=document.getElementById('h31ads');
-if(adsRoot)adsRoot.after(panel);else host.prepend(panel);
-const output=panel.querySelector('#h40-results');
-const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const status={CAMPAIGN_STATE_RUNNING:'Активна',CAMPAIGN_STATE_PLANNED:'Запланирована',CAMPAIGN_STATE_STOPPED:'Остановлена из-за бюджета',CAMPAIGN_STATE_INACTIVE:'Выключена',CAMPAIGN_STATE_ARCHIVED:'В архиве',CAMPAIGN_STATE_FINISHED:'Завершена'};
+const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
+const base='https://ozon-ai-assistant-api.onrender.com';
+const cacheKey='hogar_ads_readonly_cache_v44',tabKey='hogar_ads_selected_tab_v44',sessionKey='hogar_session_access_v44';
+const panel=document.createElement('section');panel.id='h44';
+panel.innerHTML='<div class="h44-head"><h2>Мои рекламные кампании</h2><button type="button" id="h44refresh">↻ Обновить</button></div><p class="h44-safe">● Только просмотр · автоматическое управление выключено · сторонний сервис управляет рекламой</p><div class="h44-tabs" role="tablist"><button type="button" class="h44-tab" data-tab="active">Активные <b>0</b></button><button type="button" class="h44-tab" data-tab="inactive">Неактивные <b>0</b></button><button type="button" class="h44-tab" data-tab="archived">Архивные <b>0</b></button></div><div id="h44list"></div><div class="h44-last" id="h44updated"></div><div class="h44-actions"><button type="button" id="h44diagnose">Проверить подключение</button></div><div id="h44diagnostics" class="h44-diagnostics"></div><p class="h44-note">Расходы, заказы и средняя цена клика появятся после подключения подтверждённого метода статистики Ozon. Прочерки — не нулевые значения.</p>';
+host.prepend(panel);
+const listEl=panel.querySelector('#h44list'),updated=panel.querySelector('#h44updated'),diagnostics=panel.querySelector('#h44diagnostics');
+const status={CAMPAIGN_STATE_RUNNING:'Активна',CAMPAIGN_STATE_PLANNED:'Запланирована',CAMPAIGN_STATE_STOPPED:'Остановлена',CAMPAIGN_STATE_INACTIVE:'Выключена',CAMPAIGN_STATE_ARCHIVED:'В архиве',CAMPAIGN_STATE_FINISHED:'Завершена'};
+let campaigns=[],selected='active',expanded=new Set();
+try{const v=localStorage.getItem(tabKey);if(['active','inactive','archived'].includes(v))selected=v}catch(_){}
+const category=c=>{const v=String(c.status||'').toUpperCase();if(v.includes('ARCHIVED')||v.includes('FINISHED'))return 'archived';if(v.includes('RUNNING')||(v.includes('ACTIVE')&&!v.includes('INACTIVE')))return 'active';return 'inactive'};
+function draw(){
+ const counts={active:0,inactive:0,archived:0};campaigns.forEach(c=>counts[category(c)]++);
+ panel.querySelectorAll('.h44-tab').forEach(b=>{b.querySelector('b').textContent=counts[b.dataset.tab];b.setAttribute('aria-selected',String(selected===b.dataset.tab))});
+ const visible=campaigns.filter(c=>category(c)===selected);
+ if(!visible.length){listEl.innerHTML='<p class="h44-muted">В этой вкладке пока нет кампаний.</p>';return}
+ listEl.innerHTML=visible.map(c=>{
+  const id=String(c.id),open=expanded.has(id),name=esc(c.name||'Кампания № '+id);
+  const metric=(label,value)=>'<div class="h44-metric"><small>'+label+'</small><strong>'+value+'</strong></div>';
+  const val=(v,suffix)=>v===null||v===undefined||v===''?'—':esc(v)+suffix;
+  const spend=val(c.spend,' ₽'),orders=val(c.orders,''),cpc=val(c.avg_cpc,' ₽');
+  return '<article class="h44-card"><button type="button" class="h44-title" data-id="'+esc(id)+'" aria-expanded="'+open+'"><span class="h44-mark">◇</span><span class="h44-text"><b>'+name+'</b><small>'+esc(status[c.status]||c.status||'Статус не указан')+' · № '+esc(id)+'</small></span><span class="h44-chevron">'+(open?'⌃':'⌄')+'</span></button><div class="h44-metrics">'+metric('Расходы',spend)+metric('Заказы',orders)+metric('Сред. цена клика',cpc)+'</div>'+(open?'<div class="h44-details"><p>Тип: '+esc(c.type||'Не указан')+'</p><p>Модель оплаты: '+esc(c.payment_type||'Нет данных')+'</p><p>Статус: '+esc(status[c.status]||c.status||'Нет данных')+'</p><p>Управление и редактирование недоступны.</p></div>':'')+'</article>';
+ }).join('');
+}
+function token(){return document.getElementById('v10token')?.value.trim()||sessionStorage.getItem(sessionKey)||''}
+function syncToken(){const input=document.getElementById('v10token');if(!input)return;const v=input.value.trim();if(v)sessionStorage.setItem(sessionKey,v)}
+const input=document.getElementById('v10token');
+if(input){try{input.value=sessionStorage.getItem(sessionKey)||''}catch(_){}input.addEventListener('change',syncToken);input.addEventListener('input',syncToken)}
+function cacheLoad(){try{const d=JSON.parse(localStorage.getItem(cacheKey)||'null');if(d&&Array.isArray(d.campaigns)){campaigns=d.campaigns;updated.textContent='Сохранённые данные · '+new Date(d.checked_at).toLocaleString('ru-RU')+' · обновляем…';draw()}}catch(_){}}
 async function refresh(){
- output.innerHTML='<p>Загружаем кампании из Ozon…</p>';
+ const t=token();if(!t){updated.textContent='Введите пароль доступа к серверу один раз в разделе синхронизации каталога.';return}
+ updated.textContent='Получаем свежие данные из Ozon…';
  try{
-  // Reuse existing app access token without exposing Performance credentials to the browser.
-  const token=document.getElementById('v10token')?.value.trim()||'';
-  const response=await fetch('https://ozon-ai-assistant-api.onrender.com/api/ads/campaigns',{headers:token?{Authorization:'Bearer '+token}:{},cache:'no-store'});
-  if(!response.ok){if(response.status===401)throw Error('Введите пароль доступа к серверу в разделе синхронизации каталога.');throw Error('Сервер вернул ошибку '+response.status)}
-  const data=await response.json();const list=Array.isArray(data.campaigns)?data.campaigns:[];
-  if(!list.length){output.innerHTML='<p>Ozon не вернул рекламных кампаний. Проверьте кабинет и права ключа.</p>';return}
-  const category=c=>{const v=String(c.status||'').toUpperCase();if(v.includes('ARCHIVED')||v.includes('FINISHED'))return 'archived';if(v.includes('RUNNING')||v.includes('ACTIVE')&&!v.includes('INACTIVE'))return 'active';return 'inactive'};
-  const counts={active:0,inactive:0,archived:0};list.forEach(c=>counts[category(c)]++);
-  const cards=list.map(c=>'<div class="h40-item" data-group="'+category(c)+'"><div class="h40-name">'+escape(c.name||'Кампания без названия')+'</div><div class="h40-meta">№ '+escape(c.id)+' · '+escape(status[c.status]||c.status||'Статус неизвестен')+' · '+escape(c.type||'Тип не указан')+'</div><div class="h40-stats"><div class="h40-stat"><small>Расход</small><b>— ₽</b></div><div class="h40-stat"><small>Заказы</small><b>—</b></div><div class="h40-stat"><small>ДРР</small><b>— %</b></div></div></div>').join('');
-  output.innerHTML='<p>Всего кампаний: '+list.length+' · Обновлено: '+escape(new Date(data.checked_at).toLocaleString('ru-RU'))+'</p><div class="h43-tabs" role="tablist" aria-label="Статусы рекламных кампаний"><button type="button" class="h43-tab" data-group="active">Активные <b>'+counts.active+'</b></button><button type="button" class="h43-tab" data-group="inactive">Неактивные <b>'+counts.inactive+'</b></button><button type="button" class="h43-tab" data-group="archived">Архивные <b>'+counts.archived+'</b></button></div><div class="h43-cards">'+cards+'</div><p class="h43-empty" hidden>В этой вкладке кампаний нет.</p>';
-  const tabs=output.querySelectorAll('.h43-tab');const items=output.querySelectorAll('.h40-item');
-  const select=group=>{tabs.forEach(t=>{const on=t.dataset.group===group;t.classList.toggle('h43-selected',on);t.setAttribute('aria-selected',String(on))});let visible=0;items.forEach(el=>{const show=el.dataset.group===group;el.hidden=!show;if(show)visible++});output.querySelector('.h43-empty').hidden=visible!==0};
-  tabs.forEach(t=>t.addEventListener('click',()=>select(t.dataset.group)));
-  select('active');
- }catch(err){output.innerHTML='<p class="h40-error">'+escape(err.message)+'</p><p>Нажмите «Проверить подключение» ниже: диагностика покажет, на каком этапе возникает ошибка.</p>'}
+  const response=await fetch(base+'/api/ads/campaigns',{headers:{Authorization:'Bearer '+t},cache:'no-store'});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error('HTTP '+response.status+(data.error?' · '+data.error:''));
+  if(!Array.isArray(data.campaigns))throw Error('Неожиданный ответ сервера');
+  campaigns=data.campaigns;
+  const d={checked_at:data.checked_at||new Date().toISOString(),campaigns};
+  try{localStorage.setItem(cacheKey,JSON.stringify(d))}catch(_){}
+  updated.textContent='Обновлено из Ozon · '+new Date(d.checked_at).toLocaleString('ru-RU');
+  draw();
+ }catch(e){updated.textContent='Не удалось обновить: '+e.message+' · сохранённые данные остаются на экране';updated.classList.add('h44-error')}
 }
 async function diagnose(){
- const url='https://ozon-ai-assistant-api.onrender.com';
- const token=document.getElementById('v10token')?.value.trim()||'';
- const lines=[];
- const add=(name,message)=>{lines.push('<div style="padding:7px 0;border-bottom:1px solid #284562"><b>'+escape(name)+'</b>: '+escape(message)+'</div>');output.innerHTML='<p>Диагностика подключения (без передачи ключей в отчёт):</p>'+lines.join('')};
- const run=async(name,path,headers)=>{
+ diagnostics.textContent='Проверяем соединение…';
+ const parts=[];
+ async function check(label,path,headers){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),18000);
-  try{
-   const response=await fetch(url+path,{method:'GET',headers:headers||{},cache:'no-store',signal:controller.signal});
-   let body={};try{body=await response.json()}catch(e){}
-   add(name,'HTTP '+response.status+(body.error?' · '+String(body.error).slice(0,150):''));
-   return response.status;
-  }catch(e){add(name,e.name==='AbortError'?'Тайм-аут 18 секунд':String(e.message||e));return null}
+  try{const r=await fetch(base+path,{headers:headers||{},signal:controller.signal,cache:'no-store'});const d=await r.json().catch(()=>({}));parts.push(label+': HTTP '+r.status+(d.error?' · '+String(d.error).slice(0,120):''))}
+  catch(e){parts.push(label+': '+(e.name==='AbortError'?'Тайм-аут':e.message))}
   finally{clearTimeout(timer)}
- };
- add('Пароль доступа',token?'Введён в поле синхронизации каталога':'Не найден в поле синхронизации каталога');
- await run('1. Доступность сервера','/health');
- await run('2. Проверка маршрута без пароля','/api/ads/campaigns');
- if(token)await run('3. Запрос с паролем','/api/ads/campaigns',{Authorization:'Bearer '+token});
- add('Итог','Пришлите скриншот этого отчёта. Пароли и ключи здесь не отображаются.');
+  diagnostics.innerHTML=parts.map(esc).join('<hr>');
+ }
+ await check('Сервер','/health');
+ await check('Маршрут','/api/ads/campaigns');
+ if(token())await check('Авторизованный запрос','/api/ads/campaigns',{Authorization:'Bearer '+token()});
+ diagnostics.innerHTML+='<p>Можно прислать скриншот: пароли и секреты в отчёте не отображаются.</p>';
 }
-const diagnostic=document.createElement('button');
-diagnostic.type='button';diagnostic.textContent='Проверить подключение';
-diagnostic.style.cssText='margin:12px 0;padding:12px 16px;border-radius:12px;border:1px solid #4979a9;background:#14365b;color:#eaf4ff;font-weight:700;font-size:15px';
-diagnostic.addEventListener('click',diagnose);
-panel.querySelector('#h40-results').after(diagnostic);
-panel.querySelector('#h40-refresh').addEventListener('click',refresh);
+panel.querySelectorAll('.h44-tab').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.tab;try{localStorage.setItem(tabKey,selected)}catch(_){}draw()}));
+listEl.addEventListener('click',e=>{const b=e.target.closest('button[data-id]');if(!b)return;const id=b.dataset.id;if(expanded.has(id))expanded.delete(id);else expanded.add(id);draw()});
+panel.querySelector('#h44refresh').addEventListener('click',refresh);
+panel.querySelector('#h44diagnose').addEventListener('click',diagnose);
+document.getElementById('v10sync')?.addEventListener('click',()=>{syncToken();setTimeout(refresh,1500)});
+cacheLoad();draw();
+if(token())setTimeout(refresh,1200);
 })();
 </script>
 </body></html>
