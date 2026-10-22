@@ -109,35 +109,29 @@ if(path.pathname==='/api/orders'){
  const days=Math.min(30,Math.max(1,Number(path.searchParams.get('days')||7)||7));
  const since=new Date(Date.now()-(days-1)*86400000).toISOString();
  const to=new Date().toISOString();
- const all=[],errors=[];
- function normalize(x,scheme){
-  const items=Array.isArray(x.products)?x.products.map(p=>({name:String(p.name||''),sku:String(p.sku??''),quantity:Number(p.quantity||1),price:p.price??null})): [];
-  const status=String(x.status||'');
-  const delivered=['delivered','delivered_to_customer'].includes(status.toLowerCase());
-  return {posting_number:String(x.posting_number||''),order_id:String(x.order_id??''),scheme,status,delivered,created_at:x.in_process_at||x.created_at||'',shipment_date:x.shipment_date||null,products:items,amount:null,financial_ready:false};
- }
+ const orders=[];let offset=0;let truncated=false;
+ const safeError=e=>{const code=Number(e.status);return {code:Number.isInteger(code)?code:null,reason:code===429?'Ozon ограничил частоту запросов':code===401||code===403?'Ozon отклонил доступ Seller API':code===400?'Ozon не принял параметры запроса FBS':code===404?'Метод FBS недоступен':'Ошибка запроса FBS к Ozon'};};
  try{
-  let offset=0;
-  for(let i=0;i<10;i++){
+  for(let page=0;page<10;page++){
    const d=await ozon('/v3/posting/fbs/list',{dir:'DESC',filter:{since,to},limit:100,offset,with:{analytics_data:false,financial_data:false}});
-   const items=Array.isArray(d.result?.postings)?d.result.postings:[];
-   all.push(...items.map(x=>normalize(x,'FBS')));
-   if(items.length<100)break;offset+=items.length;
+   const items=Array.isArray(d.result?.postings)?d.result.postings:null;
+   if(!items)throw Object.assign(new Error('Ozon вернул неожиданный формат списка FBS'),{status:502});
+   for(const x of items){
+    const products=Array.isArray(x.products)?x.products.map(p=>({name:String(p.name||''),sku:String(p.sku??''),quantity:Number(p.quantity||1),price:p.price??null})):[];
+    const status=String(x.status||'');
+    orders.push({posting_number:String(x.posting_number||''),order_id:String(x.order_id??''),scheme:'FBS',status,delivered:['delivered','delivered_to_customer'].includes(status.toLowerCase()),created_at:x.in_process_at||x.created_at||'',shipment_date:x.shipment_date||null,products,amount:null,financial_ready:false});
+   }
+   if(items.length<100)break;
+   offset+=items.length;
+   if(page===9)truncated=true;
   }
- }catch(e){errors.push('FBS: '+e.message)}
- try{
-  let offset=0;
-  for(let i=0;i<10;i++){
-   const d=await ozon('/v2/posting/fbo/list',{dir:'DESC',filter:{since,to},limit:100,offset,translit:false,with:{analytics_data:false,financial_data:false}});
-   const items=Array.isArray(d.result)?d.result:Array.isArray(d.result?.postings)?d.result.postings:[];
-   all.push(...items.map(x=>normalize(x,'FBO')));
-   if(items.length<100)break;offset+=items.length;
-  }
- }catch(e){errors.push('FBO: '+e.message)}
- if(errors.length===2)return reply(res,502,{error:'Не удалось загрузить заказы',details:errors},ORIGIN);
- const seen=new Set();
- const orders=all.filter(x=>x.posting_number&&!seen.has(x.posting_number)&&seen.add(x.posting_number)).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
- return reply(res,200,{read_only:true,days,orders,partial:errors.length>0,errors,checked_at:new Date().toISOString()},ORIGIN);
+  const seen=new Set();const unique=orders.filter(x=>x.posting_number&&!seen.has(x.posting_number)&&seen.add(x.posting_number)).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
+  return reply(res,200,{read_only:true,scheme:'FBS',days,orders:unique,partial:truncated,diagnostic:{source:'Ozon Seller API /v3/posting/fbs/list',fbs:'ok',returned:unique.length,truncated},checked_at:new Date().toISOString()},ORIGIN);
+ }catch(e){
+  const diagnostic=safeError(e);
+  console.error('FBS orders read failed:',diagnostic.code||'unknown',diagnostic.reason);
+  return reply(res,502,{error:'Не удалось загрузить заказы FBS',diagnostic:{source:'Ozon Seller API /v3/posting/fbs/list',fbs:'error',...diagnostic},read_only:true},ORIGIN);
+ }
 }
 if(path.pathname==='/api/orders/finance'){
  const posting=path.searchParams.get('posting_number')||'';
@@ -151,12 +145,6 @@ if(path.pathname==='/api/orders/finance'){
   const d=await ozon('/v3/posting/fbs/get',{posting_number:posting,with:{analytics_data:false,financial_data:false}});
   verified=['delivered','delivered_to_customer'].includes(String(d.result?.status||'').toLowerCase());
  }catch(_){}
- if(!verified){
-  try{
-   const d=await ozon('/v2/posting/fbo/get',{posting_number:posting,translit:false});
-   verified=['delivered','delivered_to_customer'].includes(String(d.result?.status||'').toLowerCase());
-  }catch(_){}
- }
  if(!verified)return reply(res,409,{error:'Не удалось подтвердить доставку заказа через Ozon'},ORIGIN);
  const date=new Date(created);if(!Number.isFinite(date.getTime()))return reply(res,400,{error:'Неизвестна дата заказа'},ORIGIN);
  const from=new Date(date.getTime()-7*86400000).toISOString(),to=new Date(Math.min(Date.now(),date.getTime()+120*86400000)).toISOString();

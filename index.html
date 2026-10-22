@@ -1157,7 +1157,7 @@ const base='https://ozon-ai-assistant-api.onrender.com';
 const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const fmt=(v,suffix='')=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ru-RU',{maximumFractionDigits:2})+suffix:'—';
 const panel=document.createElement('section');panel.id='h50';
-panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-sub">Ozon · Реальные продажи · Только просмотр</p></div><button id="h50refresh" type="button">↻ Обновить</button></div><div class="h50-period"><button data-days="1" type="button">24 часа</button><button data-days="2" type="button">2 дня</button><button data-days="7" type="button">7 дней</button><button data-days="30" type="button">30 дней</button></div><div class="h50-status" id="h50status">Для загрузки заказов нужен доступ к серверу.</div><div class="h50-grid" id="h50summary"></div><h3 class="h50-section-title">Список заказов</h3><div id="h50list"></div><p class="h50-note">Финансовая детализация доступна только для доставленных отправлений. Суммы и операции Ozon могут обновляться после доставки. Это не расчёт чистой прибыли.</p>';
+panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-sub">Ozon · Заказы FBS · Только просмотр</p></div><button id="h50refresh" type="button">↻ Обновить</button></div><div class="h50-period"><button data-days="1" type="button">24 часа</button><button data-days="2" type="button">2 дня</button><button data-days="7" type="button">7 дней</button><button data-days="30" type="button">30 дней</button></div><div class="h50-status" id="h50status">Для загрузки заказов нужен доступ к серверу.</div><div class="h50-grid" id="h50summary"></div><h3 class="h50-section-title">Список заказов</h3><div id="h50list"></div><p class="h50-note">Финансовая детализация доступна только для доставленных отправлений. Суммы и операции Ozon могут обновляться после доставки. Это не расчёт чистой прибыли.</p>';
 host.prepend(panel);
 const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50list'),summary=panel.querySelector('#h50summary');
 let days=7,orders=[],expanded=new Set(),finances=new Map(),request=0;
@@ -1196,11 +1196,11 @@ async function load(){
  const seq=++request;status.textContent='Загружаем заказы Ozon…';
  try{
   const r=await fetch(base+'/api/orders?days='+days,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
-  const d=await r.json();if(!r.ok)throw Error(d.error||'HTTP '+r.status);
+  const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?' · Код Ozon: '+(d.diagnostic.code||'неизвестен')+' · '+d.diagnostic.reason:''));
   if(seq!==request)return;orders=d.orders||[];finances.clear();
-  status.textContent='Загружено отправлений: '+orders.length+(d.partial?' · Часть данных недоступна ('+(d.errors||[]).join('; ')+')':'');
+  status.textContent='FBS · Загружено отправлений: '+orders.length+(d.partial?' · Достигнут лимит выгрузки, список может быть неполным':'');
   draw();
- }catch(e){if(seq!==request)return;status.textContent='Ошибка загрузки: '+e.message;list.innerHTML='';summary.innerHTML=''}
+ }catch(e){if(seq!==request)return;status.textContent='Ошибка загрузки FBS: '+e.message+' · Последние загруженные заказы сохранены на экране.'}
 }
 async function finance(id){
  const o=orders.find(x=>x.posting_number===id);if(!o||!o.delivered)return;
