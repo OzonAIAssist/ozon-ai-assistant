@@ -767,4 +767,45 @@ save.addEventListener('click',()=>{editor.hidden=true;refresh()});
 list.addEventListener('click',e=>{if(e.target.closest('button.p22-item')){editor.hidden=true;setTimeout(refresh,0)}});
 })();
 </script>
+
+<script id="premium-v302-title-fix">
+(function(){'use strict';
+const root=document.getElementById('premium22'),detail=root?.querySelector('#p22detail'),list=root?.querySelector('#p22list');
+if(!detail||!list)return;
+const input=detail.querySelector('#p24short'),save=detail.querySelector('#p24save');
+const head=detail.querySelector('#p22name'),hero=detail.querySelector('.p28-title');
+if(!input||!save)return;
+const key='ozon_products_v09';
+function getItems(){try{const x=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(x)?x:[]}catch(_){return[]}}
+function selected(){
+ const id=document.getElementById('r20product')?.value;
+ return getItems().find(p=>String(p.id)===String(id));
+}
+function paint(){
+ const p=selected();if(!p)return;
+ const name=p.short_name||p.name||'Товар';
+ if(head)head.textContent=name;
+ if(hero)hero.textContent=name;
+ const full=detail.querySelector('#p24titlefull');if(full)full.textContent='Название в Ozon: '+(p.name||'');
+ for(const row of list.querySelectorAll('button.p22-item')){
+  const rowName=row.querySelector('.p22-itemtext b');
+  if(!rowName)continue;
+  const matching=row.textContent.includes(p.sku||'\u0000')||row.dataset.productId===String(p.id);
+  if(matching)rowName.textContent=name;
+ }
+}
+function refresh(){setTimeout(paint,50)}
+list.addEventListener('click',refresh);
+detail.querySelector('.h30-pencil')?.addEventListener('click',()=>{const p=selected();if(p)input.value=p.short_name||p.name||''});
+save.addEventListener('click',()=>{
+ const p=selected(),value=input.value.trim();if(!p||!value)return;
+ const items=getItems(),item=items.find(x=>String(x.id)===String(p.id));if(!item)return;
+ item.short_name=value;
+ try{localStorage.setItem(key,JSON.stringify(items))}catch(_){return}
+ paint();
+ setTimeout(paint,100);
+});
+const selector=document.getElementById('r20product');selector?.addEventListener('change',refresh);
+})();
+</script>
 </body></html>
