@@ -62,6 +62,31 @@ async function performanceDaily(from,to){
 
 }
 if(!CLIENT_ID||!API_KEY||!ACCESS_TOKEN){console.error('Missing required environment variables: OZON_CLIENT_ID, OZON_API_KEY, APP_ACCESS_TOKEN');process.exit(1);}
+// Read-only Ozon Performance cache. In-memory cache is reset when Render restarts.
+const PERF_TTL_MS=5*60*1000;
+const PERF_429_COOLDOWN_MS=15*60*1000;
+const perfCache=new Map();
+let perfBlockedUntil=0;
+async function cachedPerformance(key,load){
+ const now=Date.now();let entry=perfCache.get(key);
+ if(entry&&entry.value&&now-entry.updatedAt<PERF_TTL_MS)return {...entry.value,cache_status:'fresh',cached:true,checked_at:new Date(entry.updatedAt).toISOString()};
+ if(entry?.pending)return entry.pending;
+ if(now<perfBlockedUntil){
+  if(entry?.value)return {...entry.value,cache_status:'stale',cached:true,checked_at:new Date(entry.updatedAt).toISOString(),retry_after_seconds:Math.ceil((perfBlockedUntil-now)/1000)};
+  const err=new Error('Ozon ограничил частоту запросов (HTTP 429). Повторите позже.');err.status=429;err.retryAfter=Math.ceil((perfBlockedUntil-now)/1000);throw err;
+ }
+ entry=entry||{};perfCache.set(key,entry);
+ const pending=(async()=>{
+  try{
+   const value=await load();const stamp=Date.now();entry.value=value;entry.updatedAt=stamp;
+   return {...value,cache_status:'fresh',cached:false,checked_at:new Date(stamp).toISOString()};
+  }catch(err){
+   if(err.status===429)perfBlockedUntil=Math.max(perfBlockedUntil,Date.now()+PERF_429_COOLDOWN_MS);
+   if(entry.value)return {...entry.value,cache_status:'stale',cached:true,checked_at:new Date(entry.updatedAt).toISOString(),retry_after_seconds:Math.ceil(Math.max(0,perfBlockedUntil-Date.now())/1000)};
+   throw err;
+  }finally{entry.pending=null;}
+ })();entry.pending=pending;return pending;
+}
 const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance']);
 const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||origin===ORIGIN;const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
 
@@ -136,9 +161,9 @@ if(path.pathname==='/api/orders/finance'){
 if(path.pathname==='/api/ads/statistics'){
  const from=path.searchParams.get('from')||'',to=path.searchParams.get('to')||'';
  if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||from>to||!Number.isFinite(Date.parse(from))||!Number.isFinite(Date.parse(to))||(Date.parse(to)-Date.parse(from))/86400000>31)return reply(res,400,{error:'Некорректный период'},ORIGIN);
- try{const stats=await performanceDaily(from,to);return reply(res,200,{checked_at:new Date().toISOString(),read_only:true,source:'Ozon Performance API',...stats},ORIGIN)}catch(e){console.error('Performance statistics read failed:',e.message);return reply(res,502,{error:'Не удалось получить статистику Ozon',details:e.message.startsWith('Upstream HTTP ')?e.message:undefined},ORIGIN)}
+ try{const stats=await cachedPerformance('stats:'+from+':'+to,async()=>({read_only:true,source:'Ozon Performance API',...(await performanceDaily(from,to))}));return reply(res,200,stats,ORIGIN)}catch(e){console.error('Performance statistics read failed:',e.message);return reply(res,e.status===429?429:502,{error:e.status===429?'Ozon временно ограничил запросы. Подождите 15 минут.':'Не удалось получить статистику Ozon',retry_after_seconds:e.retryAfter||undefined},ORIGIN)}
 }
-if(path.pathname==='/api/ads/campaigns'){try{const campaigns=await performanceCampaigns();return reply(res,200,{checked_at:new Date().toISOString(),source:'Ozon Performance API',read_only:true,automation_enabled:false,count:campaigns.length,campaigns},ORIGIN);}catch(e){console.error('Performance read failed:',e.message);return reply(res,502,{error:'Не удалось загрузить рекламные кампании Ozon. Проверьте Performance API и переменные Render.'},ORIGIN);}}
+if(path.pathname==='/api/ads/campaigns'){try{const result=await cachedPerformance('campaigns',async()=>{const campaigns=await performanceCampaigns();return {source:'Ozon Performance API',read_only:true,automation_enabled:false,count:campaigns.length,campaigns}});return reply(res,200,result,ORIGIN);}catch(e){console.error('Performance read failed:',e.message);return reply(res,e.status===429?429:502,{error:e.status===429?'Ozon временно ограничил запросы. Подождите 15 минут.':'Не удалось загрузить рекламные кампании Ozon.',retry_after_seconds:e.retryAfter||undefined},ORIGIN);}}
 if(path.pathname==='/api/price-diagnostic'){const offerId=path.searchParams.get('offer_id')||'';if(!offerId||offerId.length>120||/[\x00-\x1f]/.test(offerId))return reply(res,400,{error:'Укажите корректный offer_id'},ORIGIN);try{return reply(res,200,{checked_at:new Date().toISOString(),source:'Ozon Seller API /v5/product/info/prices',...(await priceDiagnostic(offerId))},ORIGIN);}catch(error){console.error('Price diagnostic failed:',error.message);return reply(res,502,{error:'Не удалось получить цены из Ozon',details:error.message.startsWith('Upstream HTTP ')?error.message:undefined},ORIGIN);}}
 try{const items=await products();return reply(res,200,{count:items.length,items},ORIGIN);}catch(error){console.error('Product import failed:',error.message);return reply(res,502,{error:'Не удалось загрузить товары из Ozon. Проверьте права ключа и журнал сервера.'},ORIGIN);}});
 server.listen(PORT,'0.0.0.0',()=>console.log('Ozon read-only API server listening on port '+PORT));

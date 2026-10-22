@@ -1002,9 +1002,9 @@ function summaryDraw(){
 function periodDates(){const d=new Date(),today=new Date(d.getFullYear(),d.getMonth(),d.getDate());const start=new Date(today),end=new Date(today);if(period==='yesterday'){start.setDate(start.getDate()-1);end.setDate(end.getDate()-1)}if(period==='week')start.setDate(start.getDate()-6);if(period==='month')start.setDate(start.getDate()-29);const fmt=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');return {from:fmt(start),to:fmt(end)}}
 function markPeriod(){periodBar.querySelectorAll('button').forEach(b=>b.classList.toggle('h46-selected',b.dataset.period===period))}markPeriod();
 periodBar.addEventListener('click',e=>{const b=e.target.closest('button[data-period]');if(!b)return;period=b.dataset.period;markPeriod();loadStatistics()});
-async function loadStatistics(){const t=token();if(!t||!campaigns.length)return;const serial=++statsRequest,dates=periodDates();statsStatus.textContent='Загружаем статистику…';statistics={};draw();
- try{const r=await fetch(base+'/api/ads/statistics?from='+dates.from+'&to='+dates.to,{headers:{Authorization:'Bearer '+t},cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error('HTTP '+r.status+(d.error?' · '+d.error:''));if(!Array.isArray(d.rows))throw Error('Неожиданный ответ');if(serial!==statsRequest)return;statistics=Object.fromEntries(d.rows.map(x=>[String(x.id),x]));statsStatus.textContent=d.parsed_count?'Статистика Ozon · '+dates.from+' — '+dates.to:'Нет данных статистики за выбранный период';draw()}
- catch(e){if(serial!==statsRequest)return;statistics={};statsStatus.textContent='Статистика недоступна: '+e.message;draw()}}
+async function loadStatistics(){const t=token();if(!t||!campaigns.length)return;const serial=++statsRequest,dates=periodDates();statsStatus.textContent='Проверяем статистику…';const savedKey='hogar_stats_v51_'+dates.from+'_'+dates.to;try{const saved=JSON.parse(localStorage.getItem(savedKey)||'null');if(saved&&saved.rows&&Array.isArray(saved.rows)){statistics=Object.fromEntries(saved.rows.map(x=>[String(x.id),x]));draw()}}catch(_){}
+ try{const r=await fetch(base+'/api/ads/statistics?from='+dates.from+'&to='+dates.to,{headers:{Authorization:'Bearer '+t},cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error('HTTP '+r.status+(d.error?' · '+d.error:''));if(!Array.isArray(d.rows))throw Error('Неожиданный ответ');if(serial!==statsRequest)return;statistics=Object.fromEntries(d.rows.map(x=>[String(x.id),x]));try{localStorage.setItem(savedKey,JSON.stringify({rows:d.rows,checked_at:d.checked_at}))}catch(_){}statsStatus.textContent=(d.cache_status==='stale'?'Последние доступные данные':'Статистика Ozon')+' · '+dates.from+' — '+dates.to+' · обновлено '+new Date(d.checked_at).toLocaleString('ru-RU');draw()}
+ catch(e){if(serial!==statsRequest)return;statsStatus.textContent='Не удалось обновить статистику: '+e.message+' · сохранённые цифры остаются на экране';draw()}}
 
 try{const v=localStorage.getItem(tabKey);if(['active','inactive','archived'].includes(v))selected=v}catch(_){}
 const category=c=>{const v=String(c.status||'').toUpperCase();if(v.includes('ARCHIVED')||v.includes('FINISHED'))return 'archived';if(v.includes('RUNNING')||(v.includes('ACTIVE')&&!v.includes('INACTIVE')))return 'active';return 'inactive'};
@@ -1041,10 +1041,10 @@ async function refresh(){
   campaigns=data.campaigns;
   const d={checked_at:data.checked_at||new Date().toISOString(),campaigns};
   try{localStorage.setItem(cacheKey,JSON.stringify(d))}catch(_){}
-  updated.textContent='Обновлено из Ozon · '+new Date(d.checked_at).toLocaleString('ru-RU');
+  updated.textContent=(data.cache_status==='stale'?'Последние доступные данные':'Данные Ozon')+' · обновлено '+new Date(d.checked_at).toLocaleString('ru-RU')+(data.cached&&data.cache_status==='fresh'?' · серверный кеш':'');
   draw();
   await loadStatistics();
- }catch(e){updated.textContent='Не удалось обновить: '+e.message+' · сохранённые данные остаются на экране';updated.classList.add('h44-error')}
+ }catch(e){updated.textContent='Не удалось обновить: '+e.message+' · сохранённые данные остаются на экране';updated.classList.add('h44-error');if(campaigns.length)await loadStatistics()}
 }
 async function diagnose(){
  diagnostics.textContent='Проверяем соединение…';
