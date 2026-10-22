@@ -852,7 +852,7 @@ function card(c){
  const id=esc(c.id),strategy=explanations[c.strategy]?c.strategy:'autopilot',reach=Number(c.reach??50);
  const content=c.view==='history'
  ?'<div class="h32-hist"><b>История решений</b><p class="h31-muted">Пока нет реальных изменений ставок. После подключения Ozon Performance API и сервера здесь будут время, старая и новая ставка, показатели и причина решения.</p><details><summary>Как будет выглядеть объяснение?</summary><p class="h31-small">Каждое действие будет иметь отдельную запись. Вы сможете открыть её и увидеть, почему алгоритм изменил ставку. Придуманных действий здесь не будет.</p></details></div>'
- :'<label>Название черновика</label><input data-field="name" data-id="'+id+'" maxlength="100" value="'+esc(c.name)+'">'+
+ :''+
  periodNav(c.period,'campaign',id)+(c.period==='custom'?'<div class="h31-two">'+field(c,id,'С даты','dateFrom','date')+field(c,id,'По дату','dateTo','date')+'</div>':'')+
  metrics(['Расходы','Заказы','Продажи','ДРР','Показы','Клики','CTR','Конверсия'])+
  '<div class="h31-two">'+field(c,id,'Бюджет в день, ₽','budget')+field(c,id,'Бюджет в неделю, ₽','weeklyBudget')+'</div>'+
@@ -870,7 +870,9 @@ function card(c){
  '<div class="h36-savebar"><button type="button" class="h36-save" data-action="save" data-id="'+id+'">✓ Сохранить настройки</button><div class="h31-small">Только на этом устройстве · без отправки в Ozon</div></div>';
  return '<div class="h31-card h36-campaign '+(c.expanded?'h36-open':'h36-closed')+'" data-campaign="'+id+'"><div class="h36-campaign-head">'+
  '<button type="button" class="h36-campaign-title" data-action="expand" data-id="'+id+'" aria-expanded="'+!!c.expanded+'"><span class="h36-campaign-symbol">◈</span><span class="h36-campaign-name"><b>'+esc(c.name)+'</b><small>Черновик · '+(c.enabled?'Включена':'Выключена')+'</small></span><span class="h36-chevron">'+(c.expanded?'⌃':'⌄')+'</span></button>'+
+ '<button type="button" class="h38-rename" data-action="rename" data-id="'+id+'" aria-label="Переименовать кампанию">✎</button>'+
  '<button type="button" class="h31-toggle h36-main-toggle" data-action="toggle" data-id="'+id+'" aria-pressed="'+!!c.enabled+'" aria-label="'+(c.enabled?'Выключить':'Включить')+' кампанию">'+(c.enabled?'●':'○')+'</button></div>'+
+ (!c.expanded?'<div class="h39-summary" data-action="expand" data-id="'+id+'" role="button" tabindex="0" aria-label="Развернуть кампанию"><div class="h39-stat"><small>Расход</small><b>— ₽</b></div><div class="h39-stat"><small>Заказы</small><b>—</b></div><div class="h39-stat"><small>ДРР</small><b>— %</b></div></div><div class="h39-foot" data-action="expand" data-id="'+id+'" role="button" tabindex="0"><span>Стратегия: '+esc(strategies.find(x=>x[0]===strategy)?.[1]||'Автопилот')+'</span><span>Сегодня</span></div>':'')+
  (c.expanded?'<div class="h36-open-actions"><button class="h31-outline h36-delete" data-action="delete" data-id="'+id+'">Удалить черновик</button></div><div class="h32-subnav"><button data-action="view" data-id="'+id+'" data-view="settings" aria-pressed="'+(c.view!=='history')+'">Стратегия и бюджет</button><button data-action="view" data-id="'+id+'" data-view="history" aria-pressed="'+(c.view==='history')+'">История</button></div>'+content:'')+'</div>';
 }
 const root=document.createElement('div');root.id='h31ads';host.prepend(root);
@@ -881,14 +883,20 @@ function render(){root.innerHTML='<div class="h31-top"><div class="h31-muted">HO
 root.addEventListener('click',e=>{
  // A tap anywhere on the campaign header expands/collapses it; the switch remains independent.
  const header=e.target.closest('.h36-campaign-head');
- if(header&&!e.target.closest('.h36-main-toggle')&&!e.target.closest('.h36-campaign-title')){
+ if(header&&!e.target.closest('.h36-main-toggle')&&!e.target.closest('.h38-rename')&&!e.target.closest('.h36-campaign-title')){
    header.querySelector('.h36-campaign-title')?.click();return;
+ }
+ const collapsed=e.target.closest('.h36-campaign.h36-closed');
+ if(collapsed&&!e.target.closest('button')&&e.target.closest('.h39-summary,.h39-foot')){
+  const c=state.campaigns.find(x=>x.id===collapsed.dataset.campaign);
+  if(c){c.expanded=true;persist(storage,state);render()}return;
  }
  const b=e.target.closest('button[data-action]');if(!b)return;
  const a=b.dataset.action,c=state.campaigns.find(x=>x.id===b.dataset.id);
  if(a==='add')state.campaigns.push(blank());
  else if(a==='period'){if(b.dataset.scope==='all')state.period=b.dataset.period;else if(c)c.period=b.dataset.period}
  else if(a==='expand'&&c)c.expanded=!c.expanded;
+ else if(a==='rename'&&c){const v=prompt('Название кампании',c.name);if(v===null)return;const name=v.trim();if(!name||name.length>100){alert('Название должно содержать от 1 до 100 символов');return}c.name=name;}
  else if(a==='toggle'&&c)c.enabled=!c.enabled;
  else if(a==='strategy-toggle'&&c)c.auto=!c.auto;
  else if(a==='view'&&c)c.view=b.dataset.view;
@@ -983,4 +991,26 @@ new MutationObserver(drawWatch).observe(list,{childList:true});drawWatch();
 #h31ads .h36-savebar .h31-small{margin-top:8px;font-size:11px!important}
 @media(max-width:370px){#h31ads .h36-campaign-head{padding:10px}#h31ads .h36-times{gap:5px}#h31ads .h36-times input{font-size:14px!important;padding:7px 3px!important}#h31ads .h36-limit{padding:10px 7px}}
 </style>
-<style id="hogar-v37-tap">#h31ads .h36-campaign-head{cursor:pointer;touch-action:manipulation}#h31ads .h36-campaign-title{cursor:pointer}</style></body></html>
+<style id="hogar-v37-tap">#h31ads .h36-campaign-head{cursor:pointer;touch-action:manipulation}#h31ads .h36-campaign-title{cursor:pointer}</style><style id="hogar-v38-rename">#h31ads .h38-rename{flex:0 0 36px!important;width:36px!important;height:40px!important;min-height:40px!important;padding:0!important;background:#183b64!important;border:1px solid #315e89!important;box-shadow:none!important;border-radius:11px!important;color:#99d1ff!important;font-size:23px!important;font-weight:400!important}#h31ads .h36-campaign-head{gap:7px!important}#h31ads .h36-campaign-title{min-width:0!important}@media(max-width:380px){#h31ads .h36-campaign-symbol{width:35px!important;height:39px!important;flex-basis:35px!important}#h31ads .h38-rename{width:32px!important;flex-basis:32px!important}}</style>
+<style id="hogar-v39-mobile">
+/* Keep all advertising inputs within the inner edges of their card on iPhone. */
+#h31ads,#h31ads *{box-sizing:border-box}
+#h31ads .h36-campaign{min-width:0}
+#h31ads .h36-campaign>.h32-subnav~input.h34-slider{display:block!important;width:calc(100% - 28px)!important;max-width:calc(100% - 28px)!important;margin-left:14px!important;margin-right:14px!important;padding:0!important;min-width:0!important}
+#h31ads .h34-slider{box-sizing:border-box!important;max-width:100%!important;min-width:0!important}
+#h31ads .h36-schedule{min-width:0;overflow:hidden;padding:13px 12px!important}
+#h31ads .h36-times{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:10px!important;position:relative;align-items:start!important}
+#h31ads .h36-times label{min-width:0!important;width:100%!important;display:block!important}
+#h31ads .h36-times input[type=time]{display:block!important;box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;margin-top:7px!important;padding:8px 4px!important;font-size:clamp(13px,4vw,16px)!important;line-height:1.25!important;text-align:center!important;min-height:48px!important;appearance:none}
+#h31ads .h36-time-sep{display:none!important}
+#h31ads .h39-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 14px;cursor:pointer}
+#h31ads .h39-stat{min-width:0;background:#091b31;border:1px solid #203f63;border-radius:12px;padding:11px 9px}
+#h31ads .h39-stat small{display:block;font-size:11px!important;color:#a0b7d3!important;margin-bottom:8px}
+#h31ads .h39-stat b{display:block;font-size:18px;white-space:nowrap}
+#h31ads .h39-foot{display:flex;justify-content:space-between;gap:8px;padding:12px 15px 15px;color:#a8c5e7;font-size:11px;cursor:pointer}
+#h31ads .h39-foot span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#h31ads .h39-foot span:last-child{white-space:nowrap;color:#87a6c8}
+#h31ads .h36-closed .h36-campaign-head{padding-bottom:11px}
+@media(max-width:380px){#h31ads .h36-schedule{padding:10px 8px!important}#h31ads .h36-times{gap:7px!important}#h31ads .h39-summary{gap:6px;padding:0 10px}#h31ads .h39-stat{padding:10px 7px}}
+</style>
+</body></html>
