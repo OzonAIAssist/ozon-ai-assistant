@@ -146,9 +146,9 @@ if(path.pathname==='/api/orders/finance'){
  let verified=false;
  try{
   const d=await ozon('/v3/posting/fbs/get',{posting_number:posting,with:{analytics_data:false,financial_data:false}});
-  verified=['delivered','delivered_to_customer'].includes(String(d.result?.status||'').toLowerCase());
- }catch(_){}
- if(!verified)return reply(res,409,{error:'Не удалось подтвердить доставку заказа через Ozon'},ORIGIN);
+  verified=['delivered','delivered_to_customer'].includes(String(d.result?.status||d.status||'').toLowerCase());
+ }catch(e){console.error('FBS delivery verification failed:',e.message);return reply(res,502,{error:'Не удалось проверить статус доставки через Ozon',diagnostic:{stage:'Проверка доставки FBS',code:Number.isInteger(e.status)?e.status:null,reason:'Проверка статуса не прошла. Финансовые данные не запрашивались.'}},ORIGIN)}
+ if(!verified)return reply(res,409,{error:'Ozon не подтвердил статус «Доставлен»',diagnostic:{stage:'Проверка доставки FBS',reason:'Ответ Ozon не содержит подтверждённого статуса доставки'}},ORIGIN);
  const date=new Date(created);if(!Number.isFinite(date.getTime()))return reply(res,400,{error:'Неизвестна дата заказа'},ORIGIN);
  const from=new Date(date.getTime()-7*86400000).toISOString(),to=new Date(Math.min(Date.now(),date.getTime()+120*86400000)).toISOString();
  try{
@@ -162,7 +162,7 @@ if(path.pathname==='/api/orders/finance'){
   }
   const lines=operations.map(x=>({id:String(x.operation_id??''),date:x.operation_date||'',name:String(x.operation_type_name||x.operation_type||'Операция Ozon'),amount:typeof x.amount==='number'?x.amount:null,accruals:typeof x.accruals_for_sale==='number'?x.accruals_for_sale:null,sale_commission:typeof x.sale_commission==='number'?x.sale_commission:null,delivery_charge:typeof x.delivery_charge==='number'?x.delivery_charge:null,return_delivery_charge:typeof x.return_delivery_charge==='number'?x.return_delivery_charge:null,services:Array.isArray(x.services)?x.services.map(s=>({name:String(s.name||''),price:typeof s.price==='number'?s.price:null})):[]}));
   return reply(res,200,{read_only:true,posting_number:posting,source:'Ozon Seller API /v3/finance/transaction/list',operations:lines,checked_at:new Date().toISOString(),finalized:false,note:'Финансовые операции могут появиться после доставки и корректироваться позднее.'},ORIGIN);
- }catch(e){console.error('Order finance failed:',e.message);return reply(res,502,{error:'Не удалось получить финансовые операции Ozon',diagnostic:{code:Number.isInteger(e.status)?e.status:null,reason:e.status===400?'Ozon отклонил параметры финансового запроса':e.status===401||e.status===403?'Нет доступа к финансовым операциям Seller API':e.status===429?'Слишком много запросов к Ozon':'Проверьте журнал Render для деталей'}},ORIGIN)}
+ }catch(e){console.error('Order finance failed:',e.message);return reply(res,502,{error:'Не удалось получить финансовые операции Ozon',diagnostic:{stage:'Финансовые операции',code:Number.isInteger(e.status)?e.status:null,reason:e.status===400?'Ozon отклонил параметры финансового запроса':e.status===401||e.status===403?'Нет доступа к финансовым операциям Seller API':e.status===429?'Слишком много запросов к Ozon':'Проверьте журнал Render для деталей'}},ORIGIN)}
 }
 if(path.pathname==='/api/ads/statistics'){
  const from=path.searchParams.get('from')||'',to=path.searchParams.get('to')||'';

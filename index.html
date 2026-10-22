@@ -1177,6 +1177,17 @@ if(token())setTimeout(refresh,1200);
 #h50 .h57-chevron{color:#94b9df}
 #h50 .h50-body .h50-line b{max-width:42%;word-break:normal}
 </style>
+<style id="hogar-v58-order-fixes">
+#h50 .h58-product-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid #284360}
+#h50 .h58-product-name{min-width:0;color:#bed3e7;line-height:1.4;overflow-wrap:break-word;font-size:13px}
+#h50 .h58-product-values{display:flex;flex-direction:column;align-items:flex-end;gap:5px;white-space:nowrap;min-width:max-content}
+#h50 .h58-product-values small{font-size:12px;color:#abc6df}
+#h50 .h58-product-values strong{font-size:15px;color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;word-break:normal}
+#h50 .h57-stat.h58-delivered{background:#103e39!important;border-color:#277d68!important}
+#h50 .h57-stat.h58-delivered small{color:#8ee1c2!important}
+#h50 .h57-stat.h58-delivered b{color:#e0fff3!important}
+#h50 .h57-stat.h58-delivered.h57-selected{background:#18584b!important;border-color:#65d6ac!important;box-shadow:inset 0 0 0 1px #65d6ac33}
+</style>
 <script id="hogar-v50-orders">
 (function(){
 'use strict';
@@ -1212,7 +1223,7 @@ function draw(){
  list.innerHTML=shown.length?shown.map(o=>{
   const id=String(o.posting_number),open=expanded.has(id),finance=finances.get(id),p=o.products?.[0]||{};
   const name=p.name||'Товар Ozon',extra=(o.products||[]).length>1?' · ещё '+((o.products||[]).length-1)+' поз.':'';
-  const items=(o.products||[]).map(x=>row(x.name||'Товар',String(x.quantity||1)+' шт. · '+money(x.price))).join('');
+  const items=(o.products||[]).map(x=>'<div class="h58-product-line"><div class="h58-product-name">'+esc(x.name||'Товар')+'</div><div class="h58-product-values"><small>'+esc(String(x.quantity||1))+' шт.</small><strong>'+esc(money(x.price))+'</strong></div></div>').join('');
   let fin='';
   if(o.delivered){
    fin='<div class="h50-finance"><h4>Начисления и удержания Ozon</h4><button type="button" data-finance="'+esc(id)+'">Загрузить финансовые операции</button>';
@@ -1247,7 +1258,7 @@ async function finance(id){
  try{
   const q=new URLSearchParams({posting_number:id,created_at:o.created_at,delivered:String(o.delivered)});
   const r=await fetch(base+'/api/orders/finance?'+q,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
-  const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?.code?' · Код Ozon: '+d.diagnostic.code:'')+(d.diagnostic?.reason?' · '+d.diagnostic.reason:''));
+  const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?.code?' · Код Ozon: '+d.diagnostic.code:'')+(d.diagnostic?.stage?' · Этап: '+d.diagnostic.stage:'')+(d.diagnostic?.reason?' · '+d.diagnostic.reason:''));
   finances.set(id,{operations:d.operations||[]});
  }catch(e){finances.set(id,{error:e.message})}draw();
 }
