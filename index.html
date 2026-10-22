@@ -1247,14 +1247,14 @@ function draw(){
 }
 async function load(){
  const t=token();if(!t){status.textContent='Сначала введите пароль доступа к серверу в разделе «Цены» (синхронизация каталога).';return}
- const seq=++request;status.textContent='Загружаем заказы Ozon…';
+ const seq=++request;panel.classList.remove('h63-api-error');status.textContent='Загружаем заказы Ozon…';
  try{
   const r=await fetch(base+'/api/orders?days='+days,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?' · Код Ozon: '+(d.diagnostic.code||'неизвестен')+' · '+d.diagnostic.reason:''));
-  if(seq!==request)return;orders=d.orders||[];finances.clear();
+  if(seq!==request)return;panel.classList.remove('h63-api-error');orders=d.orders||[];finances.clear();
   status.textContent='FBS · Загружено отправлений: '+orders.length+(d.partial?' · Достигнут лимит выгрузки, список может быть неполным':'');
   draw();
- }catch(e){if(seq!==request)return;status.textContent='Ошибка загрузки FBS: '+e.message+' · Последние загруженные заказы сохранены на экране.'}
+ }catch(e){if(seq!==request)return;panel.classList.add('h63-api-error');const denied=/403|доступ|запрет/i.test(e.message);status.textContent=(denied?'Данные заказов недоступны: Ozon отклонил запрос Seller API (403). Проверьте права FBS у API-ключа в кабинете Ozon.':'Не удалось получить актуальные заказы FBS: '+e.message)+ ' · Показатели скрыты, чтобы не принимать отсутствие доступа за ноль заказов.';}
 }
 async function finance(id){
  const o=orders.find(x=>x.posting_number===id);if(!o||!o.delivered)return;
@@ -1517,4 +1517,25 @@ if(tile){const go=()=>document.querySelector('.bottom-nav [data-tab="orders"]')?
 <script id="hogar-v62-diagnostics">
 (function(){'use strict';const diag=document.getElementById('h52diag');if(!diag||diag.closest('details'))return;const wrapper=document.createElement('details');wrapper.className='h62-diagnostics';const summary=document.createElement('summary');summary.textContent='Диагностика отчёта Ozon';diag.parentNode.insertBefore(wrapper,diag);wrapper.append(summary,diag);const observer=new MutationObserver(()=>{wrapper.hidden=diag.hidden});observer.observe(diag,{attributes:true,attributeFilter:['hidden']});wrapper.hidden=diag.hidden})();
 </script>
+<style id="hogar-warm-v63">
+/* Consistent fireplace-inspired palette throughout all nested pages */
+#premium22,#premium22 #p22detail,#premium22 #p22detail .p22-box,#premium22 .p22-box{background:#fffdf9!important;color:#422d20!important;border-color:#edd8c4!important}
+#premium22 #p22detail{padding:15px!important;box-shadow:0 5px 19px #8f572415!important}
+#premium22 #p22detail h1,#premium22 #p22detail h2,#premium22 #p22detail h3,#premium22 #p22detail h4,#premium22 #p22detail summary,#premium22 #p22detail strong,#premium22 #p22detail b{color:#3b291f!important}
+#premium22 #p22detail p,#premium22 #p22detail small,#premium22 #p22detail label{color:#886a55!important}
+#premium22 #p22detail .p22-price strong,#premium22 #p22detail .p22-price b{color:#352419!important}
+#premium22 #p22detail .p22-editor,#premium22 #p22detail .p22-details,#premium22 #p22detail .p28-hero{background:#fff8f1!important;color:#3b291f!important}
+#premium22 .p22-actions button,#premium22 .p22-sync button{background:#fff0df!important;color:#805038!important;border-color:#ebd1b8!important}
+#h44,#h44 .h44-details,#h44 .h47-summary,#h44 .h44-card{color:#402b20!important}
+#h44 .h44-metric strong,#h44 .h47-summary-grid b{color:#38271d!important}
+#h44 .h44-tab[aria-selected=true]{background:#e8f5ea!important;color:#206c43!important}
+#h50.h63-api-error #h50summary,#h50.h63-api-error .h57-info,#h50.h63-api-error .h57-filters,#h50.h63-api-error #h57count,#h50.h63-api-error #h50list{display:none!important}
+#h50.h63-api-error #h50status{background:#fff1e5!important;color:#8c4429!important;border:1px solid #e8c5a8!important;border-radius:13px!important;padding:15px!important;line-height:1.5!important}
+#h50.h63-api-error .h50-section-title{display:none!important}
+#h50 .h50-status{overflow-wrap:anywhere!important}
+#h50 .h58-product-values{min-width:104px!important;flex:0 0 104px!important;text-align:right!important}
+#h50 .h58-product-values strong{display:block!important;white-space:nowrap!important;font-size:clamp(12px,3.3vw,15px)!important;color:#422b1d!important}
+#h50 .h58-product-name{min-width:0!important;overflow-wrap:break-word!important}
+@media(max-width:420px){#premium22 #p22detail{padding:12px!important}#h50 .h58-product-values{min-width:90px!important;flex-basis:90px!important}}
+</style>
 </body></html>
