@@ -32,7 +32,7 @@ async function performanceDaily(from,to){
   top_level_keys:shapeOf(data),rows_count:rows.length,
   row_field_names:rows.length?shapeOf(rows[0]):[],
   campaign_id_field_present:rows.some(r=>r&&typeof r==='object'&&['campaignId','campaign_id','id'].some(k=>r[k]!=null)),
-  note:'Диагностика показывает только имена полей и количество строк, без значений и ключей.'};
+  note:'Диагностика показывает только имена полей и количество строк, без значений и ключей. ordersMoney — показатель рекламного отчёта, не подтверждённая выплата.'};
  if(rows.length===0&&diagnostic.top_level_keys.length&&
     !['rows','data','result'].some(k=>diagnostic.top_level_keys.includes(k))){
    diagnostic.warning='Ответ Ozon не похож на ожидаемый массив статистики';

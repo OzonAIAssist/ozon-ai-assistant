@@ -968,6 +968,7 @@ const selector=document.getElementById('r20product');selector?.addEventListener(
 #h44 .h44-details h4{margin:12px 0 0;font-size:13px;color:#e9f3ff}
 #h44 .h47-advice{border-left:2px solid #69adf4;padding:8px 10px;background:#143451;border-radius:0 8px 8px 0;color:#c5d9ec}
 </style>
+<style id="hogar-v54-style">#h44 .h54-warnings{color:#e4c89e!important;border-top:1px solid #2a4b6b;padding-top:9px}</style>
 <script id="hogar-v44-readonly">
 (function(){
 'use strict';
@@ -983,7 +984,7 @@ const status={CAMPAIGN_STATE_RUNNING:'Активна',CAMPAIGN_STATE_PLANNED:'З
 let campaigns=[],selected='active',expanded=new Set();
 let statistics={},period='today',statsRequest=0;
 const periodBar=document.createElement('div');periodBar.className='h46-periods';
-periodBar.innerHTML='<span>Период статистики</span><div><button type="button" data-period="today">Сегодня</button><button type="button" data-period="yesterday">Вчера</button><button type="button" data-period="week">7 дней</button><button type="button" data-period="month">30 дней</button></div>';
+periodBar.innerHTML='<span>Период статистики</span><div><button type="button" data-period="today">Сегодня</button><button type="button" data-period="yesterday">Вчера</button><button type="button" data-period="week">7 дней</button><button type="button" data-period="month">Этот месяц</button></div>';
 panel.querySelector('.h44-tabs').before(periodBar);
 const statsStatus=document.createElement('p');statsStatus.id='h46statsstatus';statsStatus.className='h44-muted';panel.querySelector('.h44-tabs').after(statsStatus);
 const summary=document.createElement('section');summary.className='h47-summary';summary.setAttribute('aria-label','Сводка по рекламе');
@@ -998,10 +999,14 @@ function summaryDraw(){
  const spend=sum('spend'),clicks=sum('clicks'),views=sum('impressions'),carts=sum('carts'),orders=sum('orders'),revenue=sum('revenue');
  const pct=(a,b)=>a!==null&&b!==null&&b>0?a/b*100:null;
  const fields=[['Потрачено на рекламу',spend,' ₽'],['Показы',views,''],['Клики',clicks,''],['Корзины',carts,''],['Заказы из рекламы',orders,''],['Сумма заказов из рекламы',revenue,' ₽']];
- summary.innerHTML='<div class="h47-summary-title">Итоги по всем кампаниям <small>· '+data.length+' из '+ids.length+' со статистикой</small></div><div class="h47-summary-grid">'+fields.map(([label,value,suffix])=>'<div><span>'+label+'</span><b>'+formatMetric(value,suffix)+'</b></div>').join('')+'</div><p>Сумма по кампаниям, по которым Ozon передал статистику за выбранный период. Заказы и их сумма — рекламная атрибуция, не все продажи магазина. Прочерк — нет данных.</p>';
+ const warnings=[];
+ if(data.length<ids.length)warnings.push('Покрытие '+data.length+' из '+ids.length+' кампаний: итог может быть неполным (часть кампаний могла не иметь активности).');
+ if(orders!==null&&revenue!==null&&orders>0&&revenue/orders>50000)warnings.push('Средняя сумма на заказ '+formatMetric(revenue/orders,' ₽')+': проверьте её в кабинете Ozon. Это показатель рекламного отчёта, не подтверждённая выплата.');
+ if(carts===null)warnings.push('Дневной отчёт Ozon не содержит поля корзин. Для него нужен отдельный подтверждённый источник.');
+ summary.innerHTML='<div class="h47-summary-title">Итоги по всем кампаниям <small>· '+data.length+' из '+ids.length+' со статистикой</small></div><div class="h47-summary-grid">'+fields.map(([label,value,suffix])=>'<div><span>'+label+'</span><b>'+formatMetric(value,suffix)+'</b></div>').join('')+'</div><p>Сумма по кампаниям, по которым Ozon передал статистику за выбранный период. Заказы и их сумма — рекламная атрибуция, не все продажи магазина. Прочерк — нет данных.</p>'+(warnings.length?'<p class="h54-warnings">'+warnings.map(esc).join('<br>')+'</p>':'');
 }
 
-function periodDates(){const d=new Date(),today=new Date(d.getFullYear(),d.getMonth(),d.getDate());const start=new Date(today),end=new Date(today);if(period==='yesterday'){start.setDate(start.getDate()-1);end.setDate(end.getDate()-1)}if(period==='week')start.setDate(start.getDate()-6);if(period==='month')start.setDate(start.getDate()-29);const fmt=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');return {from:fmt(start),to:fmt(end)}}
+function periodDates(){const d=new Date(),today=new Date(d.getFullYear(),d.getMonth(),d.getDate());const start=new Date(today),end=new Date(today);if(period==='yesterday'){start.setDate(start.getDate()-1);end.setDate(end.getDate()-1)}if(period==='week')start.setDate(start.getDate()-6);if(period==='month')start.setDate(1);const fmt=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');return {from:fmt(start),to:fmt(end)}}
 function markPeriod(){periodBar.querySelectorAll('button').forEach(b=>b.classList.toggle('h46-selected',b.dataset.period===period))}markPeriod();
 periodBar.addEventListener('click',e=>{const b=e.target.closest('button[data-period]');if(!b)return;period=b.dataset.period;markPeriod();loadStatistics()});
 async function loadStatistics(){const t=token();if(!t||!campaigns.length)return;const serial=++statsRequest,dates=periodDates();statsStatus.textContent='Проверяем статистику…';const savedKey='hogar_stats_v51_'+dates.from+'_'+dates.to;try{const saved=JSON.parse(localStorage.getItem(savedKey)||'null');if(saved&&saved.rows&&Array.isArray(saved.rows)){statistics=Object.fromEntries(saved.rows.map(x=>[String(x.id),x]));draw()}}catch(_){}
@@ -1032,7 +1037,7 @@ function draw(){
   const stat=statistics[id]||{};const fmt=v=>typeof v==='number'?v.toLocaleString('ru-RU',{maximumFractionDigits:2}):v;const spend=val(fmt(stat.spend),' ₽'),orders=val(fmt(stat.orders),''),cpc=val(fmt(stat.avg_cpc),' ₽');
   const more=[['Показы',stat.impressions,''],['Клики',stat.clicks,''],['Добавили в корзину',stat.carts,''],['Выручка от рекламы',stat.revenue,' ₽'],['CTR',stat.ctr,'%'],['Конверсия клика в корзину',stat.cart_rate,'%'],['Конверсия клика в заказ',stat.order_rate,'%'],['ДРР',stat.drr,'%'],['ROAS',stat.roas,'×']];
   const extra='<div class="h47-detail-grid">'+more.map(([label,value,suffix])=>'<div><small>'+label+'</small><strong>'+formatMetric(value,suffix)+'</strong></div>').join('')+'</div>';
-  const advice=stat.clicks>0&&stat.impressions>0&&stat.ctr!==null&&stat.ctr<1?'Низкий CTR: стоит проверить привлекательность карточки и соответствие поисковым запросам.':stat.spend>0&&stat.orders===0?'Есть расходы без заказов: проверьте карточку, цену и поисковые запросы.':stat.drr!==null&&stat.drr>25?'ДРР выше 25%: сравните с вашей целевой маржинальностью.':'Для оценки эффективности сравнивайте показатели за 7 и 30 дней.';
+  const advice=stat.clicks>0&&stat.impressions>0&&stat.ctr!==null&&stat.ctr<1?'Низкий CTR: стоит проверить привлекательность карточки и соответствие поисковым запросам.':stat.spend>0&&stat.orders===0?'Есть расходы без заказов: проверьте карточку, цену и поисковые запросы.':stat.drr!==null&&stat.drr>25?'ДРР выше 25%: сравните с вашей целевой маржинальностью.':'Для оценки эффективности сравнивайте показатели за 7 дней и текущий месяц.';
   return '<article class="h44-card"><button type="button" class="h44-title" data-id="'+esc(id)+'" aria-expanded="'+open+'"><span class="h44-text"><b>'+name+'</b><small>'+esc(status[c.status]||c.status||'Статус не указан')+' · № '+esc(id)+'</small></span><span class="h44-chevron">'+(open?'⌃':'⌄')+'</span></button><div class="h44-metrics">'+metric('Расходы',spend)+metric('Корзины',val(stat.carts,''))+metric('Цена клика',cpc)+'</div>'+(open?'<div class="h44-details"><h4>Подробная аналитика</h4>'+extra+'<p class="h47-advice">Подсказка: '+esc(advice)+'</p><p>Тип: '+esc(c.type||'Не указан')+' · Модель оплаты: '+esc(c.payment_type||'Нет данных')+'</p><p>Только анализ. Управление и редактирование недоступны.</p></div>':'')+'</article>';
  }).join('');
 }
