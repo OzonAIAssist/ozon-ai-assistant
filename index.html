@@ -1440,4 +1440,81 @@ const tile=document.querySelector('#hogar30 .h61-go-orders');
 if(tile){const go=()=>document.querySelector('.bottom-nav [data-tab="orders"]')?.click();tile.addEventListener('click',go);tile.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}})}
 })();
 </script>
+
+<style id="hogar-warm-v62">
+/* Cohesive warm Hogar design: override legacy ad and product dark themes */
+#h44{background:#fffdf9!important;color:#3b281d!important;border:1px solid #efd8c2!important;border-radius:20px!important;padding:17px 14px!important;box-shadow:0 5px 20px #955c2910!important}
+#h44 h2,#h44 h3,#h44 h4,#h44 .h47-summary-title{color:#3b281d!important}
+#h44 .h44-safe,#h44 .h44-last,#h44 .h44-muted,#h44 #h46statsstatus,#h44 .h46-periods>span{color:#967963!important}
+#h44 .h44-safe:before{color:#2b9b69!important}
+#h44 #h44refresh{background:#fff0df!important;border:1px solid #edc9aa!important;color:#995332!important}
+#h44 .h46-periods{margin:17px 0 14px!important}
+#h44 .h46-periods>div{gap:5px!important}
+#h44 .h46-periods button{background:#f7e9da!important;border:1px solid #ecd0b6!important;color:#734c36!important;border-radius:11px!important;font-size:clamp(10px,2.9vw,12px)!important;min-height:41px!important;padding:8px 2px!important}
+#h44 .h46-periods button.h46-selected{background:linear-gradient(135deg,#ff9d4d,#f0712d)!important;color:#fff!important;border-color:#ee8b4b!important}
+#h44 .h44-tabs{gap:7px!important;margin:15px 0!important}
+#h44 .h44-tab{background:#fff8f0!important;color:#745743!important;border:1px solid #eed7c0!important;border-radius:13px!important;min-height:63px!important}
+#h44 .h44-tab b{color:#4b3021!important;background:transparent!important}
+#h44 .h44-tab[aria-selected=true]{background:#e8f5ea!important;border-color:#8dca9e!important;color:#207849!important;box-shadow:none!important}
+#h44 .h44-tab[aria-selected=true] b{color:#207849!important}
+#h44 .h47-summary{background:transparent!important;border:0!important;border-radius:0!important;padding:0!important;margin:15px 0 18px!important}
+#h44 .h47-summary-grid{gap:9px!important}
+#h44 .h47-summary-grid>div{background:#fff8f0!important;border:1px solid #edd6c1!important;border-radius:14px!important;padding:13px 10px!important;min-height:81px}
+#h44 .h47-summary-grid span,#h44 .h47-detail-grid small{color:#90745e!important}
+#h44 .h47-summary-grid b,#h44 .h47-detail-grid strong{color:#402b1f!important;font-size:clamp(15px,4.3vw,19px)!important}
+#h44 .h47-summary-title small,#h44 .h47-summary p{color:#977b67!important}
+#h44 .h54-warnings{color:#986e45!important;border-top-color:#efd9c5!important}
+#h44 .h44-card{background:#fffdf9!important;border:1px solid #ecd5c0!important;border-radius:15px!important;box-shadow:0 3px 11px #995b2410!important}
+#h44 .h44-title{background:transparent!important;color:#3e2a1e!important;border:0!important;box-shadow:none!important}
+#h44 .h44-text b{color:#3e2a1e!important}
+#h44 .h44-text small{color:#9a7a63!important}
+#h44 .h44-chevron{color:#956e50!important}
+#h44 .h44-metric{background:transparent!important;border:0!important;border-left:1px solid #ecd9c8!important;border-radius:0!important}
+#h44 .h44-metric small{color:#967a65!important}
+#h44 .h44-metric strong{color:#3d2a20!important}
+#h44 .h44-details{background:#fffaf5!important;color:#745843!important;border-top-color:#ead4c0!important}
+#h44 .h47-detail-grid>div{background:#f7eadd!important;border-radius:10px!important}
+#h44 .h44-details h4{color:#3b281d!important}
+#h44 .h47-advice{background:#fff0df!important;color:#75503a!important;border-left-color:#ed8b48!important}
+#h44 .h44-note{color:#987a64!important}
+#h44 #h52diag{background:#fff8ef!important;color:#85664f!important;border:1px solid #ead2bc!important}
+#h44 details.h62-diagnostics{margin:12px 0!important;background:#fff9f2!important;border:1px solid #edd8c6!important;border-radius:12px!important;padding:10px 12px!important}
+#h44 details.h62-diagnostics>summary{color:#8c664b!important;font-size:12px!important;font-weight:650!important;cursor:pointer!important}
+#h44 details.h62-diagnostics #h52diag{margin:10px 0 0!important}
+#premium22 #p22detail,.p22-box,#premium22 #p22detail .p22-box{background:#fffdf9!important;color:#3b281d!important;border:1px solid #edd7c3!important;box-shadow:0 4px 15px #915c3210!important;border-radius:18px!important}
+#premium22 #p22detail *{color:#432e22}
+#premium22 #p22detail .p22-head h3,#premium22 #p22detail .p28-title{color:#39271d!important}
+#premium22 #p22detail .p28-hero{background:#fff9f2!important;border:1px solid #efdbc8!important;border-radius:16px!important}
+#premium22 #p22detail .p28-eyebrow,#premium22 #p22detail .p28-sku,#premium22 #p22detail .p28-note{color:#987963!important}
+#premium22 #p22detail .p22-chip{background:#fff0df!important;border:1px solid #eecfb2!important;color:#855c40!important}
+#premium22 #p22detail .p22-price{background:#fff4e7!important;border:1px solid #ead1b9!important;border-radius:15px!important}
+#premium22 #p22detail .p22-price:nth-child(2){background:#edf8ed!important;border-color:#c4e4c8!important}
+#premium22 #p22detail .p22-price span,#premium22 #p22detail .p22-price small{color:#886c56!important}
+#premium22 #p22detail .p22-price strong,#premium22 #p22detail .p22-price:nth-child(2) strong{color:#38261c!important;overflow-wrap:normal!important;word-break:normal!important;font-size:clamp(16px,5vw,24px)!important;letter-spacing:-.02em!important}
+#premium22 #p22detail .p22-editor{background:#fff8ef!important;border:1px solid #ecd5c0!important;border-radius:16px!important}
+#premium22 #p22detail .p22-editor label{color:#805c43!important}
+#premium22 #p22detail .p22-status{background:#eaf6ec!important;color:#26764c!important}
+#premium22 #p22detail .p22-warning{background:#fff0df!important;color:#9b632b!important}
+#premium22 #p22detail .p22-details{border-top-color:#e9d2bd!important}
+#premium22 #p22detail .p22-details summary{color:#92562f!important}
+#premium22 #p22detail input{background:#fffefa!important;color:#38271c!important;border:1px solid #e5c8ad!important}
+#premium22 #p22detail button:not(.p22-price){background:linear-gradient(125deg,#ff9d4d,#f16f2a)!important;border:1px solid #ef8643!important;color:white!important}
+#premium22 .p22-sync button,#premium22 .p22-actions button{background:#fff0df!important;border:1px solid #e7c6a9!important;color:#865638!important;box-shadow:none!important}
+#premium22 .p22-sync button *,#premium22 .p22-actions button *{color:inherit!important}
+#premium22 .p22-sync button:disabled{opacity:.55!important}
+#premium22 .p22-muted,#premium22 .p23-photo-note{color:#927761!important}
+#premium22 .p22-summary>div{background:#fffdf9!important;border:1px solid #ead6c4!important}
+#premium22 .p22-summary strong{color:#3e291d!important}
+#premium22 .p22-summary small{color:#927762!important}
+#premium22 .p22-item{background:#fffdf9!important;border:1px solid #ecd8c5!important}
+#premium22 .p22-item.selected{background:#fff0e1!important;border-color:#ed994e!important}
+#premium22 .p22-itemtext b{color:#3b281e!important}
+#premium22 .p22-itemtext small{color:#8e705b!important}
+#premium22 .p22-arrow{color:#966448!important}
+#premium22 .p22-icon{background:#f6e8d9!important;color:#9e6039!important;border-color:#e9d0b8!important}
+@media(max-width:380px){#h44{padding:14px 10px!important}#h44 .h47-summary-grid>div{padding:10px 8px!important}#premium22 #p22detail .p22-price{padding:11px 8px!important}}
+</style>
+<script id="hogar-v62-diagnostics">
+(function(){'use strict';const diag=document.getElementById('h52diag');if(!diag||diag.closest('details'))return;const wrapper=document.createElement('details');wrapper.className='h62-diagnostics';const summary=document.createElement('summary');summary.textContent='Диагностика отчёта Ozon';diag.parentNode.insertBefore(wrapper,diag);wrapper.append(summary,diag);const observer=new MutationObserver(()=>{wrapper.hidden=diag.hidden});observer.observe(diag,{attributes:true,attributeFilter:['hidden']});wrapper.hidden=diag.hidden})();
+</script>
 </body></html>
