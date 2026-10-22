@@ -1,12 +1,911 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Hogar · Реклама Preview</title><style>
-:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#091728;color:#eaf3ff}*{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#0a1729,#0e2441);min-height:100vh}main{max-width:650px;margin:auto;padding:24px 15px 70px}h1{font-size:29px;margin:4px 0}h2{font-size:17px;margin:0 0 12px}.muted,small{color:#a5bdd8}.eyebrow{font-size:11px;letter-spacing:2px;color:#8cbfff}.card{background:#132c49;border:1px solid #305274;border-radius:18px;padding:16px;margin:14px 0;box-shadow:0 12px 35px #0002}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.metric{background:#0c2037;border-radius:12px;padding:12px}.metric strong{display:block;font-size:21px;margin-top:5px}button,input,select{font:inherit}button{cursor:pointer;border:0;border-radius:11px;padding:10px 13px;background:#2767a6;color:white}button.outline{background:#1a3959;border:1px solid #426487}.tabs{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.tabs button{padding:8px 10px;font-size:13px;background:#183b60}.tabs button.active{background:#387bd0}label{display:block;font-size:12px;color:#bed1e6;margin:12px 0 5px}input[type=number],select{width:100%;background:#091e33;color:white;border:1px solid #4b6b8d;border-radius:10px;padding:11px;min-width:0}input[type=checkbox]{width:22px;height:22px;accent-color:#55b1ff}.hint{background:#0c2037;border-radius:12px;padding:12px;font-size:13px;line-height:1.5;margin:8px 0}.info{border-radius:50%;padding:0;width:27px;height:27px;font-size:15px;background:#285780}.slider{appearance:none;width:100%;height:12px;border-radius:15px;background:linear-gradient(90deg,#62d5ef,#3b88ff,#9d5cfa);margin:22px 0}.slider::-webkit-slider-thumb{appearance:none;width:27px;height:27px;border:3px solid #fff;border-radius:50%;background:#75b8ff;box-shadow:0 0 15px #7dbbff}.slider::-moz-range-thumb{width:23px;height:23px;border:3px solid #fff;border-radius:50%;background:#75b8ff;box-shadow:0 0 15px #7dbbff}.status{color:#94dcb6}.warn{color:#ffd38b}.footer{font-size:12px;line-height:1.6;color:#b0c4dc}.history{padding:14px;background:#0c2037;border-radius:12px}</style></head><body><main>
-<div class="eyebrow">HOGAR · AI ADS MANAGER</div><h1>Реклама</h1><div class="muted">Предпросмотр обновлённого управления кампаниями</div>
-<div class="card"><div class="row"><h2>Общая статистика</h2><span class="warn">Нет подключения к Ozon</span></div><div class="tabs"><button class="active">Сегодня</button><button>Вчера</button><button>7 дней</button><button>30 дней</button></div><div class="grid"><div class="metric"><small>Расходы</small><strong>—</strong></div><div class="metric"><small>Заказы</small><strong>—</strong></div><div class="metric"><small>Продажи</small><strong>—</strong></div><div class="metric"><small>ДРР</small><strong>—</strong></div></div></div>
-<div class="row"><h2>Кампании</h2><button id="add">+ Черновик</button></div><div id="list"></div>
-<p class="footer">Демонстрационный интерфейс: кампании, бюджеты и стратегии сохраняются только на этом устройстве. Данные не загружаются из Ozon, изменения не отправляются в Ozon, автоматический серверный алгоритм не запущен. Поддержку дневного и недельного бюджета необходимо подтвердить по Ozon Performance API.</p></main>
-<script>
-const key='hogar_ads_preview_33';const desc={rules:'Меняет ставки по заданным правилам. Например: если клики есть, а заказов нет — снизить ставку.',autopilot:'Стремится увеличить число заказов в рамках бюджета. Если 80% дневного бюджета потрачено слишком рано — переходит к экономии.',funnel:'Анализирует путь от показов через клики к заказам и выявляет слабые этапы.',conversion:'Ориентируется на долю кликов, завершившихся заказами, при достаточной статистике.',positions:'Стремится поддерживать видимость в рекламной выдаче, если необходимые данные доступны через API.'};const labels={rules:'По правилам',autopilot:'Автопилот',funnel:'По воронке',conversion:'По конверсиям',positions:'По позициям'};
-let items=[];try{items=JSON.parse(localStorage.getItem(key)||'[]')}catch{};function save(){localStorage.setItem(key,JSON.stringify(items))}function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function render(){document.getElementById('list').innerHTML=items.length?items.map((c,i)=>`<div class="card" data-i="${i}"><div class="row"><div><b>${esc(c.name)}</b><div class="muted" style="font-size:12px">Локальный черновик · не Ozon</div></div><label style="margin:0">Кампания <input type="checkbox" data-f="enabled" ${c.enabled?'checked':''}></label></div><div class="grid"><div><label>Дневной бюджет, ₽</label><input type="number" min="0" data-f="daily" value="${esc(c.daily)}"></div><div><label>Недельный бюджет, ₽</label><input type="number" min="0" data-f="weekly" value="${esc(c.weekly)}"></div></div><div class="hint">Изменения бюджетов сохраняются только в черновике. Реальная синхронизация с Ozon пока недоступна.</div><div class="tabs"><button data-tab="strategy" class="${c.tab!=='history'?'active':''}">Стратегия</button><button data-tab="history" class="${c.tab==='history'?'active':''}">История</button></div>${c.tab==='history'?'<div class="history">Реальных действий по изменению ставок пока нет. После подключения API здесь будут время, прежняя и новая ставка, показатели и объяснение решения.</div>':`<div class="row"><b>Умная стратегия</b><label style="margin:0">Включена <input type="checkbox" data-f="auto" ${c.auto?'checked':''}></label></div><div class="row"><label style="flex:1">Тип стратегии<select data-f="strategy">${Object.entries(labels).map(([v,t])=>`<option value="${v}" ${c.strategy===v?'selected':''}>${t}</option>`).join('')}</select></label><button class="info" data-action="hint" aria-label="Описание стратегии">ⓘ</button></div><div class="hint" data-hint style="display:none">${desc[c.strategy]}</div><div class="grid"><div><label>Мин. ставка, ₽</label><input type="number" min="0" data-f="min" value="${esc(c.min)}"></div><div><label>Макс. ставка, ₽</label><input type="number" min="0" data-f="max" value="${esc(c.max)}"></div></div><label>Эффективность ↔ Больше показов</label><input class="slider" type="range" min="0" max="100" data-f="reach" value="${c.reach}"><div class="row"><small>Экономия</small><b data-mode>${c.reach<34?'Экономия':c.reach>66?'Больше показов':'Баланс'}</b><small>Больше показов</small></div><div class="hint">Автопилот: максимум заказов без перераспределения бюджетов между кампаниями. Режим экономии при раннем расходе 80% дневного бюджета. Плановая проверка — каждые 15 минут после запуска серверной части.</div><label>Расписание</label><div class="grid"><div><input aria-label="Начало" type="time" data-f="from" value="${esc(c.from)}"></div><div><input aria-label="Конец" type="time" data-f="to" value="${esc(c.to)}"></div></div><button data-action="save">Сохранить черновик</button>`}<button class="outline" data-action="delete" style="margin-left:8px">Удалить</button></div>`).join(''):'<div class="card muted">Пока нет кампаний. Создай черновик, чтобы проверить настройки.</div>'}
-document.getElementById('add').onclick=()=>{items.push({name:'Новая кампания',enabled:false,daily:'',weekly:'',auto:false,strategy:'autopilot',min:'',max:'',reach:50,from:'09:00',to:'23:00',tab:'strategy'});save();render()};document.getElementById('list').addEventListener('click',e=>{let b=e.target.closest('button'),card=e.target.closest('[data-i]');if(!b||!card)return;let i=+card.dataset.i,c=items[i];if(b.dataset.tab){c.tab=b.dataset.tab;save();render()}else if(b.dataset.action==='hint'){let h=card.querySelector('[data-hint]');h.style.display=h.style.display==='none'?'block':'none'}else if(b.dataset.action==='delete'){if(confirm('Удалить черновик?')){items.splice(i,1);save();render()}}else if(b.dataset.action==='save'){if(c.min!==''&&c.max!==''&&+c.min>+c.max){alert('Максимальная ставка должна быть не ниже минимальной');return}save();alert('Черновик сохранён на устройстве. В Ozon ничего не изменено.')}});document.getElementById('list').addEventListener('input',e=>{let card=e.target.closest('[data-i]');if(!card||!e.target.dataset.f)return;let c=items[+card.dataset.i],f=e.target.dataset.f;c[f]=e.target.type==='checkbox'?e.target.checked:e.target.value;save();if(f==='reach')card.querySelector('[data-mode]').textContent=c.reach<34?'Экономия':c.reach>66?'Больше показов':'Баланс';if(f==='strategy'){let h=card.querySelector('[data-hint]');h.textContent=desc[c.strategy]}});render();
-</script></body></html>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ozon AI Assistant by Hogar</title><style>body{font:16px -apple-system,BlinkMacSystemFont,sans-serif;background:#f4f6fa;color:#172033;margin:0}header{background:#155eef;color:white;padding:22px}main{max-width:680px;margin:auto;padding:16px}.card{background:white;padding:18px;border-radius:16px;margin-bottom:14px;box-shadow:0 2px 10px #1720330c}label{display:block;font-size:13px;color:#576174;margin-top:12px}input,select{width:100%;box-sizing:border-box;padding:11px;border:1px solid #cbd2df;border-radius:10px;font-size:16px}button{border:0;border-radius:10px;padding:12px 16px;background:#155eef;color:white;font-size:15px}small{color:#667085}.row{display:flex;justify-content:space-between;gap:12px;align-items:center}.pill{background:#e6f5ef;color:#067647;padding:5px 9px;border-radius:20px;font-size:12px}canvas{width:100%;height:170px}.notice{background:#fff4da;padding:12px;border-radius:10px}</style><style id="mobile-dark-theme">
+:root{color-scheme:dark}*{box-sizing:border-box}body{background:#0b1220!important;color:#f8fafc!important;padding-bottom:90px}header{background:#101b2d!important;border-bottom:1px solid #334155;padding:18px 20px!important}header b{font-size:21px}main{max-width:680px!important;padding:18px 14px!important}.card{background:#172338!important;color:#f8fafc!important;border:1px solid #2d3c53;box-shadow:none!important;border-radius:18px!important;padding:17px!important}.card h3{margin-top:0;color:#fff}label,small{color:#a5b4c8!important}input,select{background:#0e192a!important;color:#f8fafc!important;border:1px solid #40516b!important}input[type=checkbox],input[type=range]{accent-color:#3b82f6}button{background:#2563eb!important;color:#fff!important;cursor:pointer}.notice{background:#3a3023!important;color:#fde68a!important;border:1px solid #695333}.pill{background:#163c32!important;color:#86efac!important}.demo-banner{margin:0 0 16px;padding:13px;background:#332b1e;color:#fde68a;border-radius:12px;font-size:13px;line-height:1.5}.tab-heading{font-size:20px;font-weight:750;margin:0 0 16px}.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#101b2d;border-top:1px solid #334155;display:flex;justify-content:center;z-index:50;padding:7px 0 max(8px,env(safe-area-inset-bottom))}.bottom-nav>div{display:flex;width:min(100%,680px)}.bottom-nav button{flex:1;background:transparent!important;color:#94a3b8!important;font-size:11px;padding:5px 0!important;border-radius:0}.bottom-nav button.active{color:#60a5fa!important;font-weight:700}.bottom-nav span{display:block;font-size:22px;margin-bottom:4px}.section-pane{display:none}.section-pane.active{display:block}.demo-stat{font-size:30px;font-weight:750;color:#4ade80;margin:9px 0}.demo-row{display:flex;justify-content:space-between;gap:10px;margin:10px 0;color:#cbd5e1}.demo-row b{color:#fff}.muted{color:#94a3b8}.security-warning{padding:12px;background:#382d20;border-radius:12px;color:#fde68a;font-size:13px}
+</style><style id="premium-v21">
+:root{color-scheme:dark;--blue:#2875ff;--stroke:#233c60;--mint:#3de0ac}
+body{background:radial-gradient(ellipse 100% 430px at 50% -130px,#143d79 0%,#081426 72%,#07111f 100%) fixed!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;letter-spacing:-.12px}
+header{background:linear-gradient(120deg,#091a32,#0d2b54)!important;border-bottom:1px solid #244a79!important;padding:24px 22px 20px!important;box-shadow:0 10px 35px #0002}
+header b{font-size:24px!important;letter-spacing:-.7px;font-weight:800}header b:before{content:'◈';display:inline-grid;place-items:center;margin-right:10px;width:33px;height:33px;border-radius:11px;background:linear-gradient(140deg,#00dbd2,#3c69ff 60%,#9a48ff);font-size:22px;color:#fff}
+header div{margin:9px 0 0 45px;color:#a9c3e7!important;font-size:12px!important;line-height:1.5}
+main{padding:18px 14px 32px!important}
+.card{background:linear-gradient(155deg,#122744 0%,#0d1c33 75%)!important;border:1px solid #284267!important;box-shadow:0 9px 26px #0003, inset 0 1px #ffffff0a!important;border-radius:22px!important;padding:19px!important;margin-bottom:16px!important}
+.card h3{font-size:19px!important;letter-spacing:-.4px;margin-bottom:13px!important}
+.card h3:before{content:'◈';color:#50a0ff;margin-right:9px}
+label{color:#a6bad7!important;font-weight:550!important;margin-top:16px!important;margin-bottom:7px!important}
+small{color:#9db3d1!important;line-height:1.5!important}
+input,select,textarea{background:#09182e!important;color:#f5f9ff!important;border:1px solid #34547e!important;border-radius:13px!important;min-height:47px;padding:12px 13px!important;box-shadow:inset 0 1px 3px #0003;outline:none}
+input:focus,select:focus{border-color:#4c94ff!important;box-shadow:0 0 0 3px #246dff33!important}
+button{background:linear-gradient(135deg,#2781ff,#1559e7)!important;border:1px solid #5599ff4a!important;border-radius:13px!important;box-shadow:0 5px 14px #0751d544!important;font-weight:650!important;min-height:43px}
+button:active{transform:scale(.985)}
+.bottom-nav{background:#08172bfa!important;border-top:1px solid #264368!important;backdrop-filter:blur(16px);box-shadow:0 -7px 25px #0004!important;border-radius:19px 19px 0 0}
+.bottom-nav button{box-shadow:none!important;border:none!important;border-radius:13px!important;margin:0 2px!important}
+.bottom-nav button.active{background:#11386d!important;color:#78b9ff!important}
+.bottom-nav span{font-size:23px!important}
+.tab-heading{font-size:24px!important;font-weight:800!important;letter-spacing:-.6px!important}
+.notice,.demo-banner,.security-warning{border-radius:15px!important;line-height:1.55!important}
+.premium-hero{background:linear-gradient(115deg,#133f85,#10264c 70%,#172448);border:1px solid #3467b1;border-radius:22px;padding:19px;margin-bottom:17px;box-shadow:0 12px 28px #0003;position:relative;overflow:hidden}
+.premium-hero:after{content:'◈';position:absolute;right:-12px;top:-37px;font-size:150px;color:#ffffff0c;pointer-events:none}
+.premium-eyebrow{font-size:11px;letter-spacing:1.8px;font-weight:750;color:#7cc6ff;text-transform:uppercase}
+.premium-title{font-size:23px;line-height:1.2;font-weight:800;margin:10px 0 9px;letter-spacing:-.7px}
+.premium-description{font-size:13px;color:#b7d0f1;line-height:1.55;max-width:340px}
+.premium-tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:16px}
+.premium-tags span{background:#071d3eaa;border:1px solid #4876b366;border-radius:100px;padding:7px 10px;font-size:11px;color:#bde0ff}
+@media(max-width:390px){header b{font-size:21px!important}.card{padding:15px!important}.premium-title{font-size:21px}}
+</style><style id="hogar-v32-clean">
+#tab-ads > .card{display:none!important}
+#tab-ads > .tab-heading{display:none!important}
+#h31ads .h32-subnav{display:flex;gap:6px;margin:13px 0}
+#h31ads .h32-subnav button{flex:1;font-size:12px;padding:9px 6px!important}
+#h31ads .h32-subnav button[aria-pressed=true]{background:#327ce0!important}
+#h31ads .h32-range{width:100%;accent-color:#5ea9f5}
+#h31ads .h32-hist{background:#0b1d32;border:1px solid #274b6d;border-radius:12px;padding:12px;margin-top:9px}
+#h31ads .h32-hist small{display:block;color:#91abc7;margin-top:5px}
+#h31ads .h32-switches{display:flex;gap:12px;align-items:center;justify-content:space-between;margin:9px 0}
+#h31ads .h32-switches span{font-size:12px;color:#bed1e7}
+</style></head><body><header><b>Ozon AI Assistant <span style="color:#7de0ad">by Hogar</span></b><div style="opacity:.8;font-size:13px">Мобильный прототип · Каталог Ozon подключён; цены не изменяются</div></header><main><section class="premium-hero" aria-label="Статус репрайсера"><div class="premium-eyebrow">OZON AI · CONTROL CENTER</div><div class="premium-title">Цены под контролем</div><div class="premium-description">Удерживаем цель для Москвы с Ozon Картой. Сейчас — безопасное наблюдение без изменения цен.</div><div class="premium-tags"><span>◎ Москва · Ozon Карта</span><span>± 5 ₽</span><span>◷ 15 мин · ручная проверка</span></div></section><div class="card"><div class="row"><h3>Кампании</h3><button onclick="add()">+ Добавить</button></div><select id="campaign" onchange="render()"></select><label>Название кампании</label><input id="name"><label>Бюджет в день, ₽</label><input id="daily" type="number" min="0"><label>Бюджет в неделю, ₽</label><input id="weekly" type="number" min="0"><div class="row"><div style="flex:1"><label>Мин. ставка, ₽</label><input id="min" type="number" min="0"></div><div style="flex:1"><label>Макс. ставка, ₽</label><input id="max" type="number" min="0"></div></div><label>Интенсивность показов: <span id="intensityValue"></span>%</label><input id="intensity" type="range" min="0" max="100" oninput="document.getElementById('intensityValue').textContent=this.value"><div class="row"><div style="flex:1"><label>Включать в</label><input id="start" type="time"></div><div style="flex:1"><label>Выключать в</label><input id="end" type="time"></div></div><label><input id="enabled" type="checkbox" style="width:auto"> Автопилот разрешён (только демо)</label><p><button onclick="save()">Сохранить настройки</button></p><small>Настройки хранятся только в этом браузере. Автоматических действий в Ozon нет.</small></div><div class="card"><h3>Почасовая аналитика</h3><small>Иллюстративные данные, не реальные расходы</small><label>Показатель</label><select id="metric" onchange="draw()"><option value="views">Показы</option><option value="clicks">Клики</option><option value="spend">Расходы, ₽</option></select><canvas id="chart" width="600" height="220"></canvas></div><div class="card"><h3>Репрайсер · Защита прибыли</h3><small>Расчёт для одного товара · Демонстрация, без изменения цен Ozon</small><label>Режим</label><select id="priceMode" onchange="togglePriceMode();calcPrice()"><option value="fixed">Фиксированная цена</option><option value="range">Диапазон цен</option></select><div id="fixedFields"><label>Заданная цена, ₽</label><input id="fixedPrice" type="number" value="1100" min="1" oninput="calcPrice()"></div><div id="rangeFields" style="display:none"><label>Минимальная цена, ₽</label><input id="priceMin" type="number" value="1100" min="1" oninput="calcPrice()"><label>Максимальная цена, ₽</label><input id="priceMax" type="number" value="1700" min="1" oninput="calcPrice()"></div><label>Себестоимость, ₽</label><input id="cost" type="number" value="650" min="0" oninput="calcPrice()"><label>Логистика, ₽</label><input id="logistics" type="number" value="100" min="0" oninput="calcPrice()"><label>Другие расходы на заказ, ₽</label><input id="other" type="number" value="30" min="0" oninput="calcPrice()"><label>Минимальная прибыль на заказ, ₽</label><input id="profit" type="number" value="150" min="0" oninput="calcPrice()"><label>Комиссия Ozon, % от цены</label><input id="commissionPct" type="number" value="15" min="0" oninput="calcPrice()"><label>Налоги, % от цены (упрощённая модель)</label><input id="taxPct" type="number" value="6" min="0" oninput="calcPrice()"><label>Рекламные расходы, % от цены</label><input id="adsPct" type="number" value="10" min="0" oninput="calcPrice()"><p class="notice" id="priceResult" aria-live="polite"></p><button onclick="savePrice()">Сохранить настройки товара (демо)</button><p><small>Модель приблизительная: реальные налоги, скидки, возвраты и комиссии могут требовать отдельного расчёта. Не используйте её как гарантию прибыли.</small></p></div><div class="card"><h3>Telegram</h3><p class="notice">Уведомления будут доступны после подключения бота и сервера.</p></div></main><script>const key='ozon_mobile_demo_v06';let data=JSON.parse(localStorage.getItem(key)||'null')||[{id:1,name:'Основные товары',daily:1500,weekly:9000,min:10,max:35,intensity:50,start:'08:00',end:'23:00',enabled:false},{id:2,name:'Новинки',daily:800,weekly:5000,min:8,max:25,intensity:70,start:'09:00',end:'22:00',enabled:false}];function selected(){return data.find(x=>x.id==document.getElementById('campaign').value)||data[0]}function render(){let sel=document.getElementById('campaign');let id=sel.value;sel.innerHTML=data.map(c=>`<option value="${c.id}"></option>`).join('');[...sel.options].forEach((o,i)=>o.textContent=data[i].name);sel.value=data.some(c=>String(c.id)===id)?id:data[0].id;let c=selected();for(let k of ['name','daily','weekly','min','max','intensity','start','end'])document.getElementById(k).value=c[k];document.getElementById('enabled').checked=c.enabled;document.getElementById('intensityValue').textContent=c.intensity;draw()}function save(){let c=selected();for(let k of ['name','daily','weekly','min','max','intensity','start','end'])c[k]=document.getElementById(k).value;c.enabled=document.getElementById('enabled').checked;if(!c.name.trim()||Number(c.daily)<0||Number(c.weekly)<0||Number(c.min)<0||Number(c.max)<Number(c.min)){alert('Проверь настройки');return}localStorage.setItem(key,JSON.stringify(data));render();alert('Сохранено на этом iPhone (демо)')}function add(){data.push({id:Math.max(...data.map(x=>x.id))+1,name:'Новая кампания',daily:1000,weekly:6000,min:5,max:30,intensity:50,start:'08:00',end:'23:00',enabled:false});localStorage.setItem(key,JSON.stringify(data));render();document.getElementById('campaign').value=data[data.length-1].id;render()}function draw(){let canvas=document.getElementById('chart'),ctx=canvas.getContext('2d'),m=document.getElementById('metric').value;ctx.clearRect(0,0,600,220);let vals=Array.from({length:24},(_,h)=>{let f=h<7?.15:h<10?.65:h<17?.85:h<22?1:.3;return Math.round((m==='views'?1800:m==='clicks'?40:140)*f*(.75+.15*Math.sin(h*2)))}),max=Math.max(...vals);ctx.fillStyle='#155eef';vals.forEach((v,h)=>{let ht=v/max*170;ctx.fillRect(18+h*24,185-ht,15,ht)});ctx.fillStyle='#667085';ctx.font='12px sans-serif';for(let h=0;h<24;h+=4)ctx.fillText(String(h).padStart(2,'0')+':00',14+h*24,205)}render();</script><script src="repricer.js"></script><script>
+const priceKey='ozon_price_safety_demo_v07';
+const priceIds=['fixedPrice','priceMin','priceMax','cost','logistics','other','profit','commissionPct','taxPct','adsPct'];
+function togglePriceMode(){document.getElementById('fixedFields').style.display=document.getElementById('priceMode').value==='fixed'?'block':'none';document.getElementById('rangeFields').style.display=document.getElementById('priceMode').value==='range'?'block':'none';}
+function getPriceSettings(){const x={mode:document.getElementById('priceMode').value};for(const id of priceIds)x[id]=document.getElementById(id).value;return x;}
+function calcPrice(){const x=getPriceSettings();const r=safePrice({mode:x.mode,fixed:x.fixedPrice,min:x.priceMin,max:x.priceMax,cost:x.cost,logistics:x.logistics,other:x.other,profit:x.profit,commissionPct:x.commissionPct,taxPct:x.taxPct,adsPct:x.adsPct});document.getElementById('priceResult').textContent=r.status==='blocked'?'⛔ '+r.reason+(r.minimum?' Безопасный минимум: '+r.minimum+' ₽.':''):'Безопасный минимум: '+r.minimum+' ₽. Итоговая нижняя граница: '+r.effective+' ₽. '+r.reason;return r;}
+function savePrice(){const r=calcPrice();if(r.status==='blocked'){alert('Настройки не сохранены: '+r.reason);return;}localStorage.setItem(priceKey,JSON.stringify(getPriceSettings()));alert('Настройки сохранены только на этом iPhone. В Ozon ничего не отправлено.');}
+try{const saved=JSON.parse(localStorage.getItem(priceKey)||'null');if(saved){document.getElementById('priceMode').value=saved.mode||'fixed';for(const id of priceIds)if(saved[id]!==undefined)document.getElementById(id).value=saved[id];}}catch(e){}togglePriceMode();calcPrice();
+</script><script id="mobile-tabs-upgrade">
+(function(){
+const main=document.querySelector('main');const cards=[...main.querySelectorAll(':scope > .card')];
+const notice=document.createElement('div');notice.className='demo-banner';notice.textContent='🔒 Демоверсия: реальные Ozon и Telegram не подключены. Автоматическая запись цен заблокирована до проверки налогов и исходных данных.';main.prepend(notice);
+const sections={home:document.createElement('section'),ads:document.createElement('section'),prices:document.createElement('section'),analytics:document.createElement('section'),more:document.createElement('section')};
+Object.entries(sections).forEach(([id,el])=>{el.id='tab-'+id;el.className='section-pane';main.appendChild(el)});
+function intro(section,title){const h=document.createElement('h2');h.className='tab-heading';h.textContent=title;section.appendChild(h)}
+intro(sections.home,'Главная');intro(sections.ads,'Реклама');intro(sections.prices,'Цены');intro(sections.analytics,'Аналитика');intro(sections.more,'Ещё · Безопасность');
+sections.ads.appendChild(cards[0]);sections.analytics.appendChild(cards[1]);sections.prices.appendChild(cards[2]);sections.more.appendChild(cards[3]);
+const homeCard=document.createElement('div');homeCard.className='card';homeCard.innerHTML='<div class="muted">Прогнозная прибыль по заказам · 30 дней</div><div class="demo-stat">+184 650 ₽</div><small>Иллюстративные данные, не из Ozon</small><hr style="border:0;border-top:1px solid #334155;margin:16px 0"><div class="demo-row"><span>Фактическая прибыль</span><b>+167 420 ₽</b></div><small>После возвратов и корректировок · пример</small>';sections.home.appendChild(homeCard);
+const homeMore=document.createElement('div');homeMore.className='card';homeMore.innerHTML='<h3>Рекомендации ИИ · примеры</h3><p>⚠️ Проверить цену комода — прибыль ниже целевой.</p><p>◉ Проверить рекламную кампанию — автоматической остановки нет.</p><small>Рекомендации не связаны с реальным аккаунтом продавца.</small>';sections.home.appendChild(homeMore);
+const analyticsNote=document.createElement('div');analyticsNote.className='card';analyticsNote.innerHTML='<h3>Раздельный учёт прибыли</h3><div class="demo-row"><span>Прогноз по заказам</span><b>184 650 ₽</b></div><div class="demo-row"><span>После сверки</span><b>167 420 ₽</b></div><small>Данные примерные. Реальный расчёт требует подтверждения комиссий, логистики, налогов и рекламы.</small>';sections.analytics.prepend(analyticsNote);
+const sec=document.createElement('div');sec.className='card';sec.innerHTML='<h3>Настройки безопасности · концепция</h3><div class="demo-row"><span>Тайм-аут сессии</span><b>30 мин</b></div><div class="demo-row"><span>Резервные коды</span><b>5 шт.</b></div><div class="demo-row"><span>Смена Telegram</span><b>1 раз / 24 ч</b></div><div class="security-warning">Это только демонстрация требований. Реальной авторизации и восстановления доступа здесь нет.</div>';sections.more.appendChild(sec);
+const nav=document.createElement('nav');nav.className='bottom-nav';nav.setAttribute('aria-label','Разделы приложения');nav.innerHTML='<div>'+[['home','⌂','Главная'],['ads','◉','Реклама'],['prices','▤','Цены'],['analytics','▥','Аналитика'],['more','☰','Ещё']].map(([id,ico,name])=>'<button type="button" data-tab="'+id+'"><span>'+ico+'</span>'+name+'</button>').join('')+'</div>';document.body.appendChild(nav);
+function activate(id){Object.entries(sections).forEach(([k,v])=>v.classList.toggle('active',k===id));nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));if(id==='analytics')try{draw()}catch(e){}window.scrollTo(0,0)}
+nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activate(b.dataset.tab)));activate('home');
+})();
+</script>
+<script id="products-v10">
+(function () {
+  'use strict';
+  const section = document.getElementById('tab-prices');
+  if (!section || typeof safePrice !== 'function') return;
+  const storageKey = 'ozon_products_v09';
+  const endpoint = 'https://ozon-ai-assistant-api.onrender.com/api/products';
+  let products = [], active = null;
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    if (Array.isArray(saved)) products = saved;
+  } catch (_) {}
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <h3>Мои товары · v1.0</h3>
+    <small>Синхронизация из Ozon · только чтение. Себестоимость хранится на этом iPhone.</small>
+    <label for="v10token">Пароль доступа к серверу (APP_ACCESS_TOKEN, НЕ API-ключ Ozon)</label>
+    <input id="v10token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Введите пароль доступа">
+    <p><button type="button" id="v10sync">↻ Синхронизировать товары из Ozon</button></p>
+    <p id="v10status" aria-live="polite"></p>
+    <label for="v10search">Поиск по названию или артикулу</label>
+    <input id="v10search" placeholder="Поиск товаров">
+    <label for="v10name">Название товара для ручного добавления</label>
+    <input id="v10name" maxlength="100">
+    <label for="v10sku">Артикул (необязательно)</label>
+    <input id="v10sku" maxlength="60">
+    <p><button type="button" id="v10add">+ Добавить вручную</button></p>
+    <p id="v10count"></p>
+    <div id="v10list"></div>
+    <small>Выберите товар, укажите его расходы в калькуляторе ниже и нажмите «Сохранить товар». Пароль не сохраняется.</small>`;
+  section.insertBefore(card, section.children[1] || null);
+  const list = card.querySelector('#v10list');
+  const status = card.querySelector('#v10status');
+
+  function persist() {
+    try { localStorage.setItem(storageKey, JSON.stringify(products)); return true; }
+    catch (_) { alert('Не удалось сохранить каталог в памяти браузера.'); return false; }
+  }
+  function snapshot() {
+    const x = getPriceSettings();
+    return {
+      mode: x.mode, fixed: x.fixedPrice, min: x.priceMin, max: x.priceMax,
+      cost: x.cost, logistics: x.logistics, other: x.other, profit: x.profit,
+      commissionPct: x.commissionPct, taxPct: x.taxPct, adsPct: x.adsPct
+    };
+  }
+  function apply(s) {
+    document.getElementById('priceMode').value = s.mode || 'fixed';
+    const ids = {
+      fixed:'fixedPrice', min:'priceMin', max:'priceMax', cost:'cost',
+      logistics:'logistics', other:'other', profit:'profit',
+      commissionPct:'commissionPct', taxPct:'taxPct', adsPct:'adsPct'
+    };
+    for (const [field,id] of Object.entries(ids)) {
+      document.getElementById(id).value = s[field] === undefined ? '' : s[field];
+    }
+    togglePriceMode(); calcPrice();
+  }
+  function button(label, fn) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = label;
+    b.style.margin = '5px 5px 5px 0'; b.addEventListener('click', fn);
+    return b;
+  }
+  function render() {
+    const q = card.querySelector('#v10search').value.trim().toLowerCase();
+    const matching = products.filter(p => (p.name+' '+(p.sku||'')).toLowerCase().includes(q));
+    card.querySelector('#v10count').textContent = 'Всего товаров: '+products.length+
+      (q ? ' · найдено: '+matching.length : '');
+    list.replaceChildren();
+    for (const p of matching.slice(0,100)) {
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:12px 0;border-top:1px solid #334155';
+      const title = document.createElement('strong');
+      title.textContent = p.name + (p.sku ? ' · '+p.sku : '');
+      row.append(title, document.createElement('br'));
+      row.append(button(active === p.id ? '✓ Выбран' : 'Выбрать', () => {
+        active = p.id; apply(p.settings || {}); render();
+      }));
+      if (active === p.id) row.append(button('Сохранить товар', () => {
+        const settings = snapshot(), result = safePrice(settings);
+        if (result.status === 'blocked') {
+          alert('Сохранение заблокировано: '+result.reason); return;
+        }
+        const previous = p.settings;
+        p.settings = settings;
+        if (!persist()) p.settings = previous;
+        else alert('Расходы и настройки товара сохранены на этом устройстве.');
+      }));
+      row.append(button('Удалить', () => {
+        if (!confirm('Удалить товар из приложения? В Ozon он останется.')) return;
+        const previous = products;
+        products = products.filter(x => x.id !== p.id);
+        if (!persist()) products = previous;
+        else { if (active === p.id) active = null; render(); }
+      }));
+      list.append(row);
+    }
+    if (matching.length > 100) {
+      const note = document.createElement('small');
+      note.textContent = 'Показаны первые 100. Уточните поиск, чтобы увидеть остальные.';
+      list.append(note);
+    }
+  }
+  card.querySelector('#v10search').addEventListener('input', render);
+  card.querySelector('#v10add').addEventListener('click', () => {
+    const name = card.querySelector('#v10name').value.trim();
+    const sku = card.querySelector('#v10sku').value.trim();
+    if (!name) { alert('Введите название товара.'); return; }
+    const s = snapshot(), result = safePrice(s);
+    if (result.status === 'blocked') { alert('Проверьте настройки цены: '+result.reason); return; }
+    const p = {id:'local-'+Date.now()+'-'+Math.random().toString(36).slice(2),name,sku,settings:s};
+    products.push(p);
+    if (!persist()) { products.pop(); return; }
+    active = p.id;
+    card.querySelector('#v10name').value = '';
+    card.querySelector('#v10sku').value = '';
+    render();
+  });
+
+  card.querySelector('#v10sync').addEventListener('click', async () => {
+    const tokenInput = document.getElementById('v10token');
+    const token = tokenInput.value.trim();
+    if (!token) { alert('Введите APP_ACCESS_TOKEN из Render, не API-ключ Ozon.'); return; }
+    const sync = document.getElementById('v10sync');
+    sync.disabled = true;
+    status.textContent = 'Загрузка товаров… Бесплатный сервер может просыпаться до минуты.';
+    try {
+      const response = await fetch(endpoint, {
+        headers: {Authorization:'Bearer '+token}, cache:'no-store'
+      });
+      if (!response.ok) throw new Error(response.status === 401 ?
+        'Неверный пароль доступа.' : 'Ошибка сервера HTTP '+response.status);
+      const data = await response.json();
+      if (!Array.isArray(data.items)) throw new Error('Неожиданный ответ сервера.');
+      const next = products.map(p => ({...p}));
+      const byProductId = new Map(next.filter(p => p.product_id)
+        .map(p => [String(p.product_id), p]));
+      const bySku = new Map(next.filter(p => p.sku).map(p => [String(p.sku),p]));
+      const blank = {mode:'fixed',fixed:'',min:'',max:'',cost:'',
+        logistics:'',other:'',profit:'',commissionPct:'',taxPct:'',adsPct:''};
+      let added = 0, updated = 0;
+      for (const item of data.items) {
+        const id = String(item.product_id || '');
+        const sku = String(item.offer_id || '');
+        if (!id) continue;
+        let existing = byProductId.get(id) || (sku ? bySku.get(sku) : null);
+        if (existing) {
+          existing.product_id = id;
+          existing.sku = sku || existing.sku;
+          existing.name = item.name || existing.name;
+          if (typeof item.image_url === 'string' && /^https:\/\//i.test(item.image_url)) existing.image_url = item.image_url;
+          if (item.image_url) existing.image_url = item.image_url;
+          byProductId.set(id, existing);
+          updated++;
+        } else {
+          const p = {id:'ozon-'+id,product_id:id,sku,
+            name:item.name || sku || 'Товар '+id,image_url:item.image_url || '',settings:{...blank}};
+          next.push(p); byProductId.set(id,p);
+          if (sku) bySku.set(sku,p);
+          added++;
+        }
+      }
+      const previous = products;
+      products = next;
+      if (!persist()) { products = previous; throw new Error('Недостаточно места для каталога.'); }
+      render();
+      status.textContent = 'Готово! Получено '+data.items.length+
+        ', добавлено '+added+', обновлено '+updated+
+        '. Существующие расходы сохранены; у новых товаров заполните расходы.';
+    } catch (e) {
+      status.textContent = 'Синхронизация не выполнена: '+e.message;
+    } finally {
+      tokenInput.value = '';
+      sync.disabled = false;
+    }
+  });
+  render();
+})();
+</script>
+<script id="repricer-v20">
+(function(){
+'use strict';
+const section=document.getElementById('tab-prices');
+if(!section)return;
+const key='ozon_repricer_v20';
+let rules={};try{const v=JSON.parse(localStorage.getItem(key)||'{}');if(v&&typeof v==='object'&&!Array.isArray(v))rules=v}catch(_){}
+const card=document.createElement('div');card.className='card';
+card.innerHTML=`<h3>Репрайсер v2.0 · Москва</h3>
+<small>Цель — цена для покупателя с Ozon Картой. Допуск ±5 ₽. Режим наблюдения: цены в Ozon НЕ изменяются.</small>
+<label for="r20product">Товар</label><select id="r20product"></select>
+<label for="r20target">Целевая цена покупателя с Ozon Картой, ₽</label><input id="r20target" type="number" min="1" step="1" placeholder="Например, 1500">
+<label for="r20actual">Цена, которую сейчас видит покупатель в Москве с Ozon Картой, ₽</label><input id="r20actual" type="number" min="1" step="1" placeholder="Введите после проверки в Ozon">
+<p><button type="button" id="r20save">Сохранить и сравнить</button> <button type="button" id="r20refresh">Обновить список товаров</button></p>
+<p id="r20result" class="notice" aria-live="polite">Выберите товар и задайте целевую цену.</p>
+<small id="r20time">Период проверки: 15 минут. Пока нет подтверждённого API для московской цены с Ozon Картой, проверка выполняется вручную. Напоминание работает только пока приложение открыто.</small>
+<p><small>Безопасность: при угрозе убытка любое изменение блокируется. Эта версия не рассчитывает новую цену продавца по неподтверждённой скидке Ozon.</small></p>`;
+const heading=section.querySelector('.tab-heading');heading.insertAdjacentElement('afterend',card);
+const product=card.querySelector('#r20product'),target=card.querySelector('#r20target'),actual=card.querySelector('#r20actual'),result=card.querySelector('#r20result'),time=card.querySelector('#r20time');
+function catalog(){try{const a=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]');return Array.isArray(a)?a:[]}catch(_){return[]}}
+function fill(){const previous=product.value;product.replaceChildren();const items=catalog();const option=document.createElement('option');option.value='';option.textContent='Выберите товар';product.append(option);for(const p of items){const o=document.createElement('option');o.value=String(p.id);o.textContent=(p.name||'Товар')+(p.sku?' · '+p.sku:'');product.append(o)}if(items.some(p=>String(p.id)===previous))product.value=previous;show()}
+function show(){const p=catalog().find(p=>String(p.id)===product.value);const r=p?rules[p.id]:null;target.value=r?.target??'';actual.value=r?.actual??'';evaluate(p,r)}
+function evaluate(p,r){if(!p){result.textContent='Выберите товар из каталога.';return}if(!r||!Number.isFinite(Number(r.target))||Number(r.target)<=0){result.textContent='Укажите целевую цену покупателя.';return}if(!Number.isFinite(Number(r.actual))||Number(r.actual)<=0){result.textContent='Цель: '+r.target+' ₽. Фактическая московская цена с Ozon Картой пока неизвестна. Изменение цены заблокировано.';return}const diff=Number(r.actual)-Number(r.target);const status=Math.abs(diff)<=5?'В пределах допуска — действий не требуется':diff<0?'Цена покупателя ниже цели — требуется анализ повышения цены продавца':'Цена покупателя выше цели — требуется анализ снижения цены продавца';result.textContent='Цель: '+r.target+' ₽ · наблюдаемая: '+r.actual+' ₽ · отклонение: '+(diff>0?'+':'')+diff+' ₽. '+status+'. Автоматическое изменение заблокировано до проверки источника цены и прибыли.';}
+product.addEventListener('change',show);card.querySelector('#r20refresh').addEventListener('click',fill);
+card.querySelector('#r20save').addEventListener('click',()=>{const p=catalog().find(p=>String(p.id)===product.value);if(!p){alert('Выберите товар.');return}const t=target.value.trim(),a=actual.value.trim();if(!t||!Number.isFinite(Number(t))||Number(t)<=0){alert('Укажите корректную целевую цену.');return}if(a&&(!Number.isFinite(Number(a))||Number(a)<=0)){alert('Укажите корректную цену покупателя или оставьте поле пустым.');return}const prev=rules[p.id];rules[p.id]={target:Number(t),actual:a?Number(a):null,checkedAt:a?Date.now():null};try{localStorage.setItem(key,JSON.stringify(rules));evaluate(p,rules[p.id])}catch(_){if(prev===undefined)delete rules[p.id];else rules[p.id]=prev;alert('Не удалось сохранить данные.')}});
+function tick(){const p=catalog().find(p=>String(p.id)===product.value),r=p?rules[p.id]:null;if(!r?.checkedAt){time.textContent='Проверка каждые 15 минут — пока вручную. Данные о цене с Ozon Картой ещё не подтверждены.';return}const elapsed=Math.max(0,Date.now()-r.checkedAt),due=elapsed>=900000;time.textContent=due?'Прошло 15 минут или больше. Проверьте цену покупателя в Москве вручную и сохраните новое значение.':'Следующая ручная проверка через '+Math.ceil((900000-elapsed)/60000)+' мин. (напоминание только при открытом приложении).'}
+fill();setInterval(tick,60000);product.addEventListener('change',tick);card.querySelector('#r20save').addEventListener('click',tick);tick();
+})();
+</script>
+
+<style id="premium-v22">
+:root{--pbg:#071120;--pcard:#10233d;--pborder:#254368;--pblue:#2477ff;--pmuted:#9db2d0}
+body{background:#071120!important}
+header{padding:13px 16px!important;background:#09182d!important;box-shadow:none!important}
+header b{font-size:19px!important}
+header b:before{width:29px!important;height:29px!important;font-size:18px!important;margin-right:8px!important}
+header div{display:none!important}
+main{padding:14px 13px 30px!important}
+.premium-hero{display:none!important}
+.demo-banner{display:none!important}
+.tab-heading{font-size:23px!important;margin:4px 0 15px!important}
+.card{padding:16px!important;border-radius:19px!important;margin-bottom:13px!important}
+.card h3{font-size:18px!important}
+.bottom-nav{border-radius:15px 15px 0 0!important;padding-top:5px!important}
+.bottom-nav button{font-size:10px!important;min-height:49px!important}
+.bottom-nav span{font-size:20px!important;margin-bottom:1px!important}
+#tab-prices>.card{display:none}
+#tab-prices #premium22{display:block!important}
+#premium22{background:none!important;border:0!important;box-shadow:none!important;padding:0!important}
+.p22-kicker{color:#8aa9cf;font-size:12px;margin:-8px 0 16px}
+.p22-toolbar{display:flex;gap:9px;margin-bottom:11px}
+.p22-toolbar input{flex:1;min-width:0}
+.p22-toolbar button{white-space:nowrap;font-size:13px!important}
+.p22-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.p22-summary>div{border:1px solid #284568;background:linear-gradient(160deg,#14325b,#0d2038);border-radius:15px;padding:12px 10px}
+.p22-summary strong{font-size:23px;display:block;margin:3px 0}
+.p22-summary small{font-size:11px!important}
+.p22-item{width:100%;display:flex;align-items:center;text-align:left;gap:10px;background:#10233d!important;border:1px solid #2a4668!important;box-shadow:none!important;padding:12px!important;margin-bottom:9px;min-height:76px;border-radius:16px!important}
+.p22-item.selected{border-color:#3988ff!important;box-shadow:0 0 0 1px #3988ff44!important}
+.p22-icon{display:grid;place-items:center;flex:0 0 40px;height:42px;border-radius:12px;background:#173c72;color:#8ec5ff;font-size:20px}
+.p22-itemtext{flex:1;min-width:0}
+.p22-itemtext b{display:block;font-size:13px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p22-itemtext small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:5px}
+.p22-arrow{color:#7caeff;font-size:23px}
+.p22-box{background:linear-gradient(150deg,#122947,#0d1c33);border:1px solid #2b486d;border-radius:19px;padding:16px;margin-top:15px}
+.p22-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:12px}
+.p22-head h3{margin:0!important}
+.p22-chip{font-size:11px;color:#a8c6e8;border:1px solid #36557a;background:#142d4c;border-radius:40px;padding:6px 9px;white-space:nowrap}
+.p22-prices{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0}
+.p22-price{background:#0a1a31;border:1px solid #274467;border-radius:14px;padding:12px}
+.p22-price span{display:block;font-size:11px;color:#a2b9d7;min-height:30px}
+.p22-price strong{font-size:23px;display:block;margin-top:6px}
+.p22-price small{font-size:11px!important}
+.p22-status{padding:12px;border-radius:13px;background:#132d39;color:#b5f4d5;font-size:13px;line-height:1.5;margin:12px 0}
+.p22-warning{background:#33291c;color:#ffe4a3}
+.p22-editor label{font-size:12px!important;margin-top:12px!important}
+.p22-editor input{font-size:16px!important}
+.p22-editor button{width:100%;margin-top:12px}
+.p22-muted{font-size:12px;color:#9eb5d1;line-height:1.5}
+.p22-actions{display:flex;gap:9px;flex-wrap:wrap;margin:13px 0}
+.p22-actions button{font-size:12px!important}
+.p22-details{margin-top:12px;border-top:1px solid #28466a;padding-top:13px}
+.p22-details summary{cursor:pointer;color:#a8caff;font-weight:650}
+.p22-details .card{display:block!important;margin:12px 0!important}
+.p22-sync label{margin-top:12px!important}
+.p22-sync button{width:100%;margin:10px 0 0}
+.p22-sync .p22-muted{margin-top:10px}
+#p22result{white-space:pre-wrap}
+@media(max-width:380px){.p22-summary strong{font-size:19px}.p22-itemtext b{font-size:12px}}
+</style>
+
+<script id="premium-v22-controller">
+(function(){
+'use strict';
+const section=document.getElementById('tab-prices');
+const legacy=section?.querySelector('#r20product')?.closest('.card');
+const catalogCard=section?.querySelector('#v10token')?.closest('.card');
+const expenseCard=section?.querySelector('#priceMode')?.closest('.card');
+if(!section||!legacy||!catalogCard||!expenseCard)return;
+const ui=document.createElement('div');ui.id='premium22';ui.className='card';
+ui.innerHTML=`<div class="p22-kicker">Москва · Ozon Карта · безопасное наблюдение</div>
+<div class="p22-summary"><div><small>Товаров</small><strong id="p22total">—</strong><small>В каталоге</small></div><div><small>С целью</small><strong id="p22targets">—</strong><small>Настроены</small></div><div><small>Проверить</small><strong id="p22due">—</strong><small>Нет свежей цены</small></div></div>
+<div class="p22-toolbar"><input id="p22search" placeholder="Поиск товара или артикула" aria-label="Поиск товара"><button id="p22reload" type="button">↻ Список</button></div>
+<div id="p22list"></div>
+<div class="p22-box" id="p22detail" hidden>
+<div class="p22-head"><h3 id="p22name">Товар</h3><span class="p22-chip">Наблюдение</span></div>
+<div class="p22-muted" id="p22sku"></div>
+<div class="p22-prices"><div class="p22-price"><span>Целевая цена</span><strong id="p22targetview">— ₽</strong><small>Твоя настройка</small></div><div class="p22-price"><span>Цена с Ozon Картой</span><strong id="p22actualview">— ₽</strong><small id="p22fresh">Нет данных</small></div></div>
+<div class="p22-status p22-warning" id="p22result">Укажи целевую цену</div>
+<div class="p22-editor"><label for="p22target">Цель покупателя, ₽</label><input id="p22target" type="number" min="1" step="1" placeholder="Например, 1500">
+<label for="p22actual">Наблюдаемая цена с Ozon Картой в Москве, ₽</label><input id="p22actual" type="number" min="1" step="1" placeholder="Если проверена вручную">
+<button type="button" id="p22save">Сохранить и сравнить</button></div>
+<div class="p22-status">🛡 Защита прибыли: автоматическая запись цен отключена. При угрозе убытка изменения блокируются.</div>
+<div class="p22-muted" id="p22time">Допуск ±5 ₽ · Проверка каждые 15 минут пока вручную</div>
+<details class="p22-details"><summary>Расходы и расчёт безопасной цены</summary><div id="p22expenses"></div></details></div>
+<details class="p22-box p22-sync"><summary>Синхронизация каталога с Ozon</summary><div id="p22sync"></div></details>
+<details class="p22-box"><summary>Добавить товар вручную</summary><div id="p22manual"></div></details>
+<div class="p22-muted" style="margin:14px 4px">Цена с Ozon Картой не поступает автоматически. Данные вводятся вручную; приложение не изменяет цены Ozon.</div>`;
+section.insertBefore(ui,legacy);
+ui.querySelector('#p22expenses').appendChild(expenseCard);
+const syncArea=ui.querySelector('#p22sync');
+for(const id of ['v10token','v10sync','v10status']){
+ const el=catalogCard.querySelector('#'+id);
+ if(!el)continue;
+ if(id==='v10token'){const label=el.previousElementSibling;if(label?.tagName==='LABEL')syncArea.appendChild(label)}
+ syncArea.appendChild(el);
+}
+const manual=ui.querySelector('#p22manual');
+for(const id of ['v10name','v10sku','v10add']){
+ const el=catalogCard.querySelector('#'+id);
+ if(!el)continue;
+ if(id!=='v10add'){const label=el.previousElementSibling;if(label?.tagName==='LABEL')manual.appendChild(label)}
+ manual.appendChild(el);
+}
+const search=ui.querySelector('#p22search'),list=ui.querySelector('#p22list'),select=legacy.querySelector('#r20product');
+let chosen='';
+const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)||'null')??fallback}catch(_){return fallback}};
+const catalog=()=>{const a=read('ozon_products_v09',[]);return Array.isArray(a)?a:[]};
+const rules=()=>read('ozon_repricer_v20',{});
+function money(n){return Number(n).toLocaleString('ru-RU')+' ₽'}
+function render(){
+ const items=catalog(),r=rules(),q=search.value.trim().toLowerCase();
+ const matches=items.filter(p=>(p.name+' '+(p.sku||'')).toLowerCase().includes(q));
+ ui.querySelector('#p22total').textContent=items.length;
+ ui.querySelector('#p22targets').textContent=items.filter(p=>Number(r[p.id]?.target)>0).length;
+ ui.querySelector('#p22due').textContent=items.filter(p=>!r[p.id]?.checkedAt||Date.now()-r[p.id].checkedAt>=900000).length;
+ list.replaceChildren();
+ for(const p of matches.slice(0,100)){
+  const b=document.createElement('button');b.type='button';b.className='p22-item'+(String(p.id)===chosen?' selected':'');
+  const ico=document.createElement('span');ico.className='p22-icon';ico.textContent='◇';
+  const middle=document.createElement('span');middle.className='p22-itemtext';
+  const name=document.createElement('b');name.textContent=p.name||'Товар';
+  const meta=document.createElement('small');const rule=r[p.id];
+  meta.textContent=(p.sku?'Арт. '+p.sku+' · ':'')+(Number(rule?.target)>0?'Цель '+money(rule.target):'Цель не задана');
+  middle.append(name,meta);const arrow=document.createElement('span');arrow.className='p22-arrow';arrow.textContent='›';
+  b.append(ico,middle,arrow);b.addEventListener('click',()=>open(p.id));list.appendChild(b);
+ }
+ if(!matches.length){const note=document.createElement('div');note.className='p22-muted';note.textContent=items.length?'Ничего не найдено.':'Каталог пуст. Открой синхронизацию ниже.';list.append(note)}
+ if(matches.length>100){const note=document.createElement('div');note.className='p22-muted';note.textContent='Показаны первые 100 товаров. Уточни поиск.';list.append(note)}
+ update();
+}
+function update(){
+ const p=catalog().find(x=>String(x.id)===chosen),box=ui.querySelector('#p22detail');
+ box.hidden=!p;if(!p)return;
+ const r=rules()[p.id];
+ ui.querySelector('#p22name').textContent=p.name||'Товар';
+ ui.querySelector('#p22sku').textContent=p.sku?'Артикул: '+p.sku:'';
+ ui.querySelector('#p22targetview').textContent=Number(r?.target)>0?money(r.target):'— ₽';
+ ui.querySelector('#p22actualview').textContent=Number(r?.actual)>0?money(r.actual):'— ₽';
+ const age=r?.checkedAt?Date.now()-r.checkedAt:Infinity;
+ ui.querySelector('#p22fresh').textContent=age===Infinity?'Нет данных':age>=900000?'Нужна проверка':'Проверено вручную';
+ const result=ui.querySelector('#p22result');
+ if(!r?.target){result.textContent='Укажи целевую цену покупателя.';result.className='p22-status p22-warning'}
+ else if(!r?.actual){result.textContent='Нет подтверждённой цены покупателя. Изменения заблокированы.';result.className='p22-status p22-warning'}
+ else{const diff=Number(r.actual)-Number(r.target);result.textContent=(Math.abs(diff)<=5?'✓ В пределах допуска':diff<0?'Цена ниже цели — требуется анализ':'Цена выше цели — требуется анализ')+' · Отклонение '+(diff>0?'+':'')+diff+' ₽. Изменения Ozon выключены.';result.className='p22-status'+(Math.abs(diff)>5?' p22-warning':'')}
+ ui.querySelector('#p22time').textContent='Допуск ±5 ₽ · 15 минут · '+(age>=900000?'Пора проверить цену вручную':'Следующая проверка ещё не наступила');
+}
+function open(id){
+ chosen=String(id);select.value=chosen;
+ select.dispatchEvent(new Event('change',{bubbles:true}));
+ ui.querySelector('#p22target').value=legacy.querySelector('#r20target').value;
+ ui.querySelector('#p22actual').value=legacy.querySelector('#r20actual').value;
+ render();
+ ui.querySelector('#p22detail').scrollIntoView({behavior:'smooth',block:'start'});
+}
+ui.querySelector('#p22save').addEventListener('click',()=>{
+ if(!chosen){alert('Выбери товар');return}
+ select.value=chosen;
+ legacy.querySelector('#r20target').value=ui.querySelector('#p22target').value;
+ legacy.querySelector('#r20actual').value=ui.querySelector('#p22actual').value;
+ legacy.querySelector('#r20save').click();
+ render();
+});
+search.addEventListener('input',render);
+ui.querySelector('#p22reload').addEventListener('click',()=>{
+ legacy.querySelector('#r20refresh').click();render();
+});
+const syncButton=ui.querySelector('#v10sync');
+syncButton?.addEventListener('click',()=>{setTimeout(()=>{legacy.querySelector('#r20refresh').click();render()},1800);});
+const status=ui.querySelector('#v10status');
+if(status&&window.MutationObserver){
+ new MutationObserver(()=>{if(status.textContent.startsWith('Готово!')){legacy.querySelector('#r20refresh').click();render()}}).observe(status,{childList:true,characterData:true,subtree:true});
+}
+ui.querySelector('#v10add')?.addEventListener('click',()=>{setTimeout(()=>{legacy.querySelector('#r20refresh').click();render()},100)});
+setInterval(()=>{if(document.getElementById('tab-prices')?.classList.contains('active'))render()},60000);
+render();
+})();
+</script>
+<style id="premium-v23">
+/* Compact premium product cards; legacy data and sync remain untouched. */
+#premium22 .p22-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+#premium22 .p22-item{min-height:104px;align-items:flex-start;gap:12px;padding:13px!important;background:linear-gradient(125deg,#112b4b,#0b1c31)!important;border:1px solid #23476d!important;box-shadow:0 5px 18px #0002!important}
+#premium22 .p22-item.selected{border-color:#3988ff!important}
+#premium22 .p22-icon{width:68px;height:73px;flex:0 0 68px;background:linear-gradient(145deg,#183e6b,#10253e);border:1px solid #305479;border-radius:13px;font-size:28px;color:#72b6ff}
+#premium22 .p22-itemtext{padding-top:2px}
+#premium22 .p22-itemtext b{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35;font-size:14px}
+#premium22 .p22-itemtext small{white-space:normal;font-size:11px!important;line-height:1.4;margin-top:6px}
+#premium22 .p23-status{display:inline-block;margin-top:7px;border-radius:20px;padding:4px 8px;font-size:10px;font-weight:700;color:#a9c8e8;background:#17324e}
+#premium22 .p23-status.good{color:#86efac;background:#103d35}
+#premium22 .p23-status.attention{color:#fcd77c;background:#45351d}
+#premium22 .p22-arrow{align-self:center}
+#premium22 .p23-photo-note{font-size:11px;color:#8ca5c5;margin:0 2px 13px;line-height:1.4}
+#premium22 .p22-head h3{font-size:16px!important;line-height:1.4}
+@media(max-width:380px){#premium22 .p22-icon{width:58px;flex-basis:58px;height:65px}#premium22 .p22-itemtext b{font-size:13px}}
+</style><style id="premium-v24">
+#premium22 .p22-item{min-height:91px!important;align-items:center!important;padding:10px!important;gap:11px!important}
+#premium22 .p22-icon{width:66px!important;height:70px!important;flex:0 0 66px!important;overflow:hidden!important;font-size:25px!important}
+#premium22 .p22-icon img{width:100%;height:100%;object-fit:cover;display:block;border-radius:11px}
+#premium22 .p22-itemtext b{font-size:13px!important;line-height:1.35!important}
+#premium22 .p23-status{display:inline-block;margin-top:5px;border-radius:20px;padding:4px 8px;font-size:10px;font-weight:700;color:#a9c8e8;background:#17324e}
+#premium22 .p23-status.good{color:#86efac;background:#103d35}
+#premium22 .p23-status.attention{color:#fcd77c;background:#45351d}
+#p24short{margin-top:7px}
+#p24titlefull{overflow-wrap:anywhere}
+</style><script id="premium-v24-products">
+(function(){'use strict';
+const root=document.getElementById('premium22');if(!root)return;
+const list=root.querySelector('#p22list');const detail=root.querySelector('#p22detail');if(!list||!detail)return;
+const note=document.createElement('div');note.className='p22-muted';note.style.margin='0 2px 13px';note.textContent='Короткие названия можно исправить вручную. Фото появятся после обновления каталога с сервера.';list.before(note);
+const edit=document.createElement('div');edit.innerHTML='<label for="p24short">Короткое название (можно изменить)</label><input id="p24short" maxlength="90" placeholder="Например, Биокамин TORR · белый"><div class="p22-muted" id="p24titlefull" style="margin-top:8px"></div><button type="button" id="p24save" style="width:100%;margin:11px 0 0">Сохранить название</button>';
+const editor=detail.querySelector('.p22-editor');editor.parentNode.insertBefore(edit,editor);
+const getCatalog=()=>{try{const a=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]');return Array.isArray(a)?a:[]}catch(_){return[]}};
+const getRules=()=>{try{return JSON.parse(localStorage.getItem('ozon_repricer_v20')||'{}')||{}}catch(_){return{}}};
+function shorten(title){
+ let t=String(title||'Товар').replace(/\s+/g,' ').trim();
+ const color=(t.match(/\b(белый|белая|черный|чёрный|черная|чёрная|графит|серый|серая|бежевый|коричневый)\b/i)||[])[0];
+ const model=(t.match(/\b(TORR|Neo\s*40|Nova\s*36|Nova|Neo)\b/i)||[])[0];
+ if(/биокамин/i.test(t)&&model)return 'Биокамин '+model+(color?' · '+color:'');
+ if(/камин электрический|электрокамин/i.test(t)&&model)return 'Электрокамин '+model+(color?' · '+color:'');
+ t=t.replace(/\s*[·•]\s*.*$/,'').replace(/\s*\([^)]{5,}\)/g,'').trim();
+ const words=t.split(' ');return words.slice(0,6).join(' ')+(words.length>6?'…':'');
+}
+let selectedId='';
+function decorate(){
+ const products=getCatalog(),rules=getRules();
+ const byName=new Map(products.map(x=>[String(x.name||''),x]));
+ for(const row of list.querySelectorAll('button.p22-item')){
+  if(row.dataset.p24==='1')continue;row.dataset.p24='1';
+  const title=row.querySelector('.p22-itemtext b'),meta=row.querySelector('.p22-itemtext small'),ico=row.querySelector('.p22-icon');
+  if(!title||!meta||!ico)continue;
+  const original=title.textContent,p=byName.get(original);if(!p)continue;
+  title.textContent=p.short_name||shorten(p.name);title.title=p.name;
+  ico.textContent='◇';
+  if(typeof p.image_url==='string'&&/^https:\/\//i.test(p.image_url)){
+   const img=document.createElement('img');img.src=p.image_url;img.alt='Фото товара';img.loading='lazy';img.referrerPolicy='no-referrer';img.onerror=()=>{img.remove();ico.textContent='◇'};ico.replaceChildren(img);
+  }
+  const rule=rules[p.id],tag=document.createElement('span');tag.className='p23-status';
+  if(!rule?.target)tag.textContent='Цель не задана';
+  else if(!rule?.actual)tag.textContent='Нет цены покупателя';
+  else if(!rule.checkedAt||Date.now()-rule.checkedAt>=900000){tag.textContent='Нужна проверка';tag.classList.add('attention')}
+  else if(Math.abs(Number(rule.actual)-Number(rule.target))<=5){tag.textContent='В пределах ±5 ₽';tag.classList.add('good')}
+  else{tag.textContent='Вне целевого диапазона';tag.classList.add('attention')}
+  meta.after(tag);
+  row.addEventListener('click',()=>{selectedId=String(p.id);updateEditor()});
+ }
+}
+function updateEditor(){const p=getCatalog().find(x=>String(x.id)===selectedId);if(!p)return;edit.querySelector('#p24short').value=p.short_name||shorten(p.name);edit.querySelector('#p24titlefull').textContent='Полное название Ozon: '+p.name}
+edit.querySelector('#p24save').addEventListener('click',()=>{
+ const value=edit.querySelector('#p24short').value.trim();if(!value){alert('Введите короткое название');return}
+ const items=getCatalog(),p=items.find(x=>String(x.id)===selectedId);if(!p){alert('Сначала выберите товар');return}
+ p.short_name=value;try{localStorage.setItem('ozon_products_v09',JSON.stringify(items))}catch(_){alert('Не удалось сохранить название');return}
+ root.querySelector('#p22reload').click();updateEditor();
+});
+new MutationObserver(decorate).observe(list,{childList:true});decorate();
+})();
+</script>
+<style id="premium-v25-modal">
+/* Full product photo, no cropping. */
+#premium22 .p22-icon{width:82px!important;height:94px!important;flex:0 0 82px!important;background:#edf1f7!important;border-radius:13px!important;overflow:hidden!important}
+#premium22 .p22-icon img{width:100%!important;height:100%!important;object-fit:contain!important;object-position:center center!important;display:block!important;border-radius:0!important}
+#premium22 .p22-item{align-items:center!important;min-height:116px!important}
+#premium22 .p22-icon:not(:has(img)){background:#183b61!important}
+#p25backdrop{position:fixed;inset:0;background:#020814d9;z-index:110;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+#p25backdrop[hidden]{display:none!important}
+#premium22 #p22detail.p25-modal:not([hidden]){display:block!important;position:fixed!important;inset:env(safe-area-inset-top) 0 0!important;z-index:120!important;margin:0!important;border-radius:24px 24px 0 0!important;padding:18px 17px calc(24px + env(safe-area-inset-bottom))!important;max-width:680px!important;max-height:100dvh!important;overflow-y:auto!important;overscroll-behavior:contain!important;background:#0a1c34!important;box-shadow:0 -15px 60px #0009!important}
+.p25-back{display:flex;align-items:center;gap:8px;background:transparent!important;box-shadow:none!important;border:0!important;color:#91c5ff!important;padding:5px 3px 16px!important;font-size:15px!important}
+.p25-cover{display:none!important;height:220px;display:grid;place-items:center;background:#f4f6fa;border-radius:16px;overflow:hidden;margin:8px 0 16px}
+.p25-cover img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+.p25-cover span{color:#7b8da8;font-size:14px}
+body.p25-open{overflow:hidden!important}
+@media(min-width:681px){#premium22 #p22detail.p25-modal:not([hidden]){left:50%!important;right:auto!important;width:680px!important;transform:translateX(-50%)}}
+@media(max-width:390px){#premium22 .p22-icon{width:70px!important;flex-basis:70px!important;height:82px!important}.p25-cover{height:190px}}
+</style>
+<script id="premium-v25-modal-script">
+(function(){'use strict';
+const root=document.getElementById('premium22');if(!root)return;
+const detail=root.querySelector('#p22detail'),list=root.querySelector('#p22list');if(!detail||!list)return;
+const backdrop=document.createElement('div');backdrop.id='p25backdrop';backdrop.hidden=true;document.body.appendChild(backdrop);
+const back=document.createElement('button');back.type='button';back.className='p25-back';back.textContent='‹  Назад к товарам';detail.prepend(back);
+const cover=document.createElement('div');cover.className='p25-cover';const empty=document.createElement('span');empty.textContent='Фото товара пока недоступно';cover.appendChild(empty);
+const head=detail.querySelector('.p22-head');head?.insertAdjacentElement('beforebegin',cover);
+detail.classList.add('p25-modal');detail.setAttribute('role','dialog');detail.setAttribute('aria-modal','true');detail.setAttribute('aria-label','Информация о товаре');
+// The old selection handler scrolls to the details. Suppress only that scroll;
+// the existing selection, calculations and save actions remain unchanged.
+detail.scrollIntoView=function(){};
+let priorScroll=0;
+function getCatalog(){try{const x=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]');return Array.isArray(x)?x:[]}catch(_){return[]}}
+function show(){
+ const id=document.getElementById('r20product')?.value;
+ const product=getCatalog().find(p=>String(p.id)===String(id));if(!product)return;
+ cover.replaceChildren();
+ if(typeof product.image_url==='string'&&/^https:\/\//i.test(product.image_url)){
+  const img=document.createElement('img');img.src=product.image_url;img.alt='Фотография '+(product.short_name||product.name||'товара');img.referrerPolicy='no-referrer';img.onerror=()=>{cover.replaceChildren();const e=document.createElement('span');e.textContent='Фото товара недоступно';cover.appendChild(e)};cover.appendChild(img);
+ }else{const e=document.createElement('span');e.textContent='Фото товара пока недоступно';cover.appendChild(e)}
+ priorScroll=window.scrollY;
+ backdrop.hidden=false;document.body.classList.add('p25-open');
+ detail.hidden=false;detail.scrollTop=0;
+ back.focus({preventScroll:true});
+}
+function close(){backdrop.hidden=true;document.body.classList.remove('p25-open');detail.hidden=true;window.scrollTo(0,priorScroll)}
+list.addEventListener('click',e=>{if(e.target.closest('button.p22-item'))queueMicrotask(show)});
+back.addEventListener('click',close);backdrop.addEventListener('click',close);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!backdrop.hidden)close()});
+const nav=document.querySelector('.bottom-nav');nav?.addEventListener('click',()=>{if(!backdrop.hidden)close()});
+})();
+</script>
+<style id="premium-v26-style">
+#premium22 .p26-finance{margin:14px 0;padding:15px;background:#112a48;border:1px solid #2c4e73;border-radius:17px}
+#premium22 .p26-finance h3{font-size:17px!important;margin:0 0 6px!important}
+#premium22 .p26-finance .p26-note{color:#a8bfd9;font-size:12px;line-height:1.5;margin:0 0 12px}
+#premium22 .p26-metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+#premium22 .p26-metric{background:#0b1c32;border:1px solid #29476c;border-radius:13px;padding:12px;min-width:0}
+#premium22 .p26-metric span{display:block;color:#b3c9e3;font-size:12px}
+#premium22 .p26-metric strong{display:block;font-size:20px;margin:7px 0}
+#premium22 .p26-metric small{color:#91accd;font-size:11px}
+#premium22 .p26-finance details{margin-top:14px;border-top:1px solid #29476c;padding-top:12px}
+#premium22 .p26-finance summary{color:#a8ceff;cursor:pointer;font-weight:650}
+#premium22 .p26-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:9px 0 13px}
+#premium22 .p26-fields label{display:block;font-size:12px;color:#b3c9e3}
+#premium22 .p26-fields input{width:100%;min-width:0;font-size:16px!important;margin-top:6px}
+#premium22 #p26save{width:100%}
+</style>
+<style id="premium-v272-diagnostic-style">
+#premium22 .p271-panel{margin:15px 0;padding:14px;border:1px solid #31547c;border-radius:16px;background:#102741}
+#premium22 .p271-panel h3{margin:0 0 7px;font-size:17px}
+#premium22 .p271-panel p{color:#b0c7e5;font-size:12px;line-height:1.5}
+#premium22 #p271check{width:100%;margin:10px 0}
+#premium22 #p271out{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:#d7e6fa;line-height:1.6}
+#premium22 .p271-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+#premium22 .p271-grid div{padding:10px;border-radius:12px;background:#0a1b31}
+#premium22 .p271-grid small{display:block;color:#a7bfdc}
+#premium22 .p271-grid strong{display:block;margin-top:4px;font-size:16px}
+</style>
+<script id="premium-v272-diagnostic">
+(function(){
+'use strict';
+const root=document.getElementById('premium22');
+const detail=root?.querySelector('#p22detail');
+const list=root?.querySelector('#p22list');
+if(!detail||!list)return;
+const panel=document.createElement('section');
+panel.className='p271-panel';
+panel.innerHTML='<h3>Цены из Ozon API</h3><p>Безопасная проверка цен продавца. Соинвест и скидка Ozon Карты не вычисляются по неподтверждённым данным.</p><button id="p271check" type="button">Проверить цены Ozon</button><div id="p271out" aria-live="polite">Проверка ещё не запускалась.</div>';
+const finance=detail.querySelector('.p26-finance');
+if(finance)finance.insertAdjacentElement('afterend',panel);else detail.appendChild(panel);
+const button=panel.querySelector('#p271check'),out=panel.querySelector('#p271out');
+function currentProduct(){
+ const id=document.getElementById('r20product')?.value;
+ let items=[];try{items=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]')}catch(_){}
+ return Array.isArray(items)?items.find(p=>String(p.id)===String(id)):null;
+}
+function displayValue(value){return value===null||value===undefined||value===''?'Нет данных':String(value)}
+function showResult(data){
+ const prices=data.seller_prices||{};
+ const pairs=[['Цена продавца',prices.price],['Старая цена',prices.old_price],['Маркетинговая цена',prices.marketing_price],['Минимальная цена',prices.min_price],['Чистая цена (net_price)',prices.net_price],['Цена marketing_seller_price',prices.marketing_seller_price],['Заявленная цена',prices.declared_price],['Розничная цена',prices.retail_price]];
+ const grid=document.createElement('div');grid.className='p271-grid';
+ for(const [label,value] of pairs){const cell=document.createElement('div'),small=document.createElement('small'),strong=document.createElement('strong');small.textContent=label;strong.textContent=displayValue(value);cell.append(small,strong);grid.appendChild(cell)}
+ out.replaceChildren(grid);
+ const note=document.createElement('p');
+ note.textContent='Цена с Ozon Картой: нет подтверждённых данных. Скидка Ozon Карты: нет подтверждённых данных. Соинвест: нет подтверждённых данных.';
+ out.appendChild(note);
+ const info=document.createElement('p');
+ info.textContent='Источник: '+displayValue(data.source)+' · Проверено: '+(data.checked_at?new Date(data.checked_at).toLocaleString('ru-RU'):'нет данных')+'. Поля API: '+(data.available_fields||[]).join(', ')+'. Поля цены: '+(data.price_fields||[]).join(', ');
+ out.appendChild(info);
+ const extra=document.createElement('p');const diagnostic=data.extra_diagnostic||{};
+ extra.textContent='Дополнительные поля (диагностика, не подтверждённые скидки): '+JSON.stringify(diagnostic);
+ out.appendChild(extra);
+}
+list.addEventListener('click',e=>{if(e.target.closest('button.p22-item'))out.textContent='Проверка ещё не запускалась.'});
+button.addEventListener('click',async()=>{
+ const p=currentProduct();
+ const offer=String(p?.sku||p?.offer_id||'').trim();
+ if(!offer){out.textContent='У товара нет артикула Ozon (offer_id). Сначала синхронизируй каталог.';return}
+ const token=document.getElementById('v10token')?.value.trim();
+ if(!token){out.textContent='Открой раздел «Синхронизация каталога с Ozon» и введи APP_ACCESS_TOKEN. После этого вернись к товару и нажми кнопку ещё раз.';return}
+ button.disabled=true;out.textContent='Проверяем данные Ozon… Это может занять до минуты.';
+ try{
+  const url='https://ozon-ai-assistant-api.onrender.com/api/price-diagnostic?offer_id='+encodeURIComponent(offer);
+  const response=await fetch(url,{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+  const data=await response.json();
+  if(!response.ok){out.textContent=response.status===401?'Неверный пароль доступа APP_ACCESS_TOKEN.':(data.error||'Ошибка сервера')+(data.details?' ('+data.details+')':'');return}
+  if(!data.found){out.textContent='Артикул не найден в ответе Ozon API. Проверь синхронизацию каталога.';return}
+  showResult(data);
+ }catch(error){out.textContent='Не удалось выполнить проверку: '+(error?.message||'ошибка сети')}
+ finally{button.disabled=false}
+});
+})();
+</script>
+
+<style id="premium-v28-product-design">
+#premium22 #p22detail.p25-modal{background:linear-gradient(165deg,#102b4b,#09192e 48%)!important;padding-top:15px!important}
+#premium22 #p22detail .p28-hero{display:grid;grid-template-columns:112px minmax(0,1fr);gap:13px;align-items:center;background:#142f4e;border:1px solid #315476;border-radius:18px;padding:12px;margin:12px 0 14px}
+#premium22 #p22detail .p28-image{height:118px;border-radius:13px;background:#f4f6f9;display:grid;place-items:center;overflow:hidden}
+#premium22 #p22detail .p28-image img{display:block;width:100%;height:100%;object-fit:contain}
+#premium22 #p22detail .p28-placeholder{font-size:35px;color:#6e9bc8}
+#premium22 #p22detail .p28-eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#9fc4ec}
+#premium22 #p22detail .p28-title{font-size:17px;line-height:1.3;color:#f2f7ff;font-weight:750;margin:7px 0;overflow-wrap:anywhere}
+#premium22 #p22detail .p28-sku{font-size:11px;color:#a9c5e4;overflow-wrap:anywhere}
+#premium22 #p22detail .p22-prices{gap:10px}
+#premium22 #p22detail .p22-price{background:#102947;border:1px solid #355579;border-radius:17px;padding:14px 11px}
+#premium22 #p22detail .p22-price strong{font-size:clamp(18px,5.3vw,25px);letter-spacing:-.04em;overflow-wrap:anywhere}
+#premium22 #p22detail .p22-price:nth-child(2){background:#102d28;border-color:#2c735d}
+#premium22 #p22detail .p22-price:nth-child(2) strong{color:#7de0ad}
+#premium22 #p22detail .p22-editor{border:1px solid #294d72;border-radius:17px;padding:13px;background:#102640}
+#premium22 #p22detail #p22save{min-height:47px;border-radius:13px!important}
+#premium22 #p22detail .p26-finance,#premium22 #p22detail .p271-panel{border-radius:18px}
+#premium22 #p22detail .p28-note{color:#9cb8d7;font-size:11px;margin:-4px 0 12px}
+@media(max-width:365px){#premium22 #p22detail .p28-hero{grid-template-columns:88px minmax(0,1fr)}#premium22 #p22detail .p28-image{height:98px}#premium22 #p22detail .p28-title{font-size:15px}}
+</style>
+<script id="premium-v28-product-hero">
+(function(){'use strict';
+const root=document.getElementById('premium22'),detail=root?.querySelector('#p22detail'),list=root?.querySelector('#p22list');
+if(!detail||!list)return;
+const hero=document.createElement('div');hero.className='p28-hero';
+const photo=document.createElement('div');photo.className='p28-image';
+const text=document.createElement('div');
+const eyebrow=document.createElement('div');eyebrow.className='p28-eyebrow';eyebrow.textContent='Карточка товара';
+const title=document.createElement('div');title.className='p28-title';
+const sku=document.createElement('div');sku.className='p28-sku';
+text.append(eyebrow,title,sku);hero.append(photo,text);
+const head=detail.querySelector('.p22-head');if(head)head.insertAdjacentElement('afterend',hero);else detail.prepend(hero);
+const note=document.createElement('div');note.className='p28-note';note.textContent='Цена с Ozon Картой вводится вручную · Автоматическое изменение цен отключено';
+const prices=detail.querySelector('.p22-prices');if(prices)prices.insertAdjacentElement('afterend',note);
+function refresh(){
+ if(detail.hidden)return;
+ const id=document.getElementById('r20product')?.value;
+ let catalog=[];try{catalog=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]')}catch(_){}
+ const p=Array.isArray(catalog)?catalog.find(x=>String(x.id)===String(id)):null;
+ title.textContent=p?.name||detail.querySelector('#p22name')?.textContent||'Товар';
+ sku.textContent=p?.sku?'Артикул: '+p.sku:'';
+ photo.replaceChildren();
+ const url=p?.image_url||p?.image||p?.primary_image||'';
+ if(typeof url==='string'&&/^https:\/\//.test(url)){
+  const img=document.createElement('img');img.alt='Фото товара';img.loading='lazy';img.referrerPolicy='no-referrer';
+  img.onerror=()=>{photo.replaceChildren();const icon=document.createElement('span');icon.className='p28-placeholder';icon.textContent='◇';photo.append(icon)};
+  img.src=url;photo.append(img);
+ }else{const icon=document.createElement('span');icon.className='p28-placeholder';icon.textContent='◇';photo.append(icon)}
+}
+list.addEventListener('click',e=>{if(e.target.closest('button.p22-item'))setTimeout(refresh,0)});
+detail.addEventListener('click',e=>{if(e.target.closest('.p25-back'))return;});
+})();
+</script>
+
+<style id="premium-v30-style">
+#hogar30{background:linear-gradient(155deg,#102b4c,#0a192d 58%,#0d263c);border:1px solid #29496c;border-radius:22px;padding:18px 15px;margin:0 0 19px;color:#eef6ff}
+#hogar30 .h30-kicker{color:#86b9f5;font-size:11px;letter-spacing:.13em;font-weight:750}
+#hogar30 .h30-title{font-size:26px;font-weight:850;letter-spacing:-.035em;margin:8px 0 4px}
+#hogar30 .h30-sub{color:#a6bfdd;font-size:12px;line-height:1.5}
+#hogar30 .h30-status{margin:15px 0;background:#0d382f;border:1px solid #286c5b;border-radius:13px;padding:10px;color:#9fe4c6;font-size:12px}
+#hogar30 .h30-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:13px 0}
+#hogar30 .h30-tile{background:#112c48;border:1px solid #2b4b6a;border-radius:17px;padding:14px 12px;min-width:0}
+#hogar30 .h30-label{color:#afc6df;font-size:12px}
+#hogar30 .h30-value{font-size:24px;font-weight:800;margin:8px 0 4px;overflow-wrap:anywhere}
+#hogar30 .h30-desc{color:#88a9c9;font-size:11px;line-height:1.4}
+#hogar30 .h30-heading{font-size:16px;font-weight:750;margin:18px 0 8px}
+#hogar30 .h30-events{background:#0e233b;border-radius:14px;padding:13px;color:#b4cbe4;font-size:12px;line-height:1.6}
+#hogar30 #h30refresh{width:100%;border-radius:13px;min-height:45px;background:#245eaa!important;margin-top:12px}
+#hogar30 .h30-meta{color:#8aa9c9;font-size:11px;margin-top:9px}
+#premium22 #p22detail .h30-pencil{padding:4px 9px!important;background:#1c4773!important;border:1px solid #416a98!important;border-radius:10px!important;margin-left:7px;font-size:17px!important;vertical-align:middle}
+#premium22 #p22detail .h30-edit[hidden]{display:none!important}
+#premium22 #p22detail .h30-edit{padding:12px;background:#102d4b;border:1px solid #325576;border-radius:15px;margin:9px 0}
+#premium22 #p22detail .h30-cancel{margin-top:8px;width:100%;background:#203a57!important}
+#premium22 .p26-finance{display:none!important}
+</style>
+<script id="premium-v30-controller">
+(function(){'use strict';
+const main=document.querySelector('main');if(!main)return;
+const dashboard=document.createElement('section');dashboard.id='hogar30';
+dashboard.innerHTML='<div class="h30-kicker">HOGAR · SELLER CONTROL</div><div class="h30-title">Панель магазина</div><div class="h30-sub">Ozon AI Assistant by Hogar · Обзор данных магазина</div><div class="h30-status">● Безопасный режим · Автоматическое изменение цен отключено</div><div class="h30-grid"><div class="h30-tile"><div class="h30-label">📦 Товары</div><div class="h30-value" id="h30products">—</div><div class="h30-desc">Из сохранённого каталога</div></div><div class="h30-tile"><div class="h30-label">💳 Цели по ценам</div><div class="h30-value" id="h30targets">—</div><div class="h30-desc">Товаров с заданной целью</div></div><div class="h30-tile"><div class="h30-label">📦 Остатки FBS / FBO</div><div class="h30-value">—</div><div class="h30-desc">Ожидает подключения API</div></div><div class="h30-tile"><div class="h30-label">🛒 Заказы</div><div class="h30-value">—</div><div class="h30-desc">Ожидает подключения API</div></div><div class="h30-tile"><div class="h30-label">📈 Продажи</div><div class="h30-value">—</div><div class="h30-desc">Ожидает подключения API</div></div><div class="h30-tile"><div class="h30-label">₽ Выручка</div><div class="h30-value">—</div><div class="h30-desc">Ожидает подключения API</div></div></div><div class="h30-heading">🔔 Важные события</div><div class="h30-events" id="h30events">После подключения заказов и остатков здесь появятся предупреждения. Данные не подменяются примерными значениями.</div><button type="button" id="h30refresh">↻ Обновить показатели</button><div class="h30-meta" id="h30time">Показатели из памяти этого устройства</div>';
+const home=document.getElementById('tab-home');if(home){const heading=home.querySelector('.tab-heading');if(heading)heading.insertAdjacentElement('afterend',dashboard);else home.prepend(dashboard)}else{main.insertBefore(dashboard,main.firstChild)}
+function read(k,defaultValue){try{return JSON.parse(localStorage.getItem(k)||'null')??defaultValue}catch(_){return defaultValue}}
+function refresh(){
+ const products=read('ozon_products_v09',[]),rules=read('ozon_repricer_v20',{});
+ const items=Array.isArray(products)?products:[];
+ dashboard.querySelector('#h30products').textContent=items.length?String(items.length):'—';
+ const n=items.filter(p=>Number(rules?.[p.id]?.target)>0).length;
+ dashboard.querySelector('#h30targets').textContent=items.length?String(n):'—';
+ const stale=items.filter(p=>rules?.[p.id]?.target&&(!rules[p.id].checkedAt||Date.now()-Number(rules[p.id].checkedAt)>900000)).length;
+ dashboard.querySelector('#h30events').textContent=items.length?(stale?stale+' товаров с целевой ценой требуют повторной ручной проверки.':'Автоматический мониторинг зелёной цены пока не подключён.'): 'Сначала синхронизируй каталог Ozon в разделе цен.';
+ dashboard.querySelector('#h30time').textContent='Обновлено на этом iPhone: '+new Date().toLocaleString('ru-RU')+'. Для новых данных Ozon нужна синхронизация.';
+}
+dashboard.querySelector('#h30refresh').addEventListener('click',refresh);window.addEventListener('storage',refresh);refresh();
+const root=document.getElementById('premium22'),detail=root?.querySelector('#p22detail'),list=root?.querySelector('#p22list');
+if(!detail||!list)return;
+const input=detail.querySelector('#p24short'),save=detail.querySelector('#p24save');
+if(!input||!save)return;
+const editor=input.parentElement;
+editor.classList.add('h30-edit');editor.hidden=true;
+const title=detail.querySelector('#p22name');
+if(title){
+ const pencil=document.createElement('button');pencil.type='button';pencil.className='h30-pencil';pencil.textContent='✎';pencil.setAttribute('aria-label','Изменить название товара');title.insertAdjacentElement('afterend',pencil);
+ pencil.addEventListener('click',()=>{editor.hidden=!editor.hidden;if(!editor.hidden)input.focus()});
+}
+const cancel=document.createElement('button');cancel.type='button';cancel.className='h30-cancel';cancel.textContent='Отмена';editor.appendChild(cancel);
+cancel.addEventListener('click',()=>{editor.hidden=true});
+save.addEventListener('click',()=>{editor.hidden=true;refresh()});
+list.addEventListener('click',e=>{if(e.target.closest('button.p22-item')){editor.hidden=true;setTimeout(refresh,0)}});
+})();
+</script>
+
+<script id="premium-v302-title-fix">
+(function(){'use strict';
+const root=document.getElementById('premium22'),detail=root?.querySelector('#p22detail'),list=root?.querySelector('#p22list');
+if(!detail||!list)return;
+const input=detail.querySelector('#p24short'),save=detail.querySelector('#p24save');
+const head=detail.querySelector('#p22name'),hero=detail.querySelector('.p28-title');
+if(!input||!save)return;
+const key='ozon_products_v09';
+function getItems(){try{const x=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(x)?x:[]}catch(_){return[]}}
+function selected(){
+ const id=document.getElementById('r20product')?.value;
+ return getItems().find(p=>String(p.id)===String(id));
+}
+function paint(){
+ const p=selected();if(!p)return;
+ const name=p.short_name||p.name||'Товар';
+ if(head)head.textContent=name;
+ if(hero)hero.textContent=name;
+ const full=detail.querySelector('#p24titlefull');if(full)full.textContent='Название в Ozon: '+(p.name||'');
+ for(const row of list.querySelectorAll('button.p22-item')){
+  const rowName=row.querySelector('.p22-itemtext b');
+  if(!rowName)continue;
+  const matching=row.textContent.includes(p.sku||'\u0000')||row.dataset.productId===String(p.id);
+  if(matching)rowName.textContent=name;
+ }
+}
+function refresh(){setTimeout(paint,50)}
+list.addEventListener('click',refresh);
+detail.querySelector('.h30-pencil')?.addEventListener('click',()=>{const p=selected();if(p)input.value=p.short_name||p.name||''});
+save.addEventListener('click',()=>{
+ const p=selected(),value=input.value.trim();if(!p||!value)return;
+ const items=getItems(),item=items.find(x=>String(x.id)===String(p.id));if(!item)return;
+ item.short_name=value;
+ try{localStorage.setItem(key,JSON.stringify(items))}catch(_){return}
+ paint();
+ setTimeout(paint,100);
+});
+const selector=document.getElementById('r20product');selector?.addEventListener('change',refresh);
+})();
+</script>
+<style id="hogar-v31-css">
+#tab-ads>.card:first-of-type{display:none!important}
+#h31ads{color:#eaf3ff}#h31ads .h31-top{padding:18px;background:linear-gradient(135deg,#12385e,#0b2037);border:1px solid #2b5378;border-radius:21px;margin-bottom:14px}#h31ads h2{margin:0 0 7px;font-size:25px}#h31ads .h31-muted{font-size:12px;color:#a6bfdc;line-height:1.5}#h31ads .h31-card{background:#132a45;border:1px solid #30516f;border-radius:18px;padding:15px;margin:12px 0}#h31ads .h31-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}#h31ads .h31-metric{background:#0b1e34;border-radius:12px;padding:12px}#h31ads .h31-metric b{display:block;font-size:21px;margin-top:6px}#h31ads .h31-controls{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}#h31ads button{min-height:39px;background:#205ca3!important}#h31ads button.h31-outline{background:#1c3857!important}#h31ads input,#h31ads select{background:#0b1d32!important;color:#f3f8ff!important;min-width:0}#h31ads label{margin:10px 0 4px}#h31ads .h31-line{display:flex;align-items:center;justify-content:space-between;gap:10px}#h31ads .h31-toggle{font-size:26px;line-height:1;background:transparent!important;padding:4px 8px!important;min-height:35px!important;color:#8da4bf!important}#h31ads .h31-toggle[aria-pressed=true]{color:#65dba8!important}#h31ads .h31-warning{background:#392c1a;border:1px solid #69522b;border-radius:12px;padding:12px;font-size:12px;color:#f4d99a}#h31ads .h31-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}#h31ads details{margin-top:12px}#h31ads summary{font-weight:650;cursor:pointer;padding:8px 0}#h31ads .h31-pills button{font-size:12px;padding:8px!important;min-height:32px!important}#h31ads .h31-pills button[aria-pressed=true]{background:#327ce0!important}#h31ads .h31-small{font-size:11px;color:#9ab6d5}#h31ads .h31-check{display:flex;align-items:center;gap:9px;font-size:13px;margin-top:12px}#h31ads .h31-check input{width:auto}#h31ads .h31-status{font-size:12px;color:#86dbb6}#h31ads .h31-danger{color:#ffb0aa;font-size:12px}
+#premium22 .h31-watch{background:transparent!important;border:0!important;padding:5px!important;min-height:35px!important;font-size:28px!important;flex-shrink:0}#premium22 .h31-watch[aria-pressed=true]{color:#69d9ac!important}#premium22 .h31-watch[aria-pressed=false]{color:#8295ae!important}
+</style>
+<script id="hogar-v31-ads">
+(function(){'use strict';
+const host=document.getElementById('tab-ads');if(!host)return;
+const key='hogar_ads_strategies_v31',watchKey='hogar_price_watch_v31';
+const periods=[['today','Сегодня'],['yesterday','Вчера'],['7','7 дней'],['30','30 дней'],['custom','Даты']];
+function read(k,def){try{const x=JSON.parse(localStorage.getItem(k)||'null');return x??def}catch(_){return def}}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(_){alert('Не удалось сохранить настройки на устройстве');return false}}
+const state=read(key,{campaigns:[],period:'today',globalAuto:false});if(!Array.isArray(state.campaigns))state.campaigns=[];
+const el=document.createElement('div');el.id='h31ads';host.prepend(el);
+function escape(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function metric(label){return '<div class="h31-metric"><span class="h31-muted">'+label+'</span><b>—</b></div>'}
+function periodButtons(selected,scope,id){return '<div class="h31-controls h31-pills">'+periods.map(([v,label])=>'<button type="button" data-action="period" data-scope="'+scope+'" data-id="'+id+'" data-period="'+v+'" aria-pressed="'+(selected===v)+'">'+label+'</button>').join('')+'</div>'}
+function blank(){return {id:'local-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),name:'Новая кампания',budget:'',weeklyBudget:'',min:'',max:'',strategy:'rules',period:'today',enabled:false,auto:false,expanded:true,days:[1,2,3,4,5,6,0],from:'09:00',to:'22:00',changeLimit:'10',drr:'',confirmed:false}}
+function render(){
+ el.innerHTML='<div class="h31-top"><div class="h31-muted">HOGAR · ADS CONTROL CENTER</div><h2>Реклама</h2><div class="h31-muted">Отдельная статистика и стратегии каждой кампании</div><div class="h31-warning" style="margin-top:12px">⚠️ Ozon Performance API пока не подключён. Реальные кампании не загружены. Настройки сохраняются только на этом устройстве; переключатели не запускают рекламу.</div></div><div class="h31-card"><div class="h31-line"><b>Общая статистика</b><span class="h31-small">Данные Ozon: не подключены</span></div>'+periodButtons(state.period,'all','')+'<div class="h31-grid">'+['Расходы','Заказы','Продажи','ДРР'].map(metric).join('')+'</div></div><div class="h31-card"><div class="h31-line"><b>Умные стратегии</b><span class="h31-small">Автоматизация не запущена</span></div><p class="h31-muted">Работа в фоне на сервере Render появится только после подключения рекламного API, проверки лимитов и безопасного тестирования.</p><button class="h31-outline" data-action="add">+ Создать черновик кампании</button><p class="h31-small">После подключения API кампании будут импортироваться автоматически; сейчас можно подготовить шаблоны стратегий.</p></div><h3 style="margin:19px 0 8px">Кампании и стратегии</h3>'+(state.campaigns.length?state.campaigns.map(c=>{
+ const id=escape(c.id);return '<div class="h31-card" data-campaign="'+id+'"><div class="h31-line"><div><b>'+escape(c.name)+'</b><div class="h31-small">Локальный черновик · не связан с Ozon</div></div><button class="h31-toggle" data-action="toggle" data-id="'+id+'" aria-label="Включить черновик" aria-pressed="'+!!c.enabled+'">'+(c.enabled?'●':'○')+'</button></div><div class="h31-controls"><button class="h31-outline" data-action="expand" data-id="'+id+'">'+(c.expanded?'Свернуть':'Открыть настройки')+'</button><button class="h31-outline" data-action="delete" data-id="'+id+'">Удалить</button></div>'+(c.expanded?'<label>Название черновика</label><input data-field="name" data-id="'+id+'" value="'+escape(c.name)+'" maxlength="100">'+periodButtons(c.period,'campaign',id)+(c.period==='custom'?'<div class="h31-two"><div><label>С даты</label><input type="date" data-field="dateFrom" data-id="'+id+'" value="'+escape(c.dateFrom||'')+'"></div><div><label>По дату</label><input type="date" data-field="dateTo" data-id="'+id+'" value="'+escape(c.dateTo||'')+'"></div></div>':'')+'<div class="h31-grid">'+['Расходы','Заказы','Продажи','ДРР','Показы','Клики'].map(metric).join('')+'</div><details><summary>⚙️ Бюджет и ставки</summary><div class="h31-two"><div><label>Бюджет, ₽/день</label><input type="number" min="0" data-field="budget" data-id="'+id+'" value="'+escape(c.budget)+'"></div></div></details><details open><summary>✦ Умная стратегия</summary><div class="h32-switches"><span>Стратегия включена (черновик)</span><button class="h31-toggle" data-action="strategy-toggle" data-id="'+id+'" aria-pressed="'+!!c.auto+'">'+(c.auto?'●':'○')+'</button></div><label>Алгоритм</label><select data-field="strategy" data-id="'+id+'">'+[['rules','По правилам'],['autopilot','Автопилот'],['funnel','По воронке'],['conversion','По конверсиям'],['positions','По позициям'],['reach','По охватам']].map(([v,t])=>'<option value="'+v+'" '+(c.strategy===v?'selected':'')+'>'+t+'</option>').join('')+'</select><div class="h31-two"><div><label>Мин. ставка, ₽</label><input type="number" min="0" data-field="min" data-id="'+id+'" value="'+escape(c.min)+'"></div><div><label>Макс. ставка, ₽</label><input type="number" min="0" data-field="max" data-id="'+id+'" value="'+escape(c.max)+'"></div></div><label>Приоритет: экономия ← баланс → больше показов</label><input class="h32-range" type="range" min="0" max="100" data-field="reach" data-id="'+id+'" value="'+escape(c.reach??50)+'"><label>Ограничение изменения ставки за шаг, %</label><input type="number" min="1" max="25" data-field="changeLimit" data-id="'+id+'" value="'+escape(c.changeLimit)+'"><div class="h31-two"><div><label>Начало работы</label><input type="time" data-field="from" data-id="'+id+'" value="'+escape(c.from)+'"></div><div><label>Окончание</label><input type="time" data-field="to" data-id="'+id+'" value="'+escape(c.to)+'"></div></div><div class="h31-small" style="margin-top:10px">Ставки, расписание и стратегия сохраняются как настройки. Фоновый алгоритм ещё не работает.</div></details><div class="h32-subnav"><button class="h31-outline" data-action="view" data-view="settings" data-id="'+id+'" aria-pressed="'+(c.view!=='history')+'">Настройки</button><button class="h31-outline" data-action="view" data-view="history" data-id="'+id+'" aria-pressed="'+(c.view==='history')+'">История</button></div>'+(c.view==='history'?'<div class="h32-hist"><b>История кампании</b><p class="h31-muted">Реальных изменений ставок пока нет. После подключения API здесь будут дата, ставка до и после, причина и показатели.</p><button class="h31-outline" data-action="why" data-id="'+id+'">Как будут объясняться действия?</button></div>':'<button data-action="save" data-id="'+id+'">Сохранить настройки</button>'):'')+'</div>'}).join(''):'<div class="h31-card h31-muted">Пока нет подключённых рекламных кампаний. Можно создать черновик стратегии.</div>');
+}
+function persist(){store(key,state)}
+el.addEventListener('click',e=>{const b=e.target.closest('button[data-action]');if(!b)return;const action=b.dataset.action,id=b.dataset.id,c=state.campaigns.find(x=>x.id===id);
+ if(action==='add'){state.campaigns.push(blank());persist();render()}
+ else if(action==='period'){if(b.dataset.scope==='all')state.period=b.dataset.period;else if(c)c.period=b.dataset.period;persist();render()}
+ else if(action==='expand'&&c){c.expanded=!c.expanded;persist();render()}
+ else if(action==='toggle'&&c){c.enabled=!c.enabled;persist();render()}
+ else if(action==='strategy-toggle'&&c){c.auto=!c.auto;persist();render()}
+ else if(action==='view'&&c){c.view=b.dataset.view;persist();render()}
+ else if(action==='why'&&c){alert('Когда сервер реально изменит ставку, здесь будет запись: дата и время, прежняя и новая ставка, использованные показатели и причина решения. До подключения API вымышленных записей не будет.')}
+ else if(action==='delete'&&c){if(confirm('Удалить локальный черновик?')){state.campaigns=state.campaigns.filter(x=>x.id!==id);persist();render()}}
+ else if(action==='save'&&c){if((c.min!==''&&c.max!==''&&Number(c.max)<Number(c.min))||['budget','weeklyBudget','min','max'].some(k=>c[k]!==''&&c[k]!==undefined&&(!Number.isFinite(Number(c[k]))||Number(c[k])<0))){alert('Максимальная ставка должна быть не ниже минимальной');return}persist();alert('Настройки черновика сохранены на этом устройстве. В Ozon ничего не изменено.')}
+});
+el.addEventListener('change',e=>{const x=e.target,c=state.campaigns.find(v=>v.id===x.dataset.id);if(!c||!x.dataset.field)return;c[x.dataset.field]=x.type==='checkbox'?x.checked:x.value;persist()});render();
+// Переключатели отслеживания в каталоге цен. Не запускают автоматическую проверку до подключения API.
+const root=document.getElementById('premium22'),list=root?.querySelector('#p22list');if(!list)return;
+function drawWatch(){const saved=read(watchKey,{}),items=read('ozon_products_v09',[]);if(!Array.isArray(items))return;
+ const rows=[...list.querySelectorAll('button.p22-item')];rows.forEach((row,i)=>{if(row.querySelector('.h31-watch'))return;const title=row.querySelector('.p22-itemtext b');if(!title)return;const product=items.find(p=>p.name===title.title||p.short_name===title.textContent)||items[i];if(!product)return;
+ const key=String(product.id),enabled=saved[key]!==false;const toggle=document.createElement('span');toggle.className='h31-watch';toggle.setAttribute('role','switch');toggle.setAttribute('tabindex','0');toggle.setAttribute('aria-label','Отслеживание '+(product.short_name||product.name));toggle.setAttribute('aria-pressed',String(enabled));toggle.textContent=enabled?'◉':'○';
+ function flip(ev){ev.preventDefault();ev.stopPropagation();const x=read(watchKey,{});x[key]=!(x[key]!==false);store(watchKey,x);const on=x[key];toggle.textContent=on?'◉':'○';toggle.setAttribute('aria-pressed',String(on))}
+ toggle.addEventListener('click',flip);toggle.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){flip(ev)}});row.append(toggle);
+ });}
+new MutationObserver(drawWatch).observe(list,{childList:true});drawWatch();
+})();
+</script>
+<style id="hogar-v34">
+#premium22 .h34-master{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#102b47;border:1px solid #30577b;border-radius:14px;padding:12px;margin:0 0 13px}
+#premium22 .h34-master label{margin:0!important;font-size:13px!important}
+#premium22 .h34-master input{width:24px;min-height:24px;accent-color:#42d7a0}
+#h31ads input[type=checkbox]{width:19px;min-height:19px;accent-color:#42d7a0}
+#h31ads .h31-warning{line-height:1.55}
+</style>
+<script id="hogar-v34-monitor">
+(function(){
+ 'use strict';
+ const root=document.getElementById('premium22');
+ const list=root?.querySelector('#p22list');
+ if(!root||!list)return;
+ const key='hogar_price_watch_v31';
+ const load=()=>{try{const v=JSON.parse(localStorage.getItem(key)||'{}');return v&&typeof v==='object'?v:{}}catch(_){return {}}};
+ const catalog=()=>{try{const v=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]');return Array.isArray(v)?v:[]}catch(_){return []}};
+ const bar=document.createElement('div');bar.className='h34-master';
+ bar.innerHTML='<div><b>Отслеживание товаров</b><div class="p22-muted" id="h34-count">—</div></div><label><input type="checkbox" id="h34-all" aria-label="Отслеживать все товары"> Все</label>';
+ list.before(bar);
+ const master=bar.querySelector('#h34-all'),count=bar.querySelector('#h34-count');
+ function update(){
+   const items=catalog(),state=load();
+   const active=items.filter(p=>state[String(p.id)]!==false).length;
+   count.textContent='Включено: '+active+' из '+items.length+' · настройки на этом iPhone';
+   master.checked=items.length>0&&active===items.length;
+   master.indeterminate=active>0&&active<items.length;
+ }
+ master.addEventListener('change',()=>{
+   const state=load();for(const p of catalog())state[String(p.id)]=master.checked;
+   try{localStorage.setItem(key,JSON.stringify(state))}catch(_){alert('Не удалось сохранить');return}
+   list.querySelectorAll('.h31-watch').forEach(t=>{
+      const row=t.closest('.p22-item'),title=row?.querySelector('.p22-itemtext b');
+      const p=catalog().find(p=>p.name===title?.title||p.short_name===title?.textContent);
+      if(p){const on=state[String(p.id)]!==false;t.textContent=on?'◉':'○';t.setAttribute('aria-pressed',String(on));}
+   });
+   update();
+ });
+ list.addEventListener('click',e=>{if(e.target.closest('.h31-watch'))setTimeout(update,0)},true);
+ new MutationObserver(update).observe(list,{childList:true});
+ window.addEventListener('storage',update);
+ update();
+})();
+</script>
+</body></html>
