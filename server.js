@@ -162,7 +162,7 @@ if(path.pathname==='/api/orders/finance'){
   }
   const lines=operations.map(x=>({id:String(x.operation_id??''),date:x.operation_date||'',name:String(x.operation_type_name||x.operation_type||'Операция Ozon'),amount:typeof x.amount==='number'?x.amount:null,accruals:typeof x.accruals_for_sale==='number'?x.accruals_for_sale:null,sale_commission:typeof x.sale_commission==='number'?x.sale_commission:null,delivery_charge:typeof x.delivery_charge==='number'?x.delivery_charge:null,return_delivery_charge:typeof x.return_delivery_charge==='number'?x.return_delivery_charge:null,services:Array.isArray(x.services)?x.services.map(s=>({name:String(s.name||''),price:typeof s.price==='number'?s.price:null})):[]}));
   return reply(res,200,{read_only:true,posting_number:posting,source:'Ozon Seller API /v3/finance/transaction/list',operations:lines,checked_at:new Date().toISOString(),finalized:false,note:'Финансовые операции могут появиться после доставки и корректироваться позднее.'},ORIGIN);
- }catch(e){console.error('Order finance failed:',e.message);return reply(res,502,{error:'Не удалось получить финансовые операции Ozon',details:e.message.startsWith('Upstream HTTP ')?e.message:undefined},ORIGIN)}
+ }catch(e){console.error('Order finance failed:',e.message);return reply(res,502,{error:'Не удалось получить финансовые операции Ozon',diagnostic:{code:Number.isInteger(e.status)?e.status:null,reason:e.status===400?'Ozon отклонил параметры финансового запроса':e.status===401||e.status===403?'Нет доступа к финансовым операциям Seller API':e.status===429?'Слишком много запросов к Ozon':'Проверьте журнал Render для деталей'}},ORIGIN)}
 }
 if(path.pathname==='/api/ads/statistics'){
  const from=path.searchParams.get('from')||'',to=path.searchParams.get('to')||'';
