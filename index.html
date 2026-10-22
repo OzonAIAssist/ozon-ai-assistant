@@ -1020,6 +1020,13 @@ new MutationObserver(drawWatch).observe(list,{childList:true});drawWatch();
 #h40-performance{border:1px solid #25466b;border-radius:17px;background:linear-gradient(150deg,#0d2340,#07182c);padding:15px;margin-bottom:15px;color:#e8f2ff;box-sizing:border-box}
 #h40-performance *{box-sizing:border-box}#h40-performance .h40-top{display:flex;justify-content:space-between;align-items:center;gap:9px;flex-wrap:wrap}#h40-performance h3{margin:0;font-size:17px;color:#f1f7ff}#h40-performance p{font-size:12px;line-height:1.55;color:#a9c0da;margin:8px 0}#h40-performance button{border:1px solid #42668b;background:#163658;border-radius:10px;color:#eaf4ff;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer}#h40-performance .h40-item{border:1px solid #294664;background:#0c2038;border-radius:12px;padding:12px;margin-top:9px}#h40-performance .h40-name{font-size:14px;font-weight:750;overflow-wrap:anywhere}#h40-performance .h40-meta{font-size:11px;color:#9db7d3;margin-top:6px;overflow-wrap:anywhere}#h40-performance .h40-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:10px}#h40-performance .h40-stat{background:#091a30;border:1px solid #23405f;border-radius:9px;padding:9px 7px}#h40-performance .h40-stat small{font-size:10px;color:#91aac6;display:block}#h40-performance .h40-stat b{font-size:16px;display:block;margin-top:5px}#h40-performance .h40-safe{color:#8dd4b3}#h40-performance .h40-error{color:#ffb4b4}#h40-performance .h40-note{margin-top:10px;border-top:1px solid #23405f;padding-top:9px}
 </style>
+<style id="hogar-v43-campaign-tabs">
+#h40-performance .h43-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:12px 0 9px}
+#h40-performance .h43-tab{min-width:0;padding:11px 3px!important;font-size:clamp(10px,2.9vw,12px)!important;line-height:1.3;border-radius:10px!important;white-space:normal}
+#h40-performance .h43-tab b{display:inline-block;font-size:11px;padding:2px 5px;border-radius:7px;background:#274765}
+#h40-performance .h43-tab.h43-selected{background:#225c98!important;border-color:#6baff0!important;color:#fff!important}
+#h40-performance .h40-item[hidden],#h40-performance .h43-empty[hidden]{display:none!important}
+</style>
 <script id="hogar-performance-readonly">
 (function(){
 'use strict';
@@ -1040,9 +1047,42 @@ async function refresh(){
   if(!response.ok){if(response.status===401)throw Error('Введите пароль доступа к серверу в разделе синхронизации каталога.');throw Error('Сервер вернул ошибку '+response.status)}
   const data=await response.json();const list=Array.isArray(data.campaigns)?data.campaigns:[];
   if(!list.length){output.innerHTML='<p>Ozon не вернул рекламных кампаний. Проверьте кабинет и права ключа.</p>';return}
-  output.innerHTML='<p>Получено кампаний: '+list.length+'. Обновлено: '+escape(new Date(data.checked_at).toLocaleString('ru-RU'))+'</p>'+list.map(c=>'<div class="h40-item"><div class="h40-name">'+escape(c.name||'Кампания без названия')+'</div><div class="h40-meta">№ '+escape(c.id)+' · '+escape(status[c.status]||c.status||'Статус неизвестен')+' · '+escape(c.type||'Тип не указан')+'</div><div class="h40-stats"><div class="h40-stat"><small>Расход</small><b>— ₽</b></div><div class="h40-stat"><small>Заказы</small><b>—</b></div><div class="h40-stat"><small>ДРР</small><b>— %</b></div></div></div>').join('');
- }catch(err){output.innerHTML='<p class="h40-error">'+escape(err.message)+'</p><p>Убедитесь, что новый server.js опубликован в Render и вы вошли в приложение.</p>'}
+  const category=c=>{const v=String(c.status||'').toUpperCase();if(v.includes('ARCHIVED')||v.includes('FINISHED'))return 'archived';if(v.includes('RUNNING')||v.includes('ACTIVE')&&!v.includes('INACTIVE'))return 'active';return 'inactive'};
+  const counts={active:0,inactive:0,archived:0};list.forEach(c=>counts[category(c)]++);
+  const cards=list.map(c=>'<div class="h40-item" data-group="'+category(c)+'"><div class="h40-name">'+escape(c.name||'Кампания без названия')+'</div><div class="h40-meta">№ '+escape(c.id)+' · '+escape(status[c.status]||c.status||'Статус неизвестен')+' · '+escape(c.type||'Тип не указан')+'</div><div class="h40-stats"><div class="h40-stat"><small>Расход</small><b>— ₽</b></div><div class="h40-stat"><small>Заказы</small><b>—</b></div><div class="h40-stat"><small>ДРР</small><b>— %</b></div></div></div>').join('');
+  output.innerHTML='<p>Всего кампаний: '+list.length+' · Обновлено: '+escape(new Date(data.checked_at).toLocaleString('ru-RU'))+'</p><div class="h43-tabs" role="tablist" aria-label="Статусы рекламных кампаний"><button type="button" class="h43-tab" data-group="active">Активные <b>'+counts.active+'</b></button><button type="button" class="h43-tab" data-group="inactive">Неактивные <b>'+counts.inactive+'</b></button><button type="button" class="h43-tab" data-group="archived">Архивные <b>'+counts.archived+'</b></button></div><div class="h43-cards">'+cards+'</div><p class="h43-empty" hidden>В этой вкладке кампаний нет.</p>';
+  const tabs=output.querySelectorAll('.h43-tab');const items=output.querySelectorAll('.h40-item');
+  const select=group=>{tabs.forEach(t=>{const on=t.dataset.group===group;t.classList.toggle('h43-selected',on);t.setAttribute('aria-selected',String(on))});let visible=0;items.forEach(el=>{const show=el.dataset.group===group;el.hidden=!show;if(show)visible++});output.querySelector('.h43-empty').hidden=visible!==0};
+  tabs.forEach(t=>t.addEventListener('click',()=>select(t.dataset.group)));
+  select('active');
+ }catch(err){output.innerHTML='<p class="h40-error">'+escape(err.message)+'</p><p>Нажмите «Проверить подключение» ниже: диагностика покажет, на каком этапе возникает ошибка.</p>'}
 }
+async function diagnose(){
+ const url='https://ozon-ai-assistant-api.onrender.com';
+ const token=document.getElementById('v10token')?.value.trim()||'';
+ const lines=[];
+ const add=(name,message)=>{lines.push('<div style="padding:7px 0;border-bottom:1px solid #284562"><b>'+escape(name)+'</b>: '+escape(message)+'</div>');output.innerHTML='<p>Диагностика подключения (без передачи ключей в отчёт):</p>'+lines.join('')};
+ const run=async(name,path,headers)=>{
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),18000);
+  try{
+   const response=await fetch(url+path,{method:'GET',headers:headers||{},cache:'no-store',signal:controller.signal});
+   let body={};try{body=await response.json()}catch(e){}
+   add(name,'HTTP '+response.status+(body.error?' · '+String(body.error).slice(0,150):''));
+   return response.status;
+  }catch(e){add(name,e.name==='AbortError'?'Тайм-аут 18 секунд':String(e.message||e));return null}
+  finally{clearTimeout(timer)}
+ };
+ add('Пароль доступа',token?'Введён в поле синхронизации каталога':'Не найден в поле синхронизации каталога');
+ await run('1. Доступность сервера','/health');
+ await run('2. Проверка маршрута без пароля','/api/ads/campaigns');
+ if(token)await run('3. Запрос с паролем','/api/ads/campaigns',{Authorization:'Bearer '+token});
+ add('Итог','Пришлите скриншот этого отчёта. Пароли и ключи здесь не отображаются.');
+}
+const diagnostic=document.createElement('button');
+diagnostic.type='button';diagnostic.textContent='Проверить подключение';
+diagnostic.style.cssText='margin:12px 0;padding:12px 16px;border-radius:12px;border:1px solid #4979a9;background:#14365b;color:#eaf4ff;font-weight:700;font-size:15px';
+diagnostic.addEventListener('click',diagnose);
+panel.querySelector('#h40-results').after(diagnostic);
 panel.querySelector('#h40-refresh').addEventListener('click',refresh);
 })();
 </script>
