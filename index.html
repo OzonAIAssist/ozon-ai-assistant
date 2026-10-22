@@ -953,7 +953,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&
 const base='https://ozon-ai-assistant-api.onrender.com';
 const cacheKey='hogar_ads_readonly_cache_v44',tabKey='hogar_ads_selected_tab_v44',sessionKey='hogar_session_access_v44';
 const panel=document.createElement('section');panel.id='h44';
-panel.innerHTML='<div class="h44-head"><h2>Мои рекламные кампании</h2><button type="button" id="h44refresh">↻ Обновить</button></div><p class="h44-safe">● Только просмотр · автоматическое управление выключено · сторонний сервис управляет рекламой</p><div class="h44-tabs" role="tablist"><button type="button" class="h44-tab" data-tab="active">Активные <b>0</b></button><button type="button" class="h44-tab" data-tab="inactive">Неактивные <b>0</b></button><button type="button" class="h44-tab" data-tab="archived">Архивные <b>0</b></button></div><div id="h44list"></div><div class="h44-last" id="h44updated"></div><div class="h44-actions"><button type="button" id="h44diagnose">Проверить подключение</button></div><div id="h44diagnostics" class="h44-diagnostics"></div><p class="h44-note">Расходы, заказы и средняя цена клика появятся после подключения подтверждённого метода статистики Ozon. Прочерки — не нулевые значения.</p>';
+panel.innerHTML='<div class="h44-head"><div><h2>Рекламные кампании</h2><p class="h44-safe">Ozon · Только просмотр</p></div><button type="button" id="h44refresh" aria-label="Обновить кампании" title="Обновить кампании"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 1-2.4-5.7M20 4v6h-6"/></svg></button></div><div class="h44-tabs" role="tablist"><button type="button" class="h44-tab" data-tab="active">Активные <b>0</b></button><button type="button" class="h44-tab" data-tab="inactive">Неактивные <b>0</b></button><button type="button" class="h44-tab" data-tab="archived">Архив <b>0</b></button></div><div id="h44list"></div><div class="h44-last" id="h44updated"></div><div class="h44-actions"><button type="button" id="h44diagnose">Проверить подключение</button></div><div id="h44diagnostics" class="h44-diagnostics"></div><p class="h44-note">Расходы, заказы и средняя цена клика появятся после подключения подтверждённого метода статистики Ozon. Прочерки — не нулевые значения.</p>';
 host.prepend(panel);
 const listEl=panel.querySelector('#h44list'),updated=panel.querySelector('#h44updated'),diagnostics=panel.querySelector('#h44diagnostics');
 const status={CAMPAIGN_STATE_RUNNING:'Активна',CAMPAIGN_STATE_PLANNED:'Запланирована',CAMPAIGN_STATE_STOPPED:'Остановлена',CAMPAIGN_STATE_INACTIVE:'Выключена',CAMPAIGN_STATE_ARCHIVED:'В архиве',CAMPAIGN_STATE_FINISHED:'Завершена'};
@@ -970,7 +970,7 @@ function draw(){
   const metric=(label,value)=>'<div class="h44-metric"><small>'+label+'</small><strong>'+value+'</strong></div>';
   const val=(v,suffix)=>v===null||v===undefined||v===''?'—':esc(v)+suffix;
   const spend=val(c.spend,' ₽'),orders=val(c.orders,''),cpc=val(c.avg_cpc,' ₽');
-  return '<article class="h44-card"><button type="button" class="h44-title" data-id="'+esc(id)+'" aria-expanded="'+open+'"><span class="h44-mark">◇</span><span class="h44-text"><b>'+name+'</b><small>'+esc(status[c.status]||c.status||'Статус не указан')+' · № '+esc(id)+'</small></span><span class="h44-chevron">'+(open?'⌃':'⌄')+'</span></button><div class="h44-metrics">'+metric('Расходы',spend)+metric('Заказы',orders)+metric('Сред. цена клика',cpc)+'</div>'+(open?'<div class="h44-details"><p>Тип: '+esc(c.type||'Не указан')+'</p><p>Модель оплаты: '+esc(c.payment_type||'Нет данных')+'</p><p>Статус: '+esc(status[c.status]||c.status||'Нет данных')+'</p><p>Управление и редактирование недоступны.</p></div>':'')+'</article>';
+  return '<article class="h44-card"><button type="button" class="h44-title" data-id="'+esc(id)+'" aria-expanded="'+open+'"><span class="h44-text"><b>'+name+'</b><small>'+esc(status[c.status]||c.status||'Статус не указан')+' · № '+esc(id)+'</small></span><span class="h44-chevron">'+(open?'⌃':'⌄')+'</span></button><div class="h44-metrics">'+metric('Расходы',spend)+metric('Заказы',orders)+metric('Цена клика',cpc)+'</div>'+(open?'<div class="h44-details"><p>Тип: '+esc(c.type||'Не указан')+'</p><p>Модель оплаты: '+esc(c.payment_type||'Нет данных')+'</p><p>Статус: '+esc(status[c.status]||c.status||'Нет данных')+'</p><p>Управление и редактирование недоступны.</p></div>':'')+'</article>';
  }).join('');
 }
 function token(){return document.getElementById('v10token')?.value.trim()||sessionStorage.getItem(sessionKey)||''}
@@ -980,7 +980,7 @@ if(input){try{input.value=sessionStorage.getItem(sessionKey)||''}catch(_){}input
 function cacheLoad(){try{const d=JSON.parse(localStorage.getItem(cacheKey)||'null');if(d&&Array.isArray(d.campaigns)){campaigns=d.campaigns;updated.textContent='Сохранённые данные · '+new Date(d.checked_at).toLocaleString('ru-RU')+' · обновляем…';draw()}}catch(_){}}
 async function refresh(){
  const t=token();if(!t){updated.textContent='Введите пароль доступа к серверу один раз в разделе синхронизации каталога.';return}
- updated.textContent='Получаем свежие данные из Ozon…';
+ updated.classList.remove('h44-error');updated.textContent='Получаем свежие данные из Ozon…';
  try{
   const response=await fetch(base+'/api/ads/campaigns',{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const data=await response.json().catch(()=>({}));
@@ -1017,4 +1017,32 @@ cacheLoad();draw();
 if(token())setTimeout(refresh,1200);
 })();
 </script>
+<style id="hogar-v45">
+#h44{padding:18px 15px 16px!important;background:#10243d!important;border:1px solid #294764!important;border-radius:20px!important;box-shadow:none!important}
+#h44 .h44-head{gap:10px;align-items:center}
+#h44 h2{font-size:20px!important;font-weight:750!important;letter-spacing:-.4px}
+#h44 .h44-safe{font-size:11px!important;margin:5px 0 0!important;color:#92b3ce!important;line-height:1.4!important}
+#h44 .h44-safe:before{content:'● ';color:#6bc5a3}
+#h44 #h44refresh{font-size:0!important;width:43px!important;height:43px!important;min-width:43px!important;min-height:43px!important;padding:0!important;display:grid!important;place-items:center!important;background:#193855!important;border:1px solid #315777!important;border-radius:13px!important;color:#b9d8f6!important;box-shadow:none!important}
+#h44 #h44refresh svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#h44 .h44-tabs{gap:8px!important;margin:18px 0 16px!important}
+#h44 .h44-tab{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:5px!important;min-height:65px!important;padding:9px 2px!important;background:#152d48!important;border:1px solid #294969!important;border-radius:13px!important;color:#a9c0d8!important;font-size:11px!important;line-height:1.2!important;box-shadow:none!important}
+#h44 .h44-tab b{font-size:19px!important;color:#edf5ff!important;margin:0!important;line-height:1.2!important}
+#h44 .h44-tab[aria-selected=true]{background:#1b3e65!important;border-color:#488de4!important;color:#e8f3ff!important;box-shadow:inset 0 0 0 1px #2868b0!important}
+#h44 .h44-card{background:#10243a!important;border:1px solid #2b4864!important;border-radius:14px!important;margin:9px 0!important;box-shadow:none!important}
+#h44 .h44-title{padding:12px 12px 8px!important;min-height:56px!important;gap:9px!important;background:transparent!important;border:0!important;border-radius:0!important;color:#eaf3ff!important;box-shadow:none!important}
+#h44 .h44-mark{display:none!important}
+#h44 .h44-text b{font-size:15px!important;line-height:1.3!important;font-weight:700!important}
+#h44 .h44-text small{font-size:11px!important;margin-top:3px!important;color:#8faac6!important}
+#h44 .h44-chevron{width:24px!important;height:24px!important;flex:0 0 24px!important;border:0!important;background:transparent!important;border-radius:0!important;color:#90b2d0!important;font-size:19px!important}
+#h44 .h44-metrics{gap:0!important;padding:2px 12px 12px!important;grid-template-columns:repeat(3,minmax(0,1fr))!important}
+#h44 .h44-metric{padding:4px 9px!important;border:0!important;border-left:1px solid #294967!important;background:transparent!important;border-radius:0!important;min-height:41px!important}
+#h44 .h44-metric:first-child{border-left:0!important;padding-left:0!important}
+#h44 .h44-metric small{font-size:10px!important;line-height:1.25!important;color:#86a6c5!important;white-space:normal!important}
+#h44 .h44-metric strong{font-size:15px!important;line-height:1.2!important;margin-top:6px!important;font-weight:700!important}
+#h44 .h44-details{margin-top:3px!important;padding:5px 13px 14px!important;border-top:1px solid #294764!important}
+#h44 .h44-last{margin-top:12px!important}
+#h44 .h44-note{font-size:11px!important}
+@media(max-width:355px){#h44{padding:13px 10px!important}#h44 .h44-tab{font-size:10px!important}#h44 .h44-metric{padding-right:4px!important;padding-left:6px!important}}
+</style>
 </body></html>
