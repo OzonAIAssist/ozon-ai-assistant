@@ -62,8 +62,77 @@ async function performanceDaily(from,to){
 
 }
 if(!CLIENT_ID||!API_KEY||!ACCESS_TOKEN){console.error('Missing required environment variables: OZON_CLIENT_ID, OZON_API_KEY, APP_ACCESS_TOKEN');process.exit(1);}
-const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics']);
+const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance']);
 const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||origin===ORIGIN;const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
+
+if(path.pathname==='/api/orders'){
+ const days=Math.min(30,Math.max(1,Number(path.searchParams.get('days')||7)||7));
+ const since=new Date(Date.now()-(days-1)*86400000).toISOString();
+ const to=new Date().toISOString();
+ const all=[],errors=[];
+ function normalize(x,scheme){
+  const items=Array.isArray(x.products)?x.products.map(p=>({name:String(p.name||''),sku:String(p.sku??''),quantity:Number(p.quantity||1),price:p.price??null})): [];
+  const status=String(x.status||'');
+  const delivered=['delivered','delivered_to_customer'].includes(status.toLowerCase());
+  return {posting_number:String(x.posting_number||''),order_id:String(x.order_id??''),scheme,status,delivered,created_at:x.in_process_at||x.created_at||'',shipment_date:x.shipment_date||null,products:items,amount:null,financial_ready:false};
+ }
+ try{
+  let offset=0;
+  for(let i=0;i<10;i++){
+   const d=await ozon('/v3/posting/fbs/list',{dir:'DESC',filter:{since,to},limit:100,offset,with:{analytics_data:false,financial_data:false}});
+   const items=Array.isArray(d.result?.postings)?d.result.postings:[];
+   all.push(...items.map(x=>normalize(x,'FBS')));
+   if(items.length<100)break;offset+=items.length;
+  }
+ }catch(e){errors.push('FBS: '+e.message)}
+ try{
+  let offset=0;
+  for(let i=0;i<10;i++){
+   const d=await ozon('/v2/posting/fbo/list',{dir:'DESC',filter:{since,to},limit:100,offset,translit:false,with:{analytics_data:false,financial_data:false}});
+   const items=Array.isArray(d.result)?d.result:Array.isArray(d.result?.postings)?d.result.postings:[];
+   all.push(...items.map(x=>normalize(x,'FBO')));
+   if(items.length<100)break;offset+=items.length;
+  }
+ }catch(e){errors.push('FBO: '+e.message)}
+ if(errors.length===2)return reply(res,502,{error:'Не удалось загрузить заказы',details:errors},ORIGIN);
+ const seen=new Set();
+ const orders=all.filter(x=>x.posting_number&&!seen.has(x.posting_number)&&seen.add(x.posting_number)).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
+ return reply(res,200,{read_only:true,days,orders,partial:errors.length>0,errors,checked_at:new Date().toISOString()},ORIGIN);
+}
+if(path.pathname==='/api/orders/finance'){
+ const posting=path.searchParams.get('posting_number')||'';
+ const created=path.searchParams.get('created_at')||'';
+ const delivered=path.searchParams.get('delivered')==='true';
+ if(!/^[a-zA-Z0-9-]{4,90}$/.test(posting))return reply(res,400,{error:'Неверный номер отправления'},ORIGIN);
+ if(!delivered)return reply(res,409,{error:'Финансы доступны после доставки заказа'},ORIGIN);
+ // Verify delivery independently on the server; do not trust the browser flag.
+ let verified=false;
+ try{
+  const d=await ozon('/v3/posting/fbs/get',{posting_number:posting,with:{analytics_data:false,financial_data:false}});
+  verified=['delivered','delivered_to_customer'].includes(String(d.result?.status||'').toLowerCase());
+ }catch(_){}
+ if(!verified){
+  try{
+   const d=await ozon('/v2/posting/fbo/get',{posting_number:posting,translit:false});
+   verified=['delivered','delivered_to_customer'].includes(String(d.result?.status||'').toLowerCase());
+  }catch(_){}
+ }
+ if(!verified)return reply(res,409,{error:'Не удалось подтвердить доставку заказа через Ozon'},ORIGIN);
+ const date=new Date(created);if(!Number.isFinite(date.getTime()))return reply(res,400,{error:'Неизвестна дата заказа'},ORIGIN);
+ const from=new Date(date.getTime()-7*86400000).toISOString(),to=new Date(Math.min(Date.now(),date.getTime()+120*86400000)).toISOString();
+ try{
+  const operations=[];
+  for(let page=1;page<=10;page++){
+   const d=await ozon('/v3/finance/transaction/list',{filter:{date:{from,to},operation_type:[],posting_number:posting,transaction_type:'all'},page,page_size:100});
+   const rows=Array.isArray(d.result?.operations)?d.result.operations:[];
+   operations.push(...rows.filter(x=>String(x.posting?.posting_number||x.posting_number||'')===posting));
+   const pages=Number(d.result?.page_count||0);
+   if((pages&&page>=pages)||rows.length<100)break;
+  }
+  const lines=operations.map(x=>({id:String(x.operation_id??''),date:x.operation_date||'',name:String(x.operation_type_name||x.operation_type||'Операция Ozon'),amount:typeof x.amount==='number'?x.amount:null,accruals:typeof x.accruals_for_sale==='number'?x.accruals_for_sale:null,sale_commission:typeof x.sale_commission==='number'?x.sale_commission:null,delivery_charge:typeof x.delivery_charge==='number'?x.delivery_charge:null,return_delivery_charge:typeof x.return_delivery_charge==='number'?x.return_delivery_charge:null,services:Array.isArray(x.services)?x.services.map(s=>({name:String(s.name||''),price:typeof s.price==='number'?s.price:null})):[]}));
+  return reply(res,200,{read_only:true,posting_number:posting,source:'Ozon Seller API /v3/finance/transaction/list',operations:lines,checked_at:new Date().toISOString(),finalized:false,note:'Финансовые операции могут появиться после доставки и корректироваться позднее.'},ORIGIN);
+ }catch(e){console.error('Order finance failed:',e.message);return reply(res,502,{error:'Не удалось получить финансовые операции Ozon',details:e.message.startsWith('Upstream HTTP ')?e.message:undefined},ORIGIN)}
+}
 if(path.pathname==='/api/ads/statistics'){
  const from=path.searchParams.get('from')||'',to=path.searchParams.get('to')||'';
  if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||from>to||!Number.isFinite(Date.parse(from))||!Number.isFinite(Date.parse(to))||(Date.parse(to)-Date.parse(from))/86400000>31)return reply(res,400,{error:'Некорректный период'},ORIGIN);
