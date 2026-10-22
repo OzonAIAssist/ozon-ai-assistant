@@ -997,8 +997,8 @@ function summaryDraw(){
  const sum=key=>{const found=data.filter(d=>typeof d[key]==='number');return found.length?found.reduce((a,b)=>a+b[key],0):null};
  const spend=sum('spend'),clicks=sum('clicks'),views=sum('impressions'),carts=sum('carts'),orders=sum('orders'),revenue=sum('revenue');
  const pct=(a,b)=>a!==null&&b!==null&&b>0?a/b*100:null;
- const fields=[['Потрачено на рекламу',spend,' ₽'],['Показы',views,''],['Клики',clicks,''],['Корзины',carts,'']];
- summary.innerHTML='<div class="h47-summary-title">Итоги по всем кампаниям <small>· '+data.length+' из '+ids.length+' со статистикой</small></div><div class="h47-summary-grid">'+fields.map(([label,value,suffix])=>'<div><span>'+label+'</span><b>'+formatMetric(value,suffix)+'</b></div>').join('')+'</div><p>Сумма по всем статусам кампаний за выбранный период. Прочерк — Ozon не передал данные.</p>';
+ const fields=[['Потрачено на рекламу',spend,' ₽'],['Показы',views,''],['Клики',clicks,''],['Корзины',carts,''],['Заказы из рекламы',orders,''],['Сумма заказов из рекламы',revenue,' ₽']];
+ summary.innerHTML='<div class="h47-summary-title">Итоги по всем кампаниям <small>· '+data.length+' из '+ids.length+' со статистикой</small></div><div class="h47-summary-grid">'+fields.map(([label,value,suffix])=>'<div><span>'+label+'</span><b>'+formatMetric(value,suffix)+'</b></div>').join('')+'</div><p>Сумма по кампаниям, по которым Ozon передал статистику за выбранный период. Заказы и их сумма — рекламная атрибуция, не все продажи магазина. Прочерк — нет данных.</p>';
 }
 
 function periodDates(){const d=new Date(),today=new Date(d.getFullYear(),d.getMonth(),d.getDate());const start=new Date(today),end=new Date(today);if(period==='yesterday'){start.setDate(start.getDate()-1);end.setDate(end.getDate()-1)}if(period==='week')start.setDate(start.getDate()-6);if(period==='month')start.setDate(start.getDate()-29);const fmt=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');return {from:fmt(start),to:fmt(end)}}
@@ -1008,7 +1008,12 @@ async function loadStatistics(){const t=token();if(!t||!campaigns.length)return;
  try{const r=await fetch(base+'/api/ads/statistics?from='+dates.from+'&to='+dates.to,{headers:{Authorization:'Bearer '+t},cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error('HTTP '+r.status+(d.error?' · '+d.error:''));if(!Array.isArray(d.rows))throw Error('Неожиданный ответ');if(serial!==statsRequest)return;statistics=Object.fromEntries(d.rows.map(x=>[String(x.id),x]));try{localStorage.setItem(savedKey,JSON.stringify({rows:d.rows,checked_at:d.checked_at}))}catch(_){}statsStatus.textContent=(d.cache_status==='stale'?'Последние доступные данные':'Статистика Ozon')+' · '+dates.from+' — '+dates.to+' · обновлено '+new Date(d.checked_at).toLocaleString('ru-RU')+(d.parsed_count===0?' · Данные кампаний не распознаны':'');
  const diag=document.getElementById('h52diag');
  if(diag){const x=d.diagnostic||{};diag.textContent=d.parsed_count===0?'Диагностика (без секретов): строк '+(x.rows_count??'?')+'; поля ответа: '+(x.top_level_keys||[]).join(', ')+'; поля строки: '+(x.row_field_names||[]).join(', ')+'; найдено ID: '+(x.campaign_id_field_present?'да':'нет'):'';
- diag.hidden=d.parsed_count!==0;}
+ const missing=x.missing_metrics||{};
+ if(d.parsed_count>0&&(missing.carts||missing.orders||missing.revenue)){
+  const names=[missing.carts?'корзины':null,missing.orders?'заказы':null,missing.revenue?'сумма заказов':null].filter(Boolean);
+  diag.textContent='Ozon не передал распознанные поля: '+names.join(', ')+'. Поля строки ответа (только названия): '+(x.row_field_names||[]).join(', ');
+  diag.hidden=false;
+ }else diag.hidden=d.parsed_count!==0;}
  draw()}
  catch(e){if(serial!==statsRequest)return;statsStatus.textContent='Не удалось обновить статистику: '+e.message+' · сохранённые цифры остаются на экране';draw()}}
 

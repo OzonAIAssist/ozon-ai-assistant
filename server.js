@@ -42,11 +42,11 @@ async function performanceDaily(from,to){
  const pick=(obj,keys)=>{for(const k of keys){if(Object.prototype.hasOwnProperty.call(obj,k)){const n=num(obj[k]);if(n!==null)return n}}return null};
  const aliases={
   spend:['moneySpent','money_spent','spent','expense','cost','money'],
-  orders:['orders','ordersCount','orders_count','orderCount'],
+  orders:['orders','ordersCount','orders_count','orderCount','orders_count_total','ordersCountTotal','ordersQty'],
   clicks:['clicks','clickCount','click_count'],
   impressions:['views','impressions','shows','showCount','viewCount','viewsCount','impressionCount','impressionsCount'],
-  carts:['addToCart','add_to_cart','addToCartCount','add_to_cart_count','cartAdds','cart_adds','addedToCart','cartCount','carts'],
-  revenue:['revenue','orderSum','ordersSum','orders_sum','sales','salesAmount','attributedRevenue','revenueAmount']
+  carts:['addToCart','add_to_cart','addToCartCount','add_to_cart_count','cartAdds','cart_adds','addedToCart','cartCount','carts','addToCartQuantity','addToCartTotal','add_to_cart_total','cartAddsCount'],
+  revenue:['revenue','orderSum','ordersSum','orders_sum','sales','salesAmount','attributedRevenue','revenueAmount','ordersMoney','orders_money','ordersAmount','orders_amount','orderRevenue']
  };
  for(const row of rows){
   if(!row||typeof row!=='object')continue;
@@ -59,6 +59,11 @@ async function performanceDaily(from,to){
   }
   groups.set(id,old);
  }
+ diagnostic.missing_metrics={
+  carts:![...groups.values()].some(g=>g.seen.carts),
+  orders:![...groups.values()].some(g=>g.seen.orders),
+  revenue:![...groups.values()].some(g=>g.seen.revenue)
+ };
  const round=n=>Number(n.toFixed(2));
  return {rows:[...groups.values()].map(x=>{
   const value=k=>x.seen[k]?round(x.sums[k]):null;
