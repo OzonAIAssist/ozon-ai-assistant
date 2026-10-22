@@ -953,6 +953,21 @@ const selector=document.getElementById('r20product');selector?.addEventListener(
 #h44 .h46-periods button.h46-selected{background:#275c9d!important;border-color:#75b5ff!important}
 #h46statsstatus{font-size:11px;margin:5px 0 10px;line-height:1.5}
 </style>
+
+<style id="hogar-v47-analytics-style">
+#h44 .h47-summary{background:#0c223a;border:1px solid #294967;border-radius:15px;padding:13px;margin:12px 0 18px}
+#h44 .h47-summary-title{font-size:14px;font-weight:700;margin-bottom:12px}
+#h44 .h47-summary-title small{font-size:11px;font-weight:400;color:#8faecb}
+#h44 .h47-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#h44 .h47-summary-grid>div{background:#102b48;border:1px solid #244563;border-radius:10px;padding:10px;min-width:0}
+#h44 .h47-summary-grid span,#h44 .h47-detail-grid small{display:block;color:#90b0ce;font-size:11px}
+#h44 .h47-summary-grid b,#h44 .h47-detail-grid strong{display:block;color:#e7f3ff;font-size:17px;margin-top:5px;overflow-wrap:anywhere}
+#h44 .h47-summary p{font-size:10px;color:#8faecb;line-height:1.5;margin:10px 0 0}
+#h44 .h47-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+#h44 .h47-detail-grid>div{background:#102b48;border-radius:9px;padding:10px;min-width:0}
+#h44 .h44-details h4{margin:12px 0 0;font-size:13px;color:#e9f3ff}
+#h44 .h47-advice{border-left:2px solid #69adf4;padding:8px 10px;background:#143451;border-radius:0 8px 8px 0;color:#c5d9ec}
+</style>
 <script id="hogar-v44-readonly">
 (function(){
 'use strict';
@@ -971,6 +986,19 @@ const periodBar=document.createElement('div');periodBar.className='h46-periods';
 periodBar.innerHTML='<span>Период статистики</span><div><button type="button" data-period="today">Сегодня</button><button type="button" data-period="yesterday">Вчера</button><button type="button" data-period="week">7 дней</button><button type="button" data-period="month">30 дней</button></div>';
 panel.querySelector('.h44-tabs').before(periodBar);
 const statsStatus=document.createElement('p');statsStatus.id='h46statsstatus';statsStatus.className='h44-muted';panel.querySelector('.h44-tabs').after(statsStatus);
+const summary=document.createElement('section');summary.className='h47-summary';summary.setAttribute('aria-label','Сводка по рекламе');
+statsStatus.after(summary);
+function formatMetric(v,suffix=''){return v===null||v===undefined||!Number.isFinite(Number(v))?'—':Number(v).toLocaleString('ru-RU',{maximumFractionDigits:2})+suffix}
+function summaryDraw(){
+ const ids=campaigns.map(c=>String(c.id));
+ const data=ids.map(id=>statistics[id]).filter(Boolean);
+ const sum=key=>{const found=data.filter(d=>typeof d[key]==='number');return found.length?found.reduce((a,b)=>a+b[key],0):null};
+ const spend=sum('spend'),clicks=sum('clicks'),views=sum('impressions'),carts=sum('carts'),orders=sum('orders'),revenue=sum('revenue');
+ const pct=(a,b)=>a!==null&&b!==null&&b>0?a/b*100:null;
+ const fields=[['Потрачено на рекламу',spend,' ₽'],['Показы',views,''],['Клики',clicks,''],['Корзины',carts,'']];
+ summary.innerHTML='<div class="h47-summary-title">Итоги по всем кампаниям <small>· '+data.length+' из '+ids.length+' со статистикой</small></div><div class="h47-summary-grid">'+fields.map(([label,value,suffix])=>'<div><span>'+label+'</span><b>'+formatMetric(value,suffix)+'</b></div>').join('')+'</div><p>Сумма по всем статусам кампаний за выбранный период. Прочерк — Ozon не передал данные.</p>';
+}
+
 function periodDates(){const d=new Date(),today=new Date(d.getFullYear(),d.getMonth(),d.getDate());const start=new Date(today),end=new Date(today);if(period==='yesterday'){start.setDate(start.getDate()-1);end.setDate(end.getDate()-1)}if(period==='week')start.setDate(start.getDate()-6);if(period==='month')start.setDate(start.getDate()-29);const fmt=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');return {from:fmt(start),to:fmt(end)}}
 function markPeriod(){periodBar.querySelectorAll('button').forEach(b=>b.classList.toggle('h46-selected',b.dataset.period===period))}markPeriod();
 periodBar.addEventListener('click',e=>{const b=e.target.closest('button[data-period]');if(!b)return;period=b.dataset.period;markPeriod();loadStatistics()});
@@ -983,6 +1011,7 @@ const category=c=>{const v=String(c.status||'').toUpperCase();if(v.includes('ARC
 function draw(){
  const counts={active:0,inactive:0,archived:0};campaigns.forEach(c=>counts[category(c)]++);
  panel.querySelectorAll('.h44-tab').forEach(b=>{b.querySelector('b').textContent=counts[b.dataset.tab];b.setAttribute('aria-selected',String(selected===b.dataset.tab))});
+ summaryDraw();
  const visible=campaigns.filter(c=>category(c)===selected);
  if(!visible.length){listEl.innerHTML='<p class="h44-muted">В этой вкладке пока нет кампаний.</p>';return}
  listEl.innerHTML=visible.map(c=>{
@@ -990,7 +1019,10 @@ function draw(){
   const metric=(label,value)=>'<div class="h44-metric"><small>'+label+'</small><strong>'+value+'</strong></div>';
   const val=(v,suffix)=>v===null||v===undefined||v===''?'—':esc(v)+suffix;
   const stat=statistics[id]||{};const fmt=v=>typeof v==='number'?v.toLocaleString('ru-RU',{maximumFractionDigits:2}):v;const spend=val(fmt(stat.spend),' ₽'),orders=val(fmt(stat.orders),''),cpc=val(fmt(stat.avg_cpc),' ₽');
-  return '<article class="h44-card"><button type="button" class="h44-title" data-id="'+esc(id)+'" aria-expanded="'+open+'"><span class="h44-text"><b>'+name+'</b><small>'+esc(status[c.status]||c.status||'Статус не указан')+' · № '+esc(id)+'</small></span><span class="h44-chevron">'+(open?'⌃':'⌄')+'</span></button><div class="h44-metrics">'+metric('Расходы',spend)+metric('Заказы',orders)+metric('Цена клика',cpc)+'</div>'+(open?'<div class="h44-details"><p>Тип: '+esc(c.type||'Не указан')+'</p><p>Модель оплаты: '+esc(c.payment_type||'Нет данных')+'</p><p>Статус: '+esc(status[c.status]||c.status||'Нет данных')+'</p><p>Управление и редактирование недоступны.</p></div>':'')+'</article>';
+  const more=[['Показы',stat.impressions,''],['Клики',stat.clicks,''],['Добавили в корзину',stat.carts,''],['Выручка от рекламы',stat.revenue,' ₽'],['CTR',stat.ctr,'%'],['Конверсия клика в корзину',stat.cart_rate,'%'],['Конверсия клика в заказ',stat.order_rate,'%'],['ДРР',stat.drr,'%'],['ROAS',stat.roas,'×']];
+  const extra='<div class="h47-detail-grid">'+more.map(([label,value,suffix])=>'<div><small>'+label+'</small><strong>'+formatMetric(value,suffix)+'</strong></div>').join('')+'</div>';
+  const advice=stat.clicks>0&&stat.impressions>0&&stat.ctr!==null&&stat.ctr<1?'Низкий CTR: стоит проверить привлекательность карточки и соответствие поисковым запросам.':stat.spend>0&&stat.orders===0?'Есть расходы без заказов: проверьте карточку, цену и поисковые запросы.':stat.drr!==null&&stat.drr>25?'ДРР выше 25%: сравните с вашей целевой маржинальностью.':'Для оценки эффективности сравнивайте показатели за 7 и 30 дней.';
+  return '<article class="h44-card"><button type="button" class="h44-title" data-id="'+esc(id)+'" aria-expanded="'+open+'"><span class="h44-text"><b>'+name+'</b><small>'+esc(status[c.status]||c.status||'Статус не указан')+' · № '+esc(id)+'</small></span><span class="h44-chevron">'+(open?'⌃':'⌄')+'</span></button><div class="h44-metrics">'+metric('Расходы',spend)+metric('Корзины',val(stat.carts,''))+metric('Цена клика',cpc)+'</div>'+(open?'<div class="h44-details"><h4>Подробная аналитика</h4>'+extra+'<p class="h47-advice">Подсказка: '+esc(advice)+'</p><p>Тип: '+esc(c.type||'Не указан')+' · Модель оплаты: '+esc(c.payment_type||'Нет данных')+'</p><p>Только анализ. Управление и редактирование недоступны.</p></div>':'')+'</article>';
  }).join('');
 }
 function token(){return document.getElementById('v10token')?.value.trim()||sessionStorage.getItem(sessionKey)||''}

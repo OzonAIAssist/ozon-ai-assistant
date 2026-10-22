@@ -27,16 +27,39 @@ async function performanceDaily(from,to){
  let token=await performanceToken();const qs=new URLSearchParams({dateFrom:from,dateTo:to});
  let data;for(let attempt=0;attempt<2;attempt++){try{data=await fetchJSON(PERFORMANCE_BASE+'/api/client/statistics/daily/json?'+qs,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});break;}catch(e){if(e.status!==401||attempt===1)throw e;cachedToken='';token=await performanceToken();}}
  const rows=Array.isArray(data)?data:[data?.rows,data?.data,data?.result?.rows,data?.result?.data,data?.result].find(Array.isArray)||[];
- const groups=new Map();const num=v=>{if(v===null||v===undefined||v==='')return null;const n=Number(String(v).replace(/\s/g,'').replace(',','.'));return Number.isFinite(n)?n:null};
- for(const row of rows){if(!row||typeof row!=='object')continue;
-  const id=String(row.campaignId??row.campaign_id??row.id??row.campaign?.id??'');if(!/^\d+$/.test(id))continue;
-  const spend=num(row.moneySpent??row.money_spent??row.spent??row.expense??row.cost??row.money);
-  const orders=num(row.orders??row.ordersCount??row.orders_count);
-  const clicks=num(row.clicks??row.clickCount??row.click_count);
-  const old=groups.get(id)||{id,spend:0,orders:0,clicks:0,hasSpend:false,hasOrders:false,hasClicks:false};
-  if(spend!==null){old.spend+=spend;old.hasSpend=true}if(orders!==null){old.orders+=orders;old.hasOrders=true}if(clicks!==null){old.clicks+=clicks;old.hasClicks=true}groups.set(id,old);
+ const groups=new Map();
+ const num=v=>{if(v===null||v===undefined||v==='')return null;const n=Number(String(v).replace(/\\s/g,'').replace(',','.'));return Number.isFinite(n)?n:null};
+ const pick=(obj,keys)=>{for(const k of keys){if(Object.prototype.hasOwnProperty.call(obj,k)){const n=num(obj[k]);if(n!==null)return n}}return null};
+ const aliases={
+  spend:['moneySpent','money_spent','spent','expense','cost','money'],
+  orders:['orders','ordersCount','orders_count','orderCount'],
+  clicks:['clicks','clickCount','click_count'],
+  impressions:['views','impressions','shows','showCount','viewCount','viewsCount','impressionCount','impressionsCount'],
+  carts:['addToCart','add_to_cart','addToCartCount','add_to_cart_count','cartAdds','cart_adds','addedToCart','cartCount','carts'],
+  revenue:['revenue','orderSum','ordersSum','orders_sum','sales','salesAmount','attributedRevenue','revenueAmount']
+ };
+ for(const row of rows){
+  if(!row||typeof row!=='object')continue;
+  const id=String(row.campaignId??row.campaign_id??row.id??row.campaign?.id??'');
+  if(!/^\\d+$/.test(id))continue;
+  const old=groups.get(id)||{id,sums:{},seen:{}};
+  for(const [field,keys] of Object.entries(aliases)){
+   const value=pick(row,keys);
+   if(value!==null){old.sums[field]=(old.sums[field]||0)+value;old.seen[field]=true}
+  }
+  groups.set(id,old);
  }
- return {rows:[...groups.values()].map(x=>({id:x.id,spend:x.hasSpend?Number(x.spend.toFixed(2)):null,orders:x.hasOrders?x.orders:null,avg_cpc:x.hasSpend&&x.hasClicks&&x.clicks>0?Number((x.spend/x.clicks).toFixed(2)):null})),raw_count:rows.length,parsed_count:groups.size};
+ const round=n=>Number(n.toFixed(2));
+ return {rows:[...groups.values()].map(x=>{
+  const value=k=>x.seen[k]?round(x.sums[k]):null;
+  const spend=value('spend'),orders=value('orders'),clicks=value('clicks'),impressions=value('impressions'),carts=value('carts'),revenue=value('revenue');
+  const ratio=(a,b)=>a!==null&&b!==null&&b>0?round(a/b*100):null;
+  return {id:x.id,spend,orders,clicks,impressions,carts,revenue,
+   avg_cpc:spend!==null&&clicks!==null&&clicks>0?round(spend/clicks):null,
+   ctr:ratio(clicks,impressions),cart_rate:ratio(carts,clicks),order_rate:ratio(orders,clicks),
+   drr:ratio(spend,revenue),roas:spend!==null&&revenue!==null&&spend>0?round(revenue/spend):null};
+ }),raw_count:rows.length,parsed_count:groups.size};
+
 }
 if(!CLIENT_ID||!API_KEY||!ACCESS_TOKEN){console.error('Missing required environment variables: OZON_CLIENT_ID, OZON_API_KEY, APP_ACCESS_TOKEN');process.exit(1);}
 const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics']);
