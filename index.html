@@ -842,7 +842,9 @@ rules:'Меняет ставки только по заранее заданны
 };
 function read(k,d){try{return JSON.parse(localStorage.getItem(k)||'null')??d}catch(_){return d}}
 function persist(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(_){alert('Не удалось сохранить на устройстве');return false}}
-const state=read(storage,{campaigns:[],period:'today'});if(!Array.isArray(state.campaigns))state.campaigns=[];state.campaigns.forEach(c=>{c.auto=false});persist(storage,state);
+const state=read(storage,{campaigns:[],period:'today'});
+for(const c of state.campaigns||[]){c.auto=false;c.enabled=false;}
+persist(storage,state);if(!Array.isArray(state.campaigns))state.campaigns=[];state.campaigns.forEach(c=>{c.auto=false});persist(storage,state);
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function blank(){return {id:'local-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),name:'Новая кампания',budget:'',weeklyBudget:'',min:'',max:'',strategy:'autopilot',period:'today',enabled:false,auto:false,expanded:true,view:'settings',reach:50,changeLimit:'10',from:'09:00',to:'22:00',budgetGuard:true}}
 function metrics(labels){return '<div class="h31-grid">'+labels.map(x=>'<div class="h31-metric"><span class="h31-muted">'+x+'</span><b>—</b></div>').join('')+'</div>'}
@@ -876,9 +878,9 @@ function card(c){
  (c.expanded?'<div class="h36-open-actions"><button class="h31-outline h36-delete" data-action="delete" data-id="'+id+'">Удалить черновик</button></div><div class="h32-subnav"><button data-action="view" data-id="'+id+'" data-view="settings" aria-pressed="'+(c.view!=='history')+'">Стратегия и бюджет</button><button data-action="view" data-id="'+id+'" data-view="history" aria-pressed="'+(c.view==='history')+'">История</button></div>'+content:'')+'</div>';
 }
 const root=document.createElement('div');root.id='h31ads';host.prepend(root);
-function render(){root.innerHTML='<div class="h31-top"><div class="h31-muted">HOGAR · ADS CONTROL CENTER</div><h2>Реклама</h2><div class="h31-warning">Ozon Performance API пока не подключён. Реальные кампании, бюджеты и статистика не загружаются; черновики не меняют рекламу на Ozon.</div></div>'+
+function render(){root.innerHTML='<div class="h31-top"><div class="h31-muted">HOGAR · ADS CONTROL CENTER</div><h2>Реклама</h2><div class="h31-warning">Реальные рекламные кампании загружаются в блоке ниже. Умная стратегия выключена, изменение рекламы запрещено.</div></div>'+
  '<div class="h31-card"><b>Общая статистика</b>'+periodNav(state.period,'all','')+metrics(['Расходы','Заказы','Продажи','ДРР'])+'</div>'+
- '<div class="h31-card"><div class="h31-line"><b>Кампании</b><button data-action="add">+ Черновик</button></div><p class="h31-muted">Каждая кампания настраивается отдельно. Фоновая проверка каждые 15 минут будет доступна после настройки сервера.</p></div>'+
+ '<div class="h31-card"><div class="h31-line"><b>Кампании</b><button data-action="add">+ Черновик</button></div><p class="h31-muted">Каждая кампания настраивается отдельно. Автоматическое управление рекламой отключено: сейчас рекламой управляет сторонний сервис.</p></div>'+
  (state.campaigns.length?state.campaigns.map(card).join(''):'<div class="h31-card h31-muted">Пока нет подключённых кампаний. Можно создать черновик настроек.</div>')}
 root.addEventListener('click',e=>{
  // A tap anywhere on the campaign header expands/collapses it; the switch remains independent.
@@ -1024,7 +1026,8 @@ new MutationObserver(drawWatch).observe(list,{childList:true});drawWatch();
 const host=document.getElementById('tab-ads');if(!host)return;
 const panel=document.createElement('section');panel.id='h40-performance';
 panel.innerHTML='<div class="h40-top"><h3>Реклама Ozon · реальные кампании</h3><button type="button" id="h40-refresh">Обновить</button></div><p class="h40-safe">● Только просмотр · умная стратегия выключена · сторонний сервис продолжает управлять рекламой</p><div id="h40-results"><p>Нажмите «Обновить», чтобы загрузить кампании.</p></div><p class="h40-note">Расходы, заказы и ДРР подключим следующим этапом. Прочерки не означают нулевые показатели.</p>';
-host.prepend(panel);
+const adsRoot=document.getElementById('h31ads');
+if(adsRoot)adsRoot.after(panel);else host.prepend(panel);
 const output=panel.querySelector('#h40-results');
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const status={CAMPAIGN_STATE_RUNNING:'Активна',CAMPAIGN_STATE_PLANNED:'Запланирована',CAMPAIGN_STATE_STOPPED:'Остановлена из-за бюджета',CAMPAIGN_STATE_INACTIVE:'Выключена',CAMPAIGN_STATE_ARCHIVED:'В архиве',CAMPAIGN_STATE_FINISHED:'Завершена'};
