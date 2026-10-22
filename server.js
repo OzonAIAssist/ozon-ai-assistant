@@ -27,8 +27,18 @@ async function performanceDaily(from,to){
  let token=await performanceToken();const qs=new URLSearchParams({dateFrom:from,dateTo:to});
  let data;for(let attempt=0;attempt<2;attempt++){try{data=await fetchJSON(PERFORMANCE_BASE+'/api/client/statistics/daily/json?'+qs,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});break;}catch(e){if(e.status!==401||attempt===1)throw e;cachedToken='';token=await performanceToken();}}
  const rows=Array.isArray(data)?data:[data?.rows,data?.data,data?.result?.rows,data?.result?.data,data?.result].find(Array.isArray)||[];
+ const shapeOf=x=>x&&typeof x==='object'&&!Array.isArray(x)?Object.keys(x).filter(k=>/^[a-zA-Z_][a-zA-Z_0-9]{0,39}$/.test(k)).slice(0,24):[];
+ const diagnostic={response_type:Array.isArray(data)?'array':typeof data,
+  top_level_keys:shapeOf(data),rows_count:rows.length,
+  row_field_names:rows.length?shapeOf(rows[0]):[],
+  campaign_id_field_present:rows.some(r=>r&&typeof r==='object'&&['campaignId','campaign_id','id'].some(k=>r[k]!=null)),
+  note:'Диагностика показывает только имена полей и количество строк, без значений и ключей.'};
+ if(rows.length===0&&diagnostic.top_level_keys.length&&
+    !['rows','data','result'].some(k=>diagnostic.top_level_keys.includes(k))){
+   diagnostic.warning='Ответ Ozon не похож на ожидаемый массив статистики';
+ }
  const groups=new Map();
- const num=v=>{if(v===null||v===undefined||v==='')return null;const n=Number(String(v).replace(/\\s/g,'').replace(',','.'));return Number.isFinite(n)?n:null};
+ const num=v=>{if(v===null||v===undefined||v==='')return null;const n=Number(String(v).replace(/\s/g,'').replace(',','.'));return Number.isFinite(n)?n:null};
  const pick=(obj,keys)=>{for(const k of keys){if(Object.prototype.hasOwnProperty.call(obj,k)){const n=num(obj[k]);if(n!==null)return n}}return null};
  const aliases={
   spend:['moneySpent','money_spent','spent','expense','cost','money'],
@@ -41,7 +51,7 @@ async function performanceDaily(from,to){
  for(const row of rows){
   if(!row||typeof row!=='object')continue;
   const id=String(row.campaignId??row.campaign_id??row.id??row.campaign?.id??'');
-  if(!/^\\d+$/.test(id))continue;
+  if(!/^\d+$/.test(id))continue;
   const old=groups.get(id)||{id,sums:{},seen:{}};
   for(const [field,keys] of Object.entries(aliases)){
    const value=pick(row,keys);
@@ -58,7 +68,7 @@ async function performanceDaily(from,to){
    avg_cpc:spend!==null&&clicks!==null&&clicks>0?round(spend/clicks):null,
    ctr:ratio(clicks,impressions),cart_rate:ratio(carts,clicks),order_rate:ratio(orders,clicks),
    drr:ratio(spend,revenue),roas:spend!==null&&revenue!==null&&spend>0?round(revenue/spend):null};
- }),raw_count:rows.length,parsed_count:groups.size};
+ }),raw_count:rows.length,parsed_count:groups.size,diagnostic};
 
 }
 if(!CLIENT_ID||!API_KEY||!ACCESS_TOKEN){console.error('Missing required environment variables: OZON_CLIENT_ID, OZON_API_KEY, APP_ACCESS_TOKEN');process.exit(1);}

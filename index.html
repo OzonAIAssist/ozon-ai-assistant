@@ -988,6 +988,8 @@ panel.querySelector('.h44-tabs').before(periodBar);
 const statsStatus=document.createElement('p');statsStatus.id='h46statsstatus';statsStatus.className='h44-muted';panel.querySelector('.h44-tabs').after(statsStatus);
 const summary=document.createElement('section');summary.className='h47-summary';summary.setAttribute('aria-label','Сводка по рекламе');
 statsStatus.after(summary);
+const diagEl=document.createElement('p');diagEl.id='h52diag';diagEl.hidden=true;diagEl.className='h44-muted';diagEl.style.cssText='overflow-wrap:anywhere;border:1px solid #345576;border-radius:9px;padding:10px;line-height:1.6';
+statsStatus.after(diagEl);
 function formatMetric(v,suffix=''){return v===null||v===undefined||!Number.isFinite(Number(v))?'—':Number(v).toLocaleString('ru-RU',{maximumFractionDigits:2})+suffix}
 function summaryDraw(){
  const ids=campaigns.map(c=>String(c.id));
@@ -1003,7 +1005,11 @@ function periodDates(){const d=new Date(),today=new Date(d.getFullYear(),d.getMo
 function markPeriod(){periodBar.querySelectorAll('button').forEach(b=>b.classList.toggle('h46-selected',b.dataset.period===period))}markPeriod();
 periodBar.addEventListener('click',e=>{const b=e.target.closest('button[data-period]');if(!b)return;period=b.dataset.period;markPeriod();loadStatistics()});
 async function loadStatistics(){const t=token();if(!t||!campaigns.length)return;const serial=++statsRequest,dates=periodDates();statsStatus.textContent='Проверяем статистику…';const savedKey='hogar_stats_v51_'+dates.from+'_'+dates.to;try{const saved=JSON.parse(localStorage.getItem(savedKey)||'null');if(saved&&saved.rows&&Array.isArray(saved.rows)){statistics=Object.fromEntries(saved.rows.map(x=>[String(x.id),x]));draw()}}catch(_){}
- try{const r=await fetch(base+'/api/ads/statistics?from='+dates.from+'&to='+dates.to,{headers:{Authorization:'Bearer '+t},cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error('HTTP '+r.status+(d.error?' · '+d.error:''));if(!Array.isArray(d.rows))throw Error('Неожиданный ответ');if(serial!==statsRequest)return;statistics=Object.fromEntries(d.rows.map(x=>[String(x.id),x]));try{localStorage.setItem(savedKey,JSON.stringify({rows:d.rows,checked_at:d.checked_at}))}catch(_){}statsStatus.textContent=(d.cache_status==='stale'?'Последние доступные данные':'Статистика Ozon')+' · '+dates.from+' — '+dates.to+' · обновлено '+new Date(d.checked_at).toLocaleString('ru-RU');draw()}
+ try{const r=await fetch(base+'/api/ads/statistics?from='+dates.from+'&to='+dates.to,{headers:{Authorization:'Bearer '+t},cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error('HTTP '+r.status+(d.error?' · '+d.error:''));if(!Array.isArray(d.rows))throw Error('Неожиданный ответ');if(serial!==statsRequest)return;statistics=Object.fromEntries(d.rows.map(x=>[String(x.id),x]));try{localStorage.setItem(savedKey,JSON.stringify({rows:d.rows,checked_at:d.checked_at}))}catch(_){}statsStatus.textContent=(d.cache_status==='stale'?'Последние доступные данные':'Статистика Ozon')+' · '+dates.from+' — '+dates.to+' · обновлено '+new Date(d.checked_at).toLocaleString('ru-RU')+(d.parsed_count===0?' · Данные кампаний не распознаны':'');
+ const diag=document.getElementById('h52diag');
+ if(diag){const x=d.diagnostic||{};diag.textContent=d.parsed_count===0?'Диагностика (без секретов): строк '+(x.rows_count??'?')+'; поля ответа: '+(x.top_level_keys||[]).join(', ')+'; поля строки: '+(x.row_field_names||[]).join(', ')+'; найдено ID: '+(x.campaign_id_field_present?'да':'нет'):'';
+ diag.hidden=d.parsed_count!==0;}
+ draw()}
  catch(e){if(serial!==statsRequest)return;statsStatus.textContent='Не удалось обновить статистику: '+e.message+' · сохранённые цифры остаются на экране';draw()}}
 
 try{const v=localStorage.getItem(tabKey);if(['active','inactive','archived'].includes(v))selected=v}catch(_){}
