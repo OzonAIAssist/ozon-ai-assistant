@@ -945,6 +945,14 @@ const selector=document.getElementById('r20product');selector?.addEventListener(
 #h44 .h44-actions button{font-size:12px}
 #h44 .h44-diagnostics{font-size:12px;line-height:1.65;overflow-wrap:anywhere}
 </style>
+<style id="hogar-v46-stats-style">
+#h44 .h46-periods{display:flex;flex-direction:column;gap:8px;margin:13px 0 8px}
+#h44 .h46-periods>span{font-size:12px;color:#91b1d2}
+#h44 .h46-periods>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+#h44 .h46-periods button{font-size:11px!important;padding:8px 3px!important;min-height:35px!important;background:#16324e!important;border:1px solid #345674!important;border-radius:9px!important;box-shadow:none!important}
+#h44 .h46-periods button.h46-selected{background:#275c9d!important;border-color:#75b5ff!important}
+#h46statsstatus{font-size:11px;margin:5px 0 10px;line-height:1.5}
+</style>
 <script id="hogar-v44-readonly">
 (function(){
 'use strict';
@@ -953,11 +961,23 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&
 const base='https://ozon-ai-assistant-api.onrender.com';
 const cacheKey='hogar_ads_readonly_cache_v44',tabKey='hogar_ads_selected_tab_v44',sessionKey='hogar_session_access_v44';
 const panel=document.createElement('section');panel.id='h44';
-panel.innerHTML='<div class="h44-head"><div><h2>Рекламные кампании</h2><p class="h44-safe">Ozon · Только просмотр</p></div><button type="button" id="h44refresh" aria-label="Обновить кампании" title="Обновить кампании"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 1-2.4-5.7M20 4v6h-6"/></svg></button></div><div class="h44-tabs" role="tablist"><button type="button" class="h44-tab" data-tab="active">Активные <b>0</b></button><button type="button" class="h44-tab" data-tab="inactive">Неактивные <b>0</b></button><button type="button" class="h44-tab" data-tab="archived">Архив <b>0</b></button></div><div id="h44list"></div><div class="h44-last" id="h44updated"></div><div class="h44-actions"><button type="button" id="h44diagnose">Проверить подключение</button></div><div id="h44diagnostics" class="h44-diagnostics"></div><p class="h44-note">Расходы, заказы и средняя цена клика появятся после подключения подтверждённого метода статистики Ozon. Прочерки — не нулевые значения.</p>';
+panel.innerHTML='<div class="h44-head"><div><h2>Рекламные кампании</h2><p class="h44-safe">Ozon · Только просмотр</p></div><button type="button" id="h44refresh" aria-label="Обновить кампании" title="Обновить кампании"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 1-2.4-5.7M20 4v6h-6"/></svg></button></div><div class="h44-tabs" role="tablist"><button type="button" class="h44-tab" data-tab="active">Активные <b>0</b></button><button type="button" class="h44-tab" data-tab="inactive">Неактивные <b>0</b></button><button type="button" class="h44-tab" data-tab="archived">Архив <b>0</b></button></div><div id="h44list"></div><div class="h44-last" id="h44updated"></div><div class="h44-actions"><button type="button" id="h44diagnose">Проверить подключение</button></div><div id="h44diagnostics" class="h44-diagnostics"></div><p class="h44-note">Статистика загружается из Ozon. Прочерк означает отсутствие данных, а не ноль.</p>';
 host.prepend(panel);
 const listEl=panel.querySelector('#h44list'),updated=panel.querySelector('#h44updated'),diagnostics=panel.querySelector('#h44diagnostics');
 const status={CAMPAIGN_STATE_RUNNING:'Активна',CAMPAIGN_STATE_PLANNED:'Запланирована',CAMPAIGN_STATE_STOPPED:'Остановлена',CAMPAIGN_STATE_INACTIVE:'Выключена',CAMPAIGN_STATE_ARCHIVED:'В архиве',CAMPAIGN_STATE_FINISHED:'Завершена'};
 let campaigns=[],selected='active',expanded=new Set();
+let statistics={},period='today',statsRequest=0;
+const periodBar=document.createElement('div');periodBar.className='h46-periods';
+periodBar.innerHTML='<span>Период статистики</span><div><button type="button" data-period="today">Сегодня</button><button type="button" data-period="yesterday">Вчера</button><button type="button" data-period="week">7 дней</button><button type="button" data-period="month">30 дней</button></div>';
+panel.querySelector('.h44-tabs').before(periodBar);
+const statsStatus=document.createElement('p');statsStatus.id='h46statsstatus';statsStatus.className='h44-muted';panel.querySelector('.h44-tabs').after(statsStatus);
+function periodDates(){const d=new Date(),today=new Date(d.getFullYear(),d.getMonth(),d.getDate());const start=new Date(today),end=new Date(today);if(period==='yesterday'){start.setDate(start.getDate()-1);end.setDate(end.getDate()-1)}if(period==='week')start.setDate(start.getDate()-6);if(period==='month')start.setDate(start.getDate()-29);const fmt=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');return {from:fmt(start),to:fmt(end)}}
+function markPeriod(){periodBar.querySelectorAll('button').forEach(b=>b.classList.toggle('h46-selected',b.dataset.period===period))}markPeriod();
+periodBar.addEventListener('click',e=>{const b=e.target.closest('button[data-period]');if(!b)return;period=b.dataset.period;markPeriod();loadStatistics()});
+async function loadStatistics(){const t=token();if(!t||!campaigns.length)return;const serial=++statsRequest,dates=periodDates();statsStatus.textContent='Загружаем статистику…';statistics={};draw();
+ try{const r=await fetch(base+'/api/ads/statistics?from='+dates.from+'&to='+dates.to,{headers:{Authorization:'Bearer '+t},cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error('HTTP '+r.status+(d.error?' · '+d.error:''));if(!Array.isArray(d.rows))throw Error('Неожиданный ответ');if(serial!==statsRequest)return;statistics=Object.fromEntries(d.rows.map(x=>[String(x.id),x]));statsStatus.textContent=d.parsed_count?'Статистика Ozon · '+dates.from+' — '+dates.to:'Нет данных статистики за выбранный период';draw()}
+ catch(e){if(serial!==statsRequest)return;statistics={};statsStatus.textContent='Статистика недоступна: '+e.message;draw()}}
+
 try{const v=localStorage.getItem(tabKey);if(['active','inactive','archived'].includes(v))selected=v}catch(_){}
 const category=c=>{const v=String(c.status||'').toUpperCase();if(v.includes('ARCHIVED')||v.includes('FINISHED'))return 'archived';if(v.includes('RUNNING')||(v.includes('ACTIVE')&&!v.includes('INACTIVE')))return 'active';return 'inactive'};
 function draw(){
@@ -969,7 +989,7 @@ function draw(){
   const id=String(c.id),open=expanded.has(id),name=esc(c.name||'Кампания № '+id);
   const metric=(label,value)=>'<div class="h44-metric"><small>'+label+'</small><strong>'+value+'</strong></div>';
   const val=(v,suffix)=>v===null||v===undefined||v===''?'—':esc(v)+suffix;
-  const spend=val(c.spend,' ₽'),orders=val(c.orders,''),cpc=val(c.avg_cpc,' ₽');
+  const stat=statistics[id]||{};const fmt=v=>typeof v==='number'?v.toLocaleString('ru-RU',{maximumFractionDigits:2}):v;const spend=val(fmt(stat.spend),' ₽'),orders=val(fmt(stat.orders),''),cpc=val(fmt(stat.avg_cpc),' ₽');
   return '<article class="h44-card"><button type="button" class="h44-title" data-id="'+esc(id)+'" aria-expanded="'+open+'"><span class="h44-text"><b>'+name+'</b><small>'+esc(status[c.status]||c.status||'Статус не указан')+' · № '+esc(id)+'</small></span><span class="h44-chevron">'+(open?'⌃':'⌄')+'</span></button><div class="h44-metrics">'+metric('Расходы',spend)+metric('Заказы',orders)+metric('Цена клика',cpc)+'</div>'+(open?'<div class="h44-details"><p>Тип: '+esc(c.type||'Не указан')+'</p><p>Модель оплаты: '+esc(c.payment_type||'Нет данных')+'</p><p>Статус: '+esc(status[c.status]||c.status||'Нет данных')+'</p><p>Управление и редактирование недоступны.</p></div>':'')+'</article>';
  }).join('');
 }
@@ -991,6 +1011,7 @@ async function refresh(){
   try{localStorage.setItem(cacheKey,JSON.stringify(d))}catch(_){}
   updated.textContent='Обновлено из Ozon · '+new Date(d.checked_at).toLocaleString('ru-RU');
   draw();
+  await loadStatistics();
  }catch(e){updated.textContent='Не удалось обновить: '+e.message+' · сохранённые данные остаются на экране';updated.classList.add('h44-error')}
 }
 async function diagnose(){
