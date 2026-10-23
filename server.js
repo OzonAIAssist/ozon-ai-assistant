@@ -102,6 +102,50 @@ async function cachedPerformance(key,load){
   }finally{entry.pending=null;}
  })();entry.pending=pending;return pending;
 }
+async function deliveryDatesFromReport(from,to){
+  const created=await ozon('/v1/report/postings/create',{filter:{processed_at_from:from,processed_at_to:to,delivery_schema:['fbs']},language:'RU'});
+  const code=created.result?.code;
+  if(typeof code!=='string'||!code)throw new Error('Report code missing');
+  let report;
+  for(let attempt=0;attempt<12;attempt++){
+   const info=await ozon('/v1/report/info',{code});report=info.result;
+   if(report?.status==='success'||report?.status==='failed')break;
+   await new Promise(resolve=>setTimeout(resolve,2000));
+  }
+  if(report?.status!=='success')throw new Error('Delivery report is not ready');
+   const file=new URL(report.file);
+   if(file.protocol!=='https:'||file.username||file.password||file.port||!/(^|\.)ozone?\.ru$/.test(file.hostname))throw new Error('Unexpected report file host');
+   const response=await fetch(file,{signal:AbortSignal.timeout(25000),redirect:'error'});
+   if(!response.ok)throw Object.assign(new Error('Report download failed'),{status:response.status});
+   let csv='',bytes=0;const decoder=new TextDecoder();
+   for await(const chunk of response.body){bytes+=chunk.length;if(bytes>2*1024*1024)throw new Error('Report exceeds diagnostic size limit');csv+=decoder.decode(chunk,{stream:true});}
+   csv+=decoder.decode();
+   const rows=[];let row=[],cell='',quoted=false;
+   for(let i=0;i<csv.length;i++){
+    const c=csv[i];
+    if(c==='"'){if(quoted&&csv[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}
+    else if(!quoted&&(c===';'||c==='\n')){row.push(cell.replace(/\r$/,''));cell='';if(c==='\n'){rows.push(row);row=[];}}
+    else cell+=c;
+   }
+   if(quoted)throw new Error('Invalid CSV quoting');
+   if(cell||row.length){row.push(cell.replace(/\r$/,''));rows.push(row);}
+   const header=(rows.shift()||[]).map(x=>x.replace(/^\uFEFF/,'').trim());
+
+ const postingIndex=header.indexOf('Номер отправления'),dateIndex=header.indexOf('Дата доставки');
+ if(postingIndex<0||dateIndex<0)throw new Error('Delivery report columns missing');
+ const values=new Map(),conflicts=new Set();
+ for(const row of rows){
+  const id=row[postingIndex],raw=row[dateIndex];
+  if(!id||!raw||!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw))continue;
+  const iso=raw.replace(' ','T')+'Z',stamp=Date.parse(iso);
+  if(!Number.isFinite(stamp)||new Date(stamp).toISOString().slice(0,19)!==iso.slice(0,19))continue;
+  if(values.has(id)&&values.get(id)!==iso)conflicts.add(id);
+  values.set(id,iso);
+ }
+ for(const id of conflicts)values.delete(id);
+ return values;
+}
+
 const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check','/api/orders/posting-presence-check']);
 const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||ALLOWED_ORIGINS.has(origin);const ORIGIN=allowed?origin:'';const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
 
@@ -296,7 +340,22 @@ if(path.pathname==='/api/orders'){
    if(page===19)truncated=true;
   }
   const seen=new Set();const unique=orders.filter(x=>x.posting_number&&!seen.has(x.posting_number)&&seen.add(x.posting_number)).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
-  return reply(res,200,{read_only:true,scheme:'FBS',days,orders:unique,partial:truncated,diagnostic:{source:'Ozon Seller API /v4/posting/fbs/list',fbs:'ok',returned:unique.length,truncated},checked_at:new Date().toISOString()},ORIGIN);
+  let deliveryDatesStatus='not_requested';
+  if(path.searchParams.get('delivery_dates')!=='0'&&unique.some(o=>o.delivered)){
+   try{
+    const dates=await deliveryDatesFromReport(since,to);
+    for(const order of unique){
+     if(!order.delivered)continue;
+     order.delivered_at=dates.get(order.posting_number)||null;
+     order.delivery_date_source=order.delivered_at?'seller_postings_report':'not_provided';
+    }
+    deliveryDatesStatus='ok';
+   }catch(_){
+    deliveryDatesStatus='unavailable';
+    for(const order of unique){if(order.delivered){order.delivered_at=null;order.delivery_date_source='not_provided';}}
+   }
+  }
+  return reply(res,200,{read_only:true,scheme:'FBS',days,orders:unique,partial:truncated,diagnostic:{source:'Ozon Seller API /v4/posting/fbs/list',fbs:'ok',returned:unique.length,truncated,delivery_dates:deliveryDatesStatus},checked_at:new Date().toISOString()},ORIGIN);
  }catch(e){
   const diagnostic=safeError(e);
   console.error('FBS v4 orders read failed:',diagnostic.code||'unknown',diagnostic.reason);
