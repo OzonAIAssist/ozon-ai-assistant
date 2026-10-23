@@ -1994,7 +1994,7 @@ const orders=document.getElementById('h50');if(orders){
   const token=document.getElementById('v10token')?.value.trim()||sessionStorage.getItem('hogar_session_access_v44')||'';
   out.style.display='block';copy.style.display='none';out.textContent='Проверяем фильтр Ozon…';run.disabled=true;
   try{
-   const r=await fetch('https://ozon-ai-assistant-api.onrender.com/api/orders/status-date-check',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+   const r=await fetch('https://ozon-ai-assistant-api.onrender.com/api/orders/posting-presence-check',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
    const d=await r.json();out.textContent=JSON.stringify(d,null,2);copy.style.display='inline-block';
    if(!r.ok)out.textContent='HTTP '+r.status+'\n'+out.textContent;
   }catch(e){out.textContent='Ошибка соединения: '+String(e.message||e)}
