@@ -1268,10 +1268,10 @@ function draw(){
    if(finance?.loading)fin+='<p class="h50-note">Получаем операции…</p>';
    else if(finance?.error)fin+='<p class="h50-error">'+esc(finance.error)+'</p>';
    else if(finance?.operations){
-    if(!finance.operations.length)fin+='<p class="h50-note">Операции по этому отправлению пока не найдены.</p>';
-    else{const ops=finance.operations;const total=ops.every(x=>typeof x.amount==='number')?ops.reduce((s,x)=>s+x.amount,0):null;
+    if(!finance.operations.length)fin+='<p class="h50-note">Ozon пока не передал финансовые начисления по этому отправлению.</p>';
+    else{const ops=finance.operations;const total=typeof finance.total_accrued==='number'?finance.total_accrued:null;
      fin+=ops.map(x=>'<div>'+row(x.name,fmt(x.amount,' ₽'))+(x.accruals!==null?row('Начислено за продажу',fmt(x.accruals,' ₽')):'')+(x.sale_commission!==null?row('Комиссия Ozon',fmt(x.sale_commission,' ₽')):'')+(x.delivery_charge!==null?row('Доставка',fmt(x.delivery_charge,' ₽')):'')+(x.return_delivery_charge!==null?row('Обратная логистика',fmt(x.return_delivery_charge,' ₽')):'')+(x.services||[]).map(s=>row(s.name,fmt(s.price,' ₽'))).join('')+'</div>').join('');
-     fin+=row('Сумма операций (не прибыль)',fmt(total,' ₽'));}
+     fin+=row('Итого начислений (не прибыль)',fmt(total,' ₽'));fin+='<p class="h50-note">Данные Ozon могут обновляться. Названия операций берутся из справочника Ozon.</p>';}
    }
    fin+='</div>';
   }else fin='<p class="h50-note">Финансы будут доступны после доставки.</p>';
@@ -1308,7 +1308,7 @@ async function finance(id){
   const q=new URLSearchParams({posting_number:id,created_at:o.created_at,delivered:String(o.delivered)});
   const r=await fetch(base+'/api/orders/finance?'+q,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?.code?' · Код Ozon: '+d.diagnostic.code:'')+(d.diagnostic?.stage?' · Этап: '+d.diagnostic.stage:'')+(d.diagnostic?.reason?' · '+d.diagnostic.reason:''));
-  finances.set(id,{operations:d.operations||[]});
+  finances.set(id,{operations:d.operations||[],total_accrued:d.total_accrued});
  }catch(e){finances.set(id,{error:e.message})}draw();
 }
 panel.addEventListener('click',e=>{

@@ -149,20 +149,45 @@ if(path.pathname==='/api/orders/finance'){
   verified=['delivered','delivered_to_customer'].includes(String(d.result?.status||d.status||'').toLowerCase());
  }catch(e){console.error('FBS delivery verification failed:',e.message);return reply(res,502,{error:'Не удалось проверить статус доставки через Ozon',diagnostic:{stage:'Проверка доставки FBS',code:Number.isInteger(e.status)?e.status:null,reason:'Проверка статуса не прошла. Финансовые данные не запрашивались.'}},ORIGIN)}
  if(!verified)return reply(res,409,{error:'Ozon не подтвердил статус «Доставлен»',diagnostic:{stage:'Проверка доставки FBS',reason:'Ответ Ozon не содержит подтверждённого статуса доставки'}},ORIGIN);
- const date=new Date(created);if(!Number.isFinite(date.getTime()))return reply(res,400,{error:'Неизвестна дата заказа'},ORIGIN);
- const from=new Date(date.getTime()-7*86400000).toISOString(),to=new Date(Math.min(Date.now(),date.getTime()+120*86400000)).toISOString();
+ // The accrual/postings API accepts shipment numbers, not date ranges.
+ // Amounts are signed RUB values. Never infer profit or invent missing accruals.
  try{
-  const operations=[];
-  for(let page=1;page<=10;page++){
-   const d=await ozon('/v3/finance/transaction/list',{filter:{date:{from,to},operation_type:[],posting_number:posting,transaction_type:'all'},page,page_size:100});
-   const rows=Array.isArray(d.result?.operations)?d.result.operations:[];
-   operations.push(...rows.filter(x=>String(x.posting?.posting_number||x.posting_number||'')===posting));
-   const pages=Number(d.result?.page_count||0);
-   if((pages&&page>=pages)||rows.length<100)break;
-  }
-  const lines=operations.map(x=>({id:String(x.operation_id??''),date:x.operation_date||'',name:String(x.operation_type_name||x.operation_type||'Операция Ozon'),amount:typeof x.amount==='number'?x.amount:null,accruals:typeof x.accruals_for_sale==='number'?x.accruals_for_sale:null,sale_commission:typeof x.sale_commission==='number'?x.sale_commission:null,delivery_charge:typeof x.delivery_charge==='number'?x.delivery_charge:null,return_delivery_charge:typeof x.return_delivery_charge==='number'?x.return_delivery_charge:null,services:Array.isArray(x.services)?x.services.map(s=>({name:String(s.name||''),price:typeof s.price==='number'?s.price:null})):[]}));
-  return reply(res,200,{read_only:true,posting_number:posting,source:'Ozon Seller API /v3/finance/transaction/list',operations:lines,checked_at:new Date().toISOString(),finalized:false,note:'Финансовые операции могут появиться после доставки и корректироваться позднее.'},ORIGIN);
- }catch(e){console.error('Order finance failed:',e.message);return reply(res,502,{error:'Не удалось получить финансовые операции Ozon',diagnostic:{stage:'Финансовые операции',code:Number.isInteger(e.status)?e.status:null,reason:e.status===400?'Ozon отклонил параметры финансового запроса':e.status===401||e.status===403?'Нет доступа к финансовым операциям Seller API':e.status===429?'Слишком много запросов к Ozon':'Проверьте журнал Render для деталей'}},ORIGIN)}
+  const d=await ozon('/v1/finance/accrual/postings',{posting_numbers:[posting]});
+  if(!Array.isArray(d.posting_accruals))throw new Error('Unexpected finance accrual response shape');
+  const matched=d.posting_accruals.filter(x=>String(x.posting_number||'')===posting);
+  const raw=matched.flatMap(x=>Array.isArray(x.accruals)?x.accruals:[]);
+  // The type dictionary may be unavailable to this API key; raw type IDs still work.
+  let types=new Map(),types_available=false;
+  if(raw.length){try{
+   const t=await ozon('/v1/finance/accrual/types',{});
+   if(Array.isArray(t.accrual_types)){
+    types=new Map(t.accrual_types.filter(x=>x&&x.id!=null).map(x=>[String(x.id),String(x.description||x.name||'').slice(0,140)]));
+    types_available=true;
+   }
+  }catch(err){console.warn('Finance type dictionary unavailable:',err.status||'upstream error')}}
+  const amount=v=>{
+   const rawValue=v&&typeof v==='object'?v.amount:v;
+   if(rawValue===null||rawValue===undefined||rawValue==='')return null;
+   if(typeof rawValue!=='number'&&typeof rawValue!=='string')return null;
+   const n=Number(rawValue);return Number.isFinite(n)?Math.round(n*100)/100:null;
+  };
+  const lines=raw.map((x,i)=>{
+   const typeId=x.type_id==null?'':String(x.type_id);
+   const label=types.get(typeId)||('Начисление Ozon · тип '+(typeId||'не указан'));
+   const accrued=amount(x.accrued);
+   return {id:String(i+1),date:String(x.accrual_date||''),name:label,amount:accrued,
+    type_id:typeId,sku:x.sku==null?null:String(x.sku),quantity:Number.isFinite(Number(x.quantity))?Number(x.quantity):null,
+    seller_price:amount(x.seller_price),currency:String(x.accrued?.currency||'RUB'),
+    accruals:null,sale_commission:null,delivery_charge:null,return_delivery_charge:null,services:[]};
+  });
+  const complete=lines.every(x=>x.amount!==null&&x.currency==='RUB');
+  const total=lines.length&&complete?Math.round(lines.reduce((sum,x)=>sum+x.amount,0)*100)/100:null;
+  return reply(res,200,{read_only:true,posting_number:posting,source:'Ozon Seller API /v1/finance/accrual/postings',
+   operations:lines,total_accrued:total,types_available,checked_at:new Date().toISOString(),finalized:false,
+   note:lines.length?'Это сумма полученных начислений и удержаний, не прибыль. Ozon может обновить данные позже.':'Ozon пока не передал начисления по этому отправлению.'},ORIGIN);
+ }catch(e){console.error('Order finance accruals failed:',e.status||e.message);
+  return reply(res,502,{error:'Не удалось получить начисления Ozon',diagnostic:{stage:'Начисления по отправлению',code:Number.isInteger(e.status)?e.status:null,
+   reason:e.status===400?'Ozon отклонил параметры запроса':e.status===401||e.status===403?'Нет доступа к финансовым начислениям Seller API':e.status===429?'Ozon временно ограничил частоту запросов':e.status===404?'Финансовый метод недоступен для данного подключения':'Проверьте ответ Ozon в журнале Render'}},ORIGIN)}
 }
 if(path.pathname==='/api/ads/statistics'){
  const from=path.searchParams.get('from')||'',to=path.searchParams.get('to')||'';
