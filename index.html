@@ -1222,6 +1222,22 @@ if(token())setTimeout(refresh,1200);
 #h50 .h50-order>button[data-open]{position:relative;z-index:1;cursor:pointer;touch-action:manipulation}
 #h50 .h50-finance button:disabled{opacity:.6;cursor:wait}
 </style>
+<style id="hogar-v75-finance">
+#h50 .h75-facts{display:grid;gap:0;margin:6px 0 12px}
+#h50 .h75-facts>div:not(.h75-breakdown),#h50 .h75-expense-row{display:flex!important;align-items:center;justify-content:space-between;gap:10px;padding:14px 0!important;border:0!important;border-bottom:1px solid #ead7c5!important;background:transparent!important;width:100%;min-height:52px;text-align:left;box-shadow:none!important;border-radius:0!important}
+#h50 .h75-facts span{font-size:15px;color:#8a6a56}
+#h50 .h75-facts strong{font-size:17px;color:#422b1f;text-align:right;white-space:nowrap}
+#h50 .h75-facts .h75-expense{color:#ac4d39!important}
+#h50 .h75-facts .h75-remaining{color:#23764d!important}
+#h50 .h75-expense-row{cursor:pointer;touch-action:manipulation}
+#h50 .h75-arrow{font-size:15px!important;color:#ad7956!important;margin-left:3px}
+#h50 .h75-breakdown{padding:10px 12px;background:#fbf0e5;border:1px solid #eed9c5;border-radius:12px;margin:8px 0}
+#h50 .h75-breakdown .h50-line{font-size:13px;line-height:1.45}
+#h50 .h75-breakdown .h50-line span{font-size:13px!important;color:#755541!important}
+#h50 .h75-breakdown .h50-line b{font-size:13px!important;color:#412b22!important}
+#h50 .h75-finance-message{color:#99745b;font-size:12px;line-height:1.45;margin:10px 0}
+#h50 .h75-finance-message button{display:inline-block;width:auto;background:#fbe7d5;color:#89482e;border:1px solid #eac8ad;padding:6px 12px;border-radius:9px;margin-left:6px}
+</style>
 <script id="hogar-v50-orders">
 (function(){
 'use strict';
@@ -1234,6 +1250,7 @@ panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-s
 host.prepend(panel);
 const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50list'),summary=panel.querySelector('#h50summary');
 let days=7,orders=[],expanded=new Set(),finances=new Map(),request=0;
+let financeRun=0,financeQueueBusy=false,financePauseUntil=0;
 let monthOrders=null,monthPartial=false,monthError=false,monthOthersOpen=false;
 const moscowDay=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
 const monthKey=()=>moscowDay(new Date()).slice(0,7);
@@ -1272,28 +1289,34 @@ function draw(){
  list.innerHTML=shown.length?shown.map(o=>{
   const id=String(o.posting_number),open=expanded.has(id),finance=finances.get(id),p=o.products?.[0]||{};
   const name=p.name||'Товар Ozon',extra=(o.products||[]).length>1?' · ещё '+((o.products||[]).length-1)+' поз.':'';
-  const sale=(o.products||[]).reduce((sum,x)=>{const v=Number(x.price);return sum+(Number.isFinite(v)?v*(Number(x.quantity)||1):0)},0);
-  const financeAmounts=Array.isArray(finance?.operations)?finance.operations.map(x=>Number(x.amount)).filter(Number.isFinite):[];
-  const expenses=financeAmounts.length?Math.round(financeAmounts.filter(v=>v<0).reduce((a,v)=>a-v,0)*100)/100:null;
-  const remaining=expenses!==null&&sale>0?Math.round((sale+financeAmounts.reduce((a,v)=>a+v,0))*100)/100:null;
-  const items='<div class="h66-order-facts h74-financial-facts">'+
-    '<div><span>Сумма продажи</span><strong>'+esc(sale>0?fmt(sale,' ₽'):'—')+'</strong></div>'+
-    '<div><span>Итого расходы Ozon</span><strong class="h74-expense">'+esc(expenses!==null?fmt(expenses,' ₽'):'Загрузите финансы')+'</strong></div>'+
-    '<div><span>После удержаний Ozon</span><strong class="h74-remaining">'+esc(remaining!==null?fmt(remaining,' ₽'):'—')+'</strong></div></div>'+
-    (remaining!==null?'<p class="h74-disclaimer">Предварительный остаток по полученным операциям Ozon, не чистая прибыль и не подтверждённая выплата.</p>':'');
-  let fin='';
-  if(o.delivered){
-   fin='<div class="h50-finance"><h4>Начисления и удержания Ozon</h4><button type="button" data-finance="'+esc(id)+'" '+(finance?.loading?'disabled':'')+'>'+(finance?.operations?'Обновить финансовые операции':'Загрузить финансовые операции')+'</button>';
-   if(finance?.loading)fin+='<p class="h50-note">Получаем операции…</p>';
-   else if(finance?.error)fin+='<p class="h50-error">'+esc(finance.error)+'</p>';
-   else if(finance?.operations){
-    if(!finance.operations.length)fin+='<p class="h50-note">Ozon пока не передал финансовые начисления по этому отправлению.</p>';
-    else{const ops=finance.operations;const total=typeof finance.total_accrued==='number'?finance.total_accrued:null;
-     fin+=ops.map(x=>'<div>'+row(x.name,fmt(x.amount,' ₽'))+(x.accruals!==null?row('Начислено за продажу',fmt(x.accruals,' ₽')):'')+(x.sale_commission!==null?row('Комиссия Ozon',fmt(x.sale_commission,' ₽')):'')+(x.delivery_charge!==null?row('Доставка',fmt(x.delivery_charge,' ₽')):'')+(x.return_delivery_charge!==null?row('Обратная логистика',fmt(x.return_delivery_charge,' ₽')):'')+(x.services||[]).map(s=>row(s.name,fmt(s.price,' ₽'))).join('')+'</div>').join('');
-     fin+=row('Итого операций Ozon (не прибыль)',fmt(total,' ₽'));fin+='<p class="h50-note">Данные Ozon могут обновляться. Названия операций берутся из справочника Ozon.</p>';}
-   }
-   fin+='</div>';
-  }else fin='<p class="h50-note">Финансы будут доступны после доставки.</p>';
+  // FBS v4 may omit product prices. Prefer verified seller_price from financial accruals.
+  const prices=(o.products||[]).map(x=>Number(x.price)).filter(x=>Number.isFinite(x)&&x>0);
+  const orderSale=prices.length===(o.products||[]).length&&prices.length
+    ?(o.products||[]).reduce((v,x)=>v+Number(x.price)*(Number(x.quantity)||1),0):null;
+  const ops=Array.isArray(finance?.operations)?finance.operations:null;
+  const sellerPrices=ops?ops.filter(x=>Number.isFinite(Number(x.seller_price))&&Number(x.seller_price)>0):[];
+  const bySku=new Map();
+  for(const x of sellerPrices){const key=String(x.sku||'');if(!key)continue;const val=Number(x.seller_price),qty=Number(x.quantity)||1;
+    if(!bySku.has(key))bySku.set(key,{val,qty});}
+  const financeSale=bySku.size&&bySku.size===(o.products||[]).length
+    ?[...bySku.values()].reduce((v,x)=>v+x.val*x.qty,0):null;
+  const sale=orderSale!==null?orderSale:financeSale;
+  const amounts=ops?ops.map(x=>x.amount):[];
+  const complete=ops&&ops.length&&amounts.every(x=>typeof x==='number'&&Number.isFinite(x));
+  const expenses=complete?Math.round(amounts.filter(v=>v<0).reduce((a,v)=>a-v,0)*100)/100:null;
+  const net=complete?Math.round(amounts.reduce((a,v)=>a+v,0)*100)/100:null;
+  const remaining=sale!==null&&net!==null?Math.round((sale+net)*100)/100:null;
+  const pending=finance?.loading?'Загрузка…':'—';
+  const detail=ops?.length?ops.map(x=>row(x.name,fmt(x.amount,' ₽'))).join(''):'';
+  const items='<div class="h66-order-facts h75-facts">'+
+    '<div><span>Сумма продажи</span><strong>'+esc(sale!==null?fmt(sale,' ₽'):'—')+'</strong></div>'+
+    '<button type="button" class="h75-expense-row" data-expenses="'+esc(id)+'" aria-expanded="'+(!!finance?.detailsOpen)+'"><span>Расходы Ozon <span class="h75-arrow">'+(finance?.detailsOpen?'⌃':'⌄')+'</span></span><strong class="h75-expense">'+esc(expenses!==null?fmt(expenses,' ₽'):pending)+'</strong></button>'+
+    (finance?.detailsOpen?'<div class="h75-breakdown">'+(detail||'<p class="h50-note">Финансовые операции ещё не получены.</p>')+'</div>':'')+
+    '<div><span>После удержаний</span><strong class="h75-remaining">'+esc(remaining!==null?fmt(remaining,' ₽'):pending)+'</strong></div></div>'+
+    (remaining!==null?'<p class="h74-disclaimer">Предварительный остаток после известных операций Ozon. Не чистая прибыль и не подтверждённая выплата.</p>':'')+
+    (o.delivered&&finance?.error?'<div class="h75-finance-message">Не удалось загрузить финансы: '+esc(finance.error)+' <button type="button" data-finance="'+esc(id)+'">Повторить</button></div>':
+     o.delivered&&!finance?.loading&&!ops?'<p class="h75-finance-message">Финансы появятся автоматически после загрузки.</p>':'')+
+    (o.delivered&&ops&&!ops.length?'<p class="h75-finance-message">Ozon пока не передал начисления по этому отправлению.</p>':'');
   return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'"><span class="h57-order-main"><span class="h57-order-meta"><em class="'+(o.delivered?'h57-done':'h57-pending')+'">'+esc(statusName(o.status))+'</em><small>'+esc(shortDate(o.created_at))+'</small></span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((s,x)=>s+(Number(x.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><span class="h57-chevron">'+(open?'⌃':'⌄')+'</span></button>'+(open?'<div class="h50-body">'+items+fin+'</div>':'')+'</article>';
  }).join(''):'<p class="h50-note">В выбранной категории отправлений нет.</p>';
 }
@@ -1304,7 +1327,7 @@ async function load(){
   const requestDays=days===32?Math.min(35,Number(moscowDay(new Date()).slice(8))+2):days;
   const r=await fetch(base+'/api/orders?days='+requestDays,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?' · Код Ozon: '+(d.diagnostic.code||'неизвестен')+' · '+d.diagnostic.reason:''));
-  if(seq!==request)return;panel.classList.remove('h63-api-error');orders=(d.orders||[]).filter(o=>days!==32||(o.created_at&&Number.isFinite(new Date(o.created_at).getTime())&&moscowDay(new Date(o.created_at)).startsWith(monthKey())));finances.clear();
+  if(seq!==request)return;panel.classList.remove('h63-api-error');orders=(d.orders||[]).filter(o=>days!==32||(o.created_at&&Number.isFinite(new Date(o.created_at).getTime())&&moscowDay(new Date(o.created_at)).startsWith(monthKey())));financeRun++;finances.clear();
   status.textContent='FBS · Загружено отправлений: '+orders.length+(d.partial?' · Достигнут лимит выгрузки, список может быть неполным':'');
   draw();
   // Independent month-to-date request; period buttons only affect the order list and daily chart.
@@ -1322,13 +1345,28 @@ async function load(){
 async function finance(id){
  const o=orders.find(x=>x.posting_number===id);if(!o||!o.delivered||finances.get(id)?.loading)return;
  const t=token();if(!t)return;
- finances.set(id,{loading:true});draw();
+ const previous=finances.get(id)||{};finances.set(id,{...previous,loading:true,error:null});draw();
  try{
   const q=new URLSearchParams({posting_number:id,created_at:o.created_at,delivered:String(o.delivered)});
   const r=await fetch(base+'/api/orders/finance?'+q,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?.code?' · Код Ozon: '+d.diagnostic.code:'')+(d.diagnostic?.stage?' · Этап: '+d.diagnostic.stage:'')+(d.diagnostic?.reason?' · '+d.diagnostic.reason:''));
-  finances.set(id,{operations:d.operations||[],total_accrued:d.total_accrued});
- }catch(e){finances.set(id,{error:e.message})}draw();
+  finances.set(id,{operations:d.operations||[],total_accrued:d.total_accrued,detailsOpen:previous.detailsOpen,loading:false});
+ }catch(e){if(/429/.test(e.message))financePauseUntil=Date.now()+15*60*1000;finances.set(id,{error:e.message,detailsOpen:previous.detailsOpen,loading:false})}draw();
+}
+// Conservative automatic queue: one request at a time, 8s apart, up to four
+// delivered shipments in the visible period. Never retry automatically after errors.
+async function scheduleFinances(){
+ if(financeQueueBusy)return;
+ const run=financeRun;financeQueueBusy=true;
+ try{
+  const selected=orders.filter(o=>o.delivered).slice(0,4);
+  for(const o of selected){
+   if(run!==financeRun||Date.now()<financePauseUntil)break;
+   if(!finances.has(o.posting_number))await finance(o.posting_number);
+   if(run!==financeRun||Date.now()<financePauseUntil)break;
+   await new Promise(resolve=>setTimeout(resolve,8000));
+  }
+ }finally{financeQueueBusy=false}
 }
 panel.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
@@ -1336,7 +1374,8 @@ panel.addEventListener('click',e=>{
  if(b.id==='h50refresh')load();
  if(b.dataset.filter){filter=b.dataset.filter;draw();return}
  if(b.dataset.days){days=Number(b.dataset.days);draw();load()}
- if(b.dataset.open){const id=b.dataset.open;expanded.has(id)?expanded.delete(id):expanded.add(id);draw()}
+ if(b.dataset.open){const id=b.dataset.open;expanded.has(id)?expanded.delete(id):expanded.add(id);draw();}
+ if(b.dataset.expenses){const id=b.dataset.expenses;const old=finances.get(id)||{};finances.set(id,{...old,detailsOpen:!old.detailsOpen});draw();return}
  if(b.dataset.finance){e.stopPropagation();finance(b.dataset.finance);}
 });
 const nav=document.querySelector('.bottom-nav');
