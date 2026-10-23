@@ -184,11 +184,29 @@ if(path.pathname==='/api/orders/finance'){
  // Amounts are signed RUB values. Never infer profit or invent missing accruals.
  try{
   const basePosting=posting.replace(/-\d+$/,'');
-  const d=await ozon('/v1/finance/accrual/postings',{posting_numbers:basePosting!==posting?[posting,basePosting]:[posting]});
-  if(!Array.isArray(d.posting_accruals))throw new Error('Unexpected finance accrual response shape');
-  const matched=d.posting_accruals.filter(x=>String(x.posting_number||'')===posting);
+  // Fetch independently: some Ozon accounts reject a batch containing both
+  // shipment and parent order identifiers. Never let the optional parent lookup
+  // prevent the shipment's own financial data from being returned.
+  async function readAccruals(number){
+   const data=await ozon('/v1/finance/accrual/postings',{posting_numbers:[number]});
+   if(!Array.isArray(data.posting_accruals))throw Error('Unexpected finance accrual response shape');
+   return data.posting_accruals;
+  }
+  const ownPostings=await readAccruals(posting);
+  const matched=ownPostings.filter(x=>String(x.posting_number||'')===posting);
   const raw=matched.flatMap(x=>Array.isArray(x.accruals)?x.accruals:[]);
-  const baseRaw=basePosting!==posting?d.posting_accruals.filter(x=>String(x.posting_number||'')===basePosting).flatMap(x=>Array.isArray(x.accruals)?x.accruals:[]):[];
+  let baseRaw=[],parentLookup='not_needed';
+  if(basePosting!==posting){
+   try{
+    const parentPostings=await readAccruals(basePosting);
+    baseRaw=parentPostings.filter(x=>String(x.posting_number||'')===basePosting).flatMap(x=>Array.isArray(x.accruals)?x.accruals:[]);
+    parentLookup='ok';
+   }catch(e){
+    parentLookup=e.status===400?'rejected_400':e.status===429?'rate_limited':'unavailable';
+    if(e.status===429)financeCooldownUntil=Date.now()+15*60*1000;
+    console.warn('Optional parent acquiring lookup failed:',e.status||e.message);
+   }
+  }
   // The type dictionary may be unavailable to this API key; raw type IDs still work.
   const typeInfo=(raw.length||baseRaw.length)?await getAccrualTypes():{types:new Map(),available:false};
   const types=typeInfo.types,types_available=typeInfo.available;
@@ -228,12 +246,12 @@ if(path.pathname==='/api/orders/finance'){
   const result={read_only:true,posting_number:posting,source:'Ozon Seller API /v1/finance/accrual/postings',
    operations:lines,total_accrued:total,types_available,acquiring_from_parent:acquisition.length,
    diagnostic:{matched_postings:matched.length,own_accruals:raw.length,parent_accruals:baseRaw.length,
-    parent_acquiring_identified:acquisition.length,parent_unidentified:baseRaw.length-acquisition.length,
+    parent_acquiring_identified:acquisition.length,parent_unidentified:baseRaw.length-acquisition.length,parent_lookup:parentLookup,
     order_created_at:created||null,acquiring_date_matches:acquiringDateMatches,
     acquiring_date_unknown:acquiringDateUnknown,
     acquiring_date_outside_window:acquisition.length-acquiringDateMatches-acquiringDateUnknown,
     type_dictionary_available:types_available},
-   acquiring_detected:lines.some(x=>x.name==='Эквайринг'),acquiring_check:'Эквайринг проверяется по родительскому номеру заказа без суффикса отправления. Дата заказа используется для диагностики, но не исключает поздние начисления. Отсутствие строки не подтверждает отсутствие списания.',checked_at:new Date().toISOString(),finalized:false,
+   acquiring_detected:lines.some(x=>x.name==='Эквайринг'),acquiring_lookup_complete:parentLookup==='ok'||parentLookup==='not_needed',acquiring_check:'Эквайринг проверяется по родительскому номеру заказа без суффикса отправления. Дата заказа используется для диагностики, но не исключает поздние начисления. Отсутствие строки не подтверждает отсутствие списания.',checked_at:new Date().toISOString(),finalized:false,
    note:lines.length?'Это сумма полученных начислений и удержаний, не прибыль. Ozon может обновить данные позже.':'Ozon пока не передал начисления по этому отправлению.'};
   financeCache.set(cacheKey,{data:result,expires:Date.now()+(lines.length?FINANCE_TTL:10*60*1000)});
   return reply(res,200,result,ORIGIN);
