@@ -1268,9 +1268,9 @@ panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-s
 host.prepend(panel);
 const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50list'),summary=panel.querySelector('#h50summary');
 let days=35,orders=[],expanded=new Set(),finances=new Map(),request=0;
-let financeRun=0,financeQueueBusy=false,financePauseUntil=0;
-const financeCachePrefix='hogar_fbs_finance_v763_';
-const legacyFinancePrefixes=['hogar_fbs_finance_v76_','hogar_fbs_finance_v753_'];
+let financeRun=0,financeQueueBusy=false,financePauseUntil=0,financeRetryTimer=null;
+const financeCachePrefix='hogar_fbs_finance_v764_';
+const legacyFinancePrefixes=['hogar_fbs_finance_v763_','hogar_fbs_finance_v76_','hogar_fbs_finance_v753_'];
 const financeCacheTTL=24*60*60*1000;
 const financePauseKey='hogar_fbs_finance_pause_v753';
 try{financePauseUntil=Number(localStorage.getItem(financePauseKey))||0}catch(_){}
@@ -1406,20 +1406,18 @@ async function load(){
 async function finance(id){
  const o=orders.find(x=>x.posting_number===id);if(!o||!o.delivered||finances.get(id)?.loading)return;
  const t=token();if(!t)return;
- if(Date.now()<financePauseUntil){
-  const previous=finances.get(id)||{};
-  finances.set(id,{...previous,error:'Ozon ограничил запросы. Повторная попытка будет доступна позже.'});draw();return;
- }
+ if(Date.now()<financePauseUntil){armFinanceRetry();return;}
  const previous=finances.get(id)||{};finances.set(id,{...previous,loading:true,error:null});draw();
  try{
   const q=new URLSearchParams({posting_number:id,created_at:o.created_at,delivered:String(o.delivered)});
   const r=await fetch(base+'/api/orders/finance?'+q,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
-  const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?.code?' · Код Ozon: '+d.diagnostic.code:'')+(d.diagnostic?.stage?' · Этап: '+d.diagnostic.stage:'')+(d.diagnostic?.reason?' · '+d.diagnostic.reason:''));
+  const d=await r.json();if(!r.ok){if(r.status===429){const seconds=Number(d.retry_after_seconds);financePauseUntil=Date.now()+((Number.isFinite(seconds)&&seconds>0)?seconds*1000:15*60*1000);try{localStorage.setItem(financePauseKey,String(financePauseUntil))}catch(_){}armFinanceRetry();}throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?.code?' · Код Ozon: '+d.diagnostic.code:'')+(d.diagnostic?.stage?' · Этап: '+d.diagnostic.stage:'')+(d.diagnostic?.reason?' · '+d.diagnostic.reason:''));}
   const result={operations:d.operations||[],total_accrued:d.total_accrued,detailsOpen:previous.detailsOpen,loading:false};
   finances.set(id,result);saveCachedFinance(o,result);
  }catch(e){if(/429/.test(e.message)){
-   financePauseUntil=Date.now()+30*60*1000;
+   if(financePauseUntil<Date.now())financePauseUntil=Date.now()+15*60*1000;
    try{localStorage.setItem(financePauseKey,String(financePauseUntil))}catch(_){}
+   armFinanceRetry();
   }finances.set(id,{...previous,error:e.message,detailsOpen:previous.detailsOpen,loading:false})}draw();
 }
 // Gradually fill missing delivered-order finance; reuse local cache across reloads.
@@ -1427,6 +1425,19 @@ async function finance(id){
 // Load only delivered orders currently shown, with expanded cards first.
 // One worker and a persistent 429 cooldown avoid burst requests.
 let financeWorkerWake=false;
+function armFinanceRetry(){
+ if(financeRetryTimer!==null)clearTimeout(financeRetryTimer);
+ financeRetryTimer=null;
+ if(Date.now()>=financePauseUntil)return;
+ financeRetryTimer=setTimeout(()=>{
+  financeRetryTimer=null;
+  financePauseUntil=0;
+  try{localStorage.removeItem(financePauseKey)}catch(_){}
+  for(const [id,value] of finances){if(value?.error&&/429|ограничил|частоту запросов/i.test(value.error))finances.delete(id)}
+  scheduleFinances();draw();
+ },Math.min(Math.max(1000,financePauseUntil-Date.now()+1000),2147483647));
+}
+armFinanceRetry();
 function visibleFinanceOrders(){
  if(filter!=='delivered')return [];
  const shown=orders.filter(o=>o.delivered&&(!o.delivered_at||(Number.isFinite(new Date(o.delivered_at).getTime())&&moscowDay(new Date(o.delivered_at)).startsWith(monthKey()))));
@@ -1434,7 +1445,7 @@ function visibleFinanceOrders(){
 }
 async function scheduleFinances(){
  if(financeQueueBusy){financeWorkerWake=true;return}
- if(Date.now()<financePauseUntil)return;
+ if(Date.now()<financePauseUntil){armFinanceRetry();return;}
  const run=financeRun;financeQueueBusy=true;
  try{
   for(const o of visibleFinanceOrders()){
@@ -1445,7 +1456,7 @@ async function scheduleFinances(){
    if(run!==financeRun||Date.now()<financePauseUntil||filter!=='delivered')break;
    // Wait between requests, but never wait after the last missing order.
    if(visibleFinanceOrders().some(x=>!finances.get(String(x.posting_number))?.operations&&!finances.get(String(x.posting_number))?.error))
-    await new Promise(resolve=>setTimeout(resolve,10000));
+    await new Promise(resolve=>setTimeout(resolve,3500));
   }
  }finally{
   financeQueueBusy=false;
@@ -1460,7 +1471,7 @@ panel.addEventListener('click',e=>{
 
  if(b.dataset.open){const id=b.dataset.open;expanded.has(id)?expanded.delete(id):expanded.add(id);draw();if(expanded.has(id))scheduleFinances();return}
  if(b.dataset.expenses){const id=b.dataset.expenses;const old=finances.get(id)||{};finances.set(id,{...old,detailsOpen:!old.detailsOpen});draw();return}
- if(b.dataset.finance){e.stopPropagation();finance(b.dataset.finance);}
+ if(b.dataset.finance){e.stopPropagation();finances.delete(b.dataset.finance);finance(b.dataset.finance);}
 });
 const nav=document.querySelector('.bottom-nav');
 nav?.addEventListener('click',e=>{if(e.target.closest('[data-tab="orders"]')&&!orders.length)load()});

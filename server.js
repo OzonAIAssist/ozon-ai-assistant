@@ -183,12 +183,13 @@ if(path.pathname==='/api/orders/finance'){
   };
   // Only acquiring charges may be joined from the parent order number.
   // Never merge other parent-level operations, as they may belong to sibling postings.
-  const acquisition=baseRaw.filter(x=>/эквайр|acquir|payment[ ._-]*processing|card[ ._-]*processing|обработк[аи] платеж|оплат[аыу] карт|payment gateway/i.test([types.get(String(x.type_id)),x.name,x.description,x.operation_type].filter(Boolean).join(' ')));
+  const isAcquiring=x=>/эквайр|acquir|payment[ ._-]*processing|card[ ._-]*processing|обработк[аи] платеж|оплат[аыу] карт|payment gateway|processing fee|комисси[яи] за (?:оплат|перевод)/i.test([types.get(String(x.type_id)),x.name,x.description,x.operation_type,x.operation_type_name].filter(Boolean).join(' '));
+  const acquisition=baseRaw.filter(isAcquiring);
   const normalized=[...raw.map(x=>({x,origin:posting})),...acquisition.map(x=>({x,origin:basePosting}))];
   const dedup=new Set();
   const lines=normalized.filter(({x,origin})=>{const key=JSON.stringify([origin,x.type_id,x.accrual_date,x.accrued,x.sku,x.quantity]);if(dedup.has(key))return false;dedup.add(key);return true}).map(({x,origin},i)=>{
    const typeId=x.type_id==null?'':String(x.type_id);
-   const label=types.get(typeId)||String(x.name||x.description||'').slice(0,140)||('Начисление Ozon · тип '+(typeId||'не указан'));
+   const label=isAcquiring(x)?'Эквайринг':(types.get(typeId)||String(x.name||x.description||'').slice(0,140)||('Начисление Ozon · тип '+(typeId||'не указан')));
    const accrued=amount(x.accrued);
    return {id:String(i+1),date:String(x.accrual_date||''),name:label,amount:accrued,
     type_id:typeId,source_posting_number:origin,sku:x.sku==null?null:String(x.sku),quantity:Number.isFinite(Number(x.quantity))?Number(x.quantity):null,
@@ -203,7 +204,7 @@ if(path.pathname==='/api/orders/finance'){
   financeCache.set(cacheKey,{data:result,expires:Date.now()+FINANCE_TTL});
   return reply(res,200,result,ORIGIN);
  }catch(e){if(e.status===429)financeCooldownUntil=Date.now()+15*60*1000;console.error('Order finance accruals failed:',e.status||e.message);
-  return reply(res,502,{error:'Не удалось получить начисления Ozon',diagnostic:{stage:'Начисления по отправлению',code:Number.isInteger(e.status)?e.status:null,
+  return reply(res,e.status===429?429:502,{retry_after_seconds:e.status===429?Math.ceil((financeCooldownUntil-Date.now())/1000):undefined,error:'Не удалось получить начисления Ozon',diagnostic:{stage:'Начисления по отправлению',code:Number.isInteger(e.status)?e.status:null,
    reason:e.status===400?'Ozon отклонил параметры запроса':e.status===401||e.status===403?'Нет доступа к финансовым начислениям Seller API':e.status===429?'Ozon временно ограничил частоту запросов':e.status===404?'Финансовый метод недоступен для данного подключения':'Проверьте ответ Ozon в журнале Render'}},ORIGIN)}
 }
 if(path.pathname==='/api/ads/statistics'){
