@@ -1269,6 +1269,20 @@ host.prepend(panel);
 const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50list'),summary=panel.querySelector('#h50summary');
 let days=7,orders=[],expanded=new Set(),finances=new Map(),request=0;
 let financeRun=0,financeQueueBusy=false,financePauseUntil=0;
+const financeCachePrefix='hogar_fbs_finance_v753_';
+const financeCacheTTL=12*60*60*1000;
+const financePauseKey='hogar_fbs_finance_pause_v753';
+try{financePauseUntil=Number(localStorage.getItem(financePauseKey))||0}catch(_){}
+function cacheKey(o){return financeCachePrefix+encodeURIComponent(String(o.posting_number))+'_'+String(o.created_at||'').slice(0,10)}
+function readCachedFinance(o){
+ try{const saved=JSON.parse(localStorage.getItem(cacheKey(o))||'null');
+  if(saved&&Array.isArray(saved.operations)&&Number.isFinite(saved.at)&&Date.now()-saved.at<financeCacheTTL&&saved.at<=Date.now())
+   return {operations:saved.operations,total_accrued:saved.total_accrued,loading:false,detailsOpen:false};
+ }catch(_){}return null;
+}
+function saveCachedFinance(o,data){
+ try{localStorage.setItem(cacheKey(o),JSON.stringify({at:Date.now(),operations:data.operations,total_accrued:data.total_accrued}))}catch(_){}
+}
 let monthOrders=null,monthPartial=false,monthError=false,monthOthersOpen=false;
 const moscowDay=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
 const monthKey=()=>moscowDay(new Date()).slice(0,7);
@@ -1346,6 +1360,7 @@ async function load(){
   const r=await fetch(base+'/api/orders?days='+requestDays,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?' · Код Ozon: '+(d.diagnostic.code||'неизвестен')+' · '+d.diagnostic.reason:''));
   if(seq!==request)return;panel.classList.remove('h63-api-error');orders=(d.orders||[]).filter(o=>days!==32||(o.created_at&&Number.isFinite(new Date(o.created_at).getTime())&&moscowDay(new Date(o.created_at)).startsWith(monthKey())));financeRun++;finances.clear();
+  for(const o of orders){if(o.delivered){const cached=readCachedFinance(o);if(cached)finances.set(String(o.posting_number),cached)}}
   status.textContent='FBS · Загружено отправлений: '+orders.length+(d.partial?' · Достигнут лимит выгрузки, список может быть неполным':'');
   draw();scheduleFinances();
   // Independent month-to-date request; period buttons only affect the order list and daily chart.
@@ -1363,28 +1378,41 @@ async function load(){
 async function finance(id){
  const o=orders.find(x=>x.posting_number===id);if(!o||!o.delivered||finances.get(id)?.loading)return;
  const t=token();if(!t)return;
+ if(Date.now()<financePauseUntil){
+  const previous=finances.get(id)||{};
+  finances.set(id,{...previous,error:'Ozon ограничил запросы. Повторная попытка будет доступна позже.'});draw();return;
+ }
  const previous=finances.get(id)||{};finances.set(id,{...previous,loading:true,error:null});draw();
  try{
   const q=new URLSearchParams({posting_number:id,created_at:o.created_at,delivered:String(o.delivered)});
   const r=await fetch(base+'/api/orders/finance?'+q,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?.code?' · Код Ozon: '+d.diagnostic.code:'')+(d.diagnostic?.stage?' · Этап: '+d.diagnostic.stage:'')+(d.diagnostic?.reason?' · '+d.diagnostic.reason:''));
-  finances.set(id,{operations:d.operations||[],total_accrued:d.total_accrued,detailsOpen:previous.detailsOpen,loading:false});
- }catch(e){if(/429/.test(e.message))financePauseUntil=Date.now()+30*60*1000;finances.set(id,{error:e.message,detailsOpen:previous.detailsOpen,loading:false})}draw();
+  const result={operations:d.operations||[],total_accrued:d.total_accrued,detailsOpen:previous.detailsOpen,loading:false};
+  finances.set(id,result);saveCachedFinance(o,result);
+ }catch(e){if(/429/.test(e.message)){
+   financePauseUntil=Date.now()+30*60*1000;
+   try{localStorage.setItem(financePauseKey,String(financePauseUntil))}catch(_){}
+  }finances.set(id,{error:e.message,detailsOpen:previous.detailsOpen,loading:false})}draw();
 }
-// Conservative automatic queue: one request at a time, 8s apart, up to four
-// delivered shipments in the visible period. Never retry automatically after errors.
+// Gradually fill missing delivered-order finance; reuse local cache across reloads.
+// A single worker, 30-second spacing and persisted 429 cooldown protect Ozon.
 async function scheduleFinances(){
  if(financeQueueBusy)return;
  const run=financeRun;financeQueueBusy=true;
  try{
-  const selected=orders.filter(o=>o.delivered).slice(0,1);
+  const selected=orders.filter(o=>o.delivered);
   for(const o of selected){
    if(run!==financeRun||Date.now()<financePauseUntil)break;
-   if(!finances.has(o.posting_number))await finance(o.posting_number);
+   const id=String(o.posting_number);
+   if(finances.has(id))continue;
+   await finance(id);
    if(run!==financeRun||Date.now()<financePauseUntil)break;
    await new Promise(resolve=>setTimeout(resolve,30000));
   }
- }finally{financeQueueBusy=false}
+ }finally{financeQueueBusy=false;
+  // If period changed while a previous worker was running, start the new period.
+  if(run!==financeRun&&Date.now()>=financePauseUntil)queueMicrotask(scheduleFinances);
+ }
 }
 panel.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
