@@ -120,9 +120,12 @@ if(path.pathname==='/api/orders'){
    for(const x of items){
     const products=Array.isArray(x.products)?x.products.map(p=>({name:String(p.name||p.product_name||''),sku:String(p.sku??p.product_id??''),quantity:Number(p.quantity||1),price:p.price??null})):[];
     const status=String(x.status||x.status_alias||'');
-    const deliveredAt=x.delivered_at||x.delivery_date||x.delivered_date||x.delivery?.delivered_at||null;
+    const deliveredStatus=['delivered','delivered_to_customer'].includes(status.toLowerCase());
+    // The date of the *current delivered status*, never in_process_at or shipment_date.
+    // status_changed_at is only used when the current status is delivered.
+    const deliveredAt=deliveredStatus?(x.delivered_at||x.delivery_date||x.delivered_date||x.delivery?.delivered_at||x.status_changed_at||null):null;
     const substatus=String(x.substatus||x.sub_status||'');
-    orders.push({posting_number:String(x.posting_number||''),order_id:String(x.order_id??''),scheme:'FBS',status,substatus,delivered_at:deliveredAt,delivery_date_source:deliveredAt?'fbs_list':'not_provided',delivered:['delivered','delivered_to_customer'].includes(status.toLowerCase()),created_at:x.in_process_at||x.created_at||'',shipment_date:x.shipment_date||null,products,amount:null,financial_ready:false});
+    orders.push({posting_number:String(x.posting_number||''),order_id:String(x.order_id??''),scheme:'FBS',status,substatus,delivered_at:deliveredAt,delivery_date_source:deliveredAt?(x.status_changed_at===deliveredAt?'fbs_status_changed_at':'fbs_list'):'not_provided',delivered:['delivered','delivered_to_customer'].includes(status.toLowerCase()),created_at:x.in_process_at||x.created_at||'',shipment_date:x.shipment_date||null,products,amount:null,financial_ready:false});
    }
    if(!payload.has_next)break;
    const next=String(payload.cursor||'');
@@ -174,9 +177,11 @@ if(path.pathname==='/api/orders/finance'){
  if(Date.now()<financeCooldownUntil)return reply(res,429,{error:'Ozon временно ограничил финансовые запросы',retry_after_seconds:Math.ceil((financeCooldownUntil-Date.now())/1000),diagnostic:{stage:'Ожидание после 429',code:429,reason:'Повторите после окончания паузы'}},ORIGIN);
  // Verify delivery independently on the server; do not trust the browser flag.
  let verified=deliveryVerificationCache.get(posting)>Date.now();
+ let verifiedDeliveryDate=null;
  if(!verified)try{
   const d=await ozon('/v3/posting/fbs/get',{posting_number:posting,with:{analytics_data:false,financial_data:false}});
   verified=['delivered','delivered_to_customer'].includes(String(d.result?.status||d.status||'').toLowerCase());
+  if(verified){const item=d.result||d;verifiedDeliveryDate=item.delivered_at||item.delivery_date||item.delivered_date||item.delivery?.delivered_at||item.status_changed_at||null;}
   if(verified)deliveryVerificationCache.set(posting,Date.now()+30*60*1000);
  }catch(e){console.error('FBS delivery verification failed:',e.message);return reply(res,502,{error:'Не удалось проверить статус доставки через Ozon',diagnostic:{stage:'Проверка доставки FBS',code:Number.isInteger(e.status)?e.status:null,reason:'Проверка статуса не прошла. Финансовые данные не запрашивались.'}},ORIGIN)}
  if(!verified)return reply(res,409,{error:'Ozon не подтвердил статус «Доставлен»',diagnostic:{stage:'Проверка доставки FBS',reason:'Ответ Ozon не содержит подтверждённого статуса доставки'}},ORIGIN);
@@ -244,7 +249,7 @@ if(path.pathname==='/api/orders/finance'){
   const complete=lines.every(x=>x.amount!==null&&x.currency==='RUB');
   const total=lines.length&&complete?Math.round(lines.reduce((sum,x)=>sum+x.amount,0)*100)/100:null;
   const result={read_only:true,posting_number:posting,source:'Ozon Seller API /v1/finance/accrual/postings',
-   operations:lines,total_accrued:total,types_available,acquiring_from_parent:acquisition.length,
+   operations:lines,total_accrued:total,types_available,acquiring_from_parent:acquisition.length,verified_delivery_at:verifiedDeliveryDate,
    diagnostic:{matched_postings:matched.length,own_accruals:raw.length,parent_accruals:baseRaw.length,
     parent_acquiring_identified:acquisition.length,parent_unidentified:baseRaw.length-acquisition.length,parent_lookup:parentLookup,
     order_created_at:created||null,acquiring_date_matches:acquiringDateMatches,

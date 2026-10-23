@@ -1270,7 +1270,7 @@ const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50lis
 let days=35,orders=[],expanded=new Set(),finances=new Map(),request=0;
 let financeRun=0,financeQueueBusy=false,financePauseUntil=0,financeRetryTimer=null;
 const financeFailures=new Map();
-const financeCachePrefix='hogar_fbs_finance_v767_';
+const financeCachePrefix='hogar_fbs_finance_v770_';
 const legacyFinancePrefixes=['hogar_fbs_finance_v766_','hogar_fbs_finance_v765_','hogar_fbs_finance_v764_','hogar_fbs_finance_v763_','hogar_fbs_finance_v76_','hogar_fbs_finance_v753_'];
 const financeCacheTTL=2*60*60*1000;
 const financePauseKey='hogar_fbs_finance_pause_v753';
@@ -1357,7 +1357,7 @@ function draw(){
  const shown=orders.filter(o=>filter==='delivered'?o.delivered&&(!o.delivered_at||(Number.isFinite(new Date(o.delivered_at).getTime())&&moscowDay(new Date(o.delivered_at)).startsWith(monthKey())) ):isActive(o));
  if(filter==='delivered')shown.sort((a,b)=>String(b.delivered_at||'').localeCompare(String(a.delivered_at||'')));
  if(filter==='other')shown.sort((a,b)=>String(a.status||'').localeCompare(String(b.status||'')));
- const count=panel.querySelector('#h57count');if(count)count.textContent='Показано: '+shown.length+(filter==='delivered'?' · доставлено в этом месяце':' · активные отправления');
+ const count=panel.querySelector('#h57count');if(count)count.textContent='Показано: '+shown.length+(filter==='delivered'?' · доставленные (дата уточняется)':' · активные отправления');
  const cardsByIndex=shown.length?shown.map(o=>{
   const id=String(o.posting_number),open=expanded.has(id),finance=finances.get(id),p=o.products?.[0]||{};
   const name=p.name||'Товар Ozon',extra=(o.products||[]).length>1?' · ещё '+((o.products||[]).length-1)+' поз.':'';
@@ -1388,8 +1388,9 @@ function draw(){
     (remaining!==null?'<p class="h74-disclaimer">Предварительный остаток после известных операций Ozon. Не чистая прибыль и не подтверждённая выплата.</p>':'')+
     (o.delivered&&finance?.error?'<div class="h75-finance-message">Не удалось загрузить финансы: '+esc(finance.error)+' <button type="button" data-finance="'+esc(id)+'">Повторить</button></div>':
      o.delivered&&!finance?.loading&&!ops?'<p class="h75-finance-message">Финансы появятся автоматически после загрузки.</p>':'')+
-    (o.delivered&&ops&&!ops.length?'<p class="h75-finance-message">Ozon пока не передал начисления по этому отправлению.</p>':'');
-  return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'"><span class="h57-order-main"><span class="h57-order-meta"><em class="'+(o.delivered?'h57-done':'h57-pending')+'">'+esc(detailedStatus(o))+'</em><small>'+esc(shortDate(o.delivered&&o.delivered_at?o.delivered_at:o.created_at))+'</small></span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((s,x)=>s+(Number(x.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><span class="h57-chevron">'+(open?'⌃':'⌄')+'</span></button>'+(open?'<div class="h50-body">'+items+'</div>':'')+'</article>';
+    (o.delivered&&ops&&!ops.length?'<p class="h75-finance-message">Ozon пока не передал начисления по этому отправлению.</p>':'')+
+    (o.delivered&&ops?.length&&!ops.some(x=>/эквайр|acquir/i.test(x.name||''))?'<p class="h75-finance-message">Эквайринг пока не найден в ответе API Ozon. Показанный остаток не включает неподтверждённое удержание.</p>':'');
+  return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'"><span class="h57-order-main"><span class="h57-order-meta"><em class="'+(o.delivered?'h57-done':'h57-pending')+'">'+esc(detailedStatus(o))+'</em><small>'+esc(o.delivered?(o.delivered_at?shortDate(o.delivered_at):'Дата доставки неизвестна'):shortDate(o.created_at))+'</small></span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((s,x)=>s+(Number(x.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><span class="h57-chevron">'+(open?'⌃':'⌄')+'</span></button>'+(open?'<div class="h50-body">'+items+'</div>':'')+'</article>';
  }):[];
  const cards=cardsByIndex.length?cardsByIndex.join(''):'<p class="h50-note">В выбранной категории отправлений нет.</p>';
  if(filter==='delivered'&&shown.length){let idx=0;list.innerHTML=shown.map(o=>{const key=dateGroup(o);const previous=idx?dateGroup(shown[idx-1]):null;const card=cardsByIndex[idx++];return (key!==previous?'<h4 class="h76-group">'+esc(deliveryLabel(key))+'</h4>':'')+card}).join('')}else list.innerHTML=cards;
@@ -1428,7 +1429,11 @@ async function finance(id){
   const q=new URLSearchParams({posting_number:id,created_at:o.created_at,delivered:String(o.delivered)});
   const r=await fetch(base+'/api/orders/finance?'+q,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(!r.ok){if(r.status===429){const seconds=Number(d.retry_after_seconds);financePauseUntil=Date.now()+((Number.isFinite(seconds)&&seconds>0)?seconds*1000:15*60*1000);try{localStorage.setItem(financePauseKey,String(financePauseUntil))}catch(_){}armFinanceRetry();}throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?.code?' · Код Ozon: '+d.diagnostic.code:'')+(d.diagnostic?.stage?' · Этап: '+d.diagnostic.stage:'')+(d.diagnostic?.reason?' · '+d.diagnostic.reason:''));}
-  const result={operations:d.operations||[],total_accrued:d.total_accrued,detailsOpen:previous.detailsOpen,loading:false};
+  if(d.verified_delivery_at&&Number.isFinite(Date.parse(d.verified_delivery_at))){
+   o.delivered_at=d.verified_delivery_at;o.delivery_date_source='fbs_get';
+ }
+ const result={operations:d.operations||[],total_accrued:d.total_accrued,detailsOpen:previous.detailsOpen,loading:false,
+  acquiring_detected:!!d.acquiring_detected,acquiring_lookup_complete:!!d.acquiring_lookup_complete};
   financeFailures.delete(id);
   finances.set(id,result);saveCachedFinance(o,result);
  }catch(e){if(/429/.test(e.message)){
