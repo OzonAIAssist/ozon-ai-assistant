@@ -120,7 +120,9 @@ if(path.pathname==='/api/orders'){
    for(const x of items){
     const products=Array.isArray(x.products)?x.products.map(p=>({name:String(p.name||p.product_name||''),sku:String(p.sku??p.product_id??''),quantity:Number(p.quantity||1),price:p.price??null})):[];
     const status=String(x.status||x.status_alias||'');
-    orders.push({posting_number:String(x.posting_number||''),order_id:String(x.order_id??''),scheme:'FBS',status,delivered:['delivered','delivered_to_customer'].includes(status.toLowerCase()),created_at:x.in_process_at||x.created_at||'',shipment_date:x.shipment_date||null,products,amount:null,financial_ready:false});
+    const deliveredAt=x.delivered_at||x.delivery_date||x.delivered_date||x.delivery?.delivered_at||null;
+    const substatus=String(x.substatus||x.sub_status||'');
+    orders.push({posting_number:String(x.posting_number||''),order_id:String(x.order_id??''),scheme:'FBS',status,substatus,delivered_at:deliveredAt,delivered:['delivered','delivered_to_customer'].includes(status.toLowerCase()),created_at:x.in_process_at||x.created_at||'',shipment_date:x.shipment_date||null,products,amount:null,financial_ready:false});
    }
    if(!payload.has_next)break;
    const next=String(payload.cursor||'');
@@ -158,13 +160,15 @@ if(path.pathname==='/api/orders/finance'){
  // The accrual/postings API accepts shipment numbers, not date ranges.
  // Amounts are signed RUB values. Never infer profit or invent missing accruals.
  try{
-  const d=await ozon('/v1/finance/accrual/postings',{posting_numbers:[posting]});
+  const basePosting=posting.replace(/-\d+$/,'');
+  const d=await ozon('/v1/finance/accrual/postings',{posting_numbers:basePosting!==posting?[posting,basePosting]:[posting]});
   if(!Array.isArray(d.posting_accruals))throw new Error('Unexpected finance accrual response shape');
   const matched=d.posting_accruals.filter(x=>String(x.posting_number||'')===posting);
   const raw=matched.flatMap(x=>Array.isArray(x.accruals)?x.accruals:[]);
+  const baseRaw=basePosting!==posting?d.posting_accruals.filter(x=>String(x.posting_number||'')===basePosting).flatMap(x=>Array.isArray(x.accruals)?x.accruals:[]):[];
   // The type dictionary may be unavailable to this API key; raw type IDs still work.
   let types=new Map(),types_available=false;
-  if(raw.length){try{
+  if(raw.length||baseRaw.length){try{
    const t=await ozon('/v1/finance/accrual/types',{});
    if(Array.isArray(t.accrual_types)){
     types=new Map(t.accrual_types.filter(x=>x&&x.id!=null).map(x=>[String(x.id),String(x.description||x.name||'').slice(0,140)]));
@@ -177,19 +181,24 @@ if(path.pathname==='/api/orders/finance'){
    if(typeof rawValue!=='number'&&typeof rawValue!=='string')return null;
    const n=Number(rawValue);return Number.isFinite(n)?Math.round(n*100)/100:null;
   };
-  const lines=raw.map((x,i)=>{
+  // Only acquiring charges may be joined from the parent order number.
+  // Never merge other parent-level operations, as they may belong to sibling postings.
+  const acquisition=baseRaw.filter(x=>/эквайр|acquir|payment.processing|card.processing/i.test(String(types.get(String(x.type_id))||x.name||x.description||'')));
+  const normalized=[...raw.map(x=>({x,origin:posting})),...acquisition.map(x=>({x,origin:basePosting}))];
+  const dedup=new Set();
+  const lines=normalized.filter(({x,origin})=>{const key=JSON.stringify([origin,x.type_id,x.accrual_date,x.accrued,x.sku,x.quantity]);if(dedup.has(key))return false;dedup.add(key);return true}).map(({x,origin},i)=>{
    const typeId=x.type_id==null?'':String(x.type_id);
    const label=types.get(typeId)||('Начисление Ozon · тип '+(typeId||'не указан'));
    const accrued=amount(x.accrued);
    return {id:String(i+1),date:String(x.accrual_date||''),name:label,amount:accrued,
-    type_id:typeId,sku:x.sku==null?null:String(x.sku),quantity:Number.isFinite(Number(x.quantity))?Number(x.quantity):null,
+    type_id:typeId,source_posting_number:origin,sku:x.sku==null?null:String(x.sku),quantity:Number.isFinite(Number(x.quantity))?Number(x.quantity):null,
     seller_price:amount(x.seller_price),currency:String(x.accrued?.currency||'RUB'),
     accruals:null,sale_commission:null,delivery_charge:null,return_delivery_charge:null,services:[]};
   });
   const complete=lines.every(x=>x.amount!==null&&x.currency==='RUB');
   const total=lines.length&&complete?Math.round(lines.reduce((sum,x)=>sum+x.amount,0)*100)/100:null;
   const result={read_only:true,posting_number:posting,source:'Ozon Seller API /v1/finance/accrual/postings',
-   operations:lines,total_accrued:total,types_available,checked_at:new Date().toISOString(),finalized:false,
+   operations:lines,total_accrued:total,types_available,acquiring_from_parent:acquisition.length,checked_at:new Date().toISOString(),finalized:false,
    note:lines.length?'Это сумма полученных начислений и удержаний, не прибыль. Ozon может обновить данные позже.':'Ozon пока не передал начисления по этому отправлению.'};
   financeCache.set(cacheKey,{data:result,expires:Date.now()+FINANCE_TTL});
   return reply(res,200,result,ORIGIN);
