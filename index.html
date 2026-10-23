@@ -1270,15 +1270,27 @@ const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50lis
 let days=35,orders=[],expanded=new Set(),finances=new Map(),request=0;
 let financeRun=0,financeQueueBusy=false,financePauseUntil=0;
 const financeCachePrefix='hogar_fbs_finance_v76_';
+const legacyFinancePrefixes=['hogar_fbs_finance_v753_'];
 const financeCacheTTL=12*60*60*1000;
 const financePauseKey='hogar_fbs_finance_pause_v753';
 try{financePauseUntil=Number(localStorage.getItem(financePauseKey))||0}catch(_){}
 function cacheKey(o){return financeCachePrefix+encodeURIComponent(String(o.posting_number))+'_'+String(o.created_at||'').slice(0,10)}
 function readCachedFinance(o){
- try{const saved=JSON.parse(localStorage.getItem(cacheKey(o))||'null');
-  if(saved&&Array.isArray(saved.operations)&&Number.isFinite(saved.at)&&Date.now()-saved.at<financeCacheTTL&&saved.at<=Date.now())
-   return {operations:saved.operations,total_accrued:saved.total_accrued,loading:false,detailsOpen:false};
- }catch(_){}return null;
+ const suffix=encodeURIComponent(String(o.posting_number))+'_'+String(o.created_at||'').slice(0,10);
+ let best=null;
+ for(const prefix of [financeCachePrefix,...legacyFinancePrefixes]){
+  try{
+   const saved=JSON.parse(localStorage.getItem(prefix+suffix)||'null');
+   if(!saved||!Array.isArray(saved.operations)||!Number.isFinite(saved.at)||saved.at>Date.now())continue;
+   if(Date.now()-saved.at>financeCacheTTL)continue;
+   if(!best||saved.at>best.at)best=saved;
+  }catch(_){}
+ }
+ if(!best)return null;
+ const result={operations:best.operations,total_accrued:best.total_accrued,loading:false,detailsOpen:false};
+ // Migrate without changing the timestamp, so stale data do not live forever.
+ try{localStorage.setItem(cacheKey(o),JSON.stringify(best))}catch(_){}
+ return result;
 }
 function saveCachedFinance(o,data){
  try{localStorage.setItem(cacheKey(o),JSON.stringify({at:Date.now(),operations:data.operations,total_accrued:data.total_accrued}))}catch(_){}
@@ -1373,8 +1385,10 @@ async function load(){
   const requestDays=35;
   const r=await fetch(base+'/api/orders?days='+requestDays,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?' · Код Ozon: '+(d.diagnostic.code||'неизвестен')+' · '+d.diagnostic.reason:''));
-  if(seq!==request)return;panel.classList.remove('h63-api-error');orders=(d.orders||[]);financeRun++;finances.clear();
-  for(const o of orders){if(o.delivered){const cached=readCachedFinance(o);if(cached)finances.set(String(o.posting_number),cached)}}
+  if(seq!==request)return;panel.classList.remove('h63-api-error');orders=(d.orders||[]);financeRun++;
+  const currentIds=new Set(orders.map(o=>String(o.posting_number)));
+  for(const id of finances.keys())if(!currentIds.has(id))finances.delete(id);
+  for(const o of orders){if(o.delivered){const id=String(o.posting_number);const existing=finances.get(id);if(existing?.operations)continue;const cached=readCachedFinance(o);if(cached)finances.set(id,{...cached,detailsOpen:!!existing?.detailsOpen});}}
   status.textContent='FBS · Проверено отправлений: '+orders.length+(d.partial?' · Достигнут лимит выгрузки, список может быть неполным':'');
   draw();scheduleFinances();
   // Independent month-to-date summary; all tabs use current live status.
@@ -1406,35 +1420,45 @@ async function finance(id){
  }catch(e){if(/429/.test(e.message)){
    financePauseUntil=Date.now()+30*60*1000;
    try{localStorage.setItem(financePauseKey,String(financePauseUntil))}catch(_){}
-  }finances.set(id,{error:e.message,detailsOpen:previous.detailsOpen,loading:false})}draw();
+  }finances.set(id,{...previous,error:e.message,detailsOpen:previous.detailsOpen,loading:false})}draw();
 }
 // Gradually fill missing delivered-order finance; reuse local cache across reloads.
 // A single worker, 30-second spacing and persisted 429 cooldown protect Ozon.
+// Load only delivered orders currently shown, with expanded cards first.
+// One worker and a persistent 429 cooldown avoid burst requests.
+let financeWorkerWake=false;
+function visibleFinanceOrders(){
+ if(filter!=='delivered')return [];
+ const shown=orders.filter(o=>o.delivered&&(!o.delivered_at||(Number.isFinite(new Date(o.delivered_at).getTime())&&moscowDay(new Date(o.delivered_at)).startsWith(monthKey()))));
+ return shown.sort((a,b)=>Number(expanded.has(String(b.posting_number)))-Number(expanded.has(String(a.posting_number))));
+}
 async function scheduleFinances(){
- if(financeQueueBusy)return;
+ if(financeQueueBusy){financeWorkerWake=true;return}
+ if(Date.now()<financePauseUntil)return;
  const run=financeRun;financeQueueBusy=true;
  try{
-  const selected=orders.filter(o=>o.delivered);
-  for(const o of selected){
-   if(run!==financeRun||Date.now()<financePauseUntil)break;
+  for(const o of visibleFinanceOrders()){
+   if(run!==financeRun||Date.now()<financePauseUntil||filter!=='delivered')break;
    const id=String(o.posting_number);
    if(finances.has(id))continue;
    await finance(id);
-   if(run!==financeRun||Date.now()<financePauseUntil)break;
-   await new Promise(resolve=>setTimeout(resolve,30000));
+   if(run!==financeRun||Date.now()<financePauseUntil||filter!=='delivered')break;
+   // Wait between requests, but never wait after the last missing order.
+   if(visibleFinanceOrders().some(x=>!finances.has(String(x.posting_number))))
+    await new Promise(resolve=>setTimeout(resolve,30000));
   }
- }finally{financeQueueBusy=false;
-  // If period changed while a previous worker was running, start the new period.
-  if(run!==financeRun&&Date.now()>=financePauseUntil)queueMicrotask(scheduleFinances);
+ }finally{
+  financeQueueBusy=false;
+  if(financeWorkerWake||run!==financeRun){financeWorkerWake=false;queueMicrotask(scheduleFinances)}
  }
 }
 panel.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
  if(b.dataset.monthOther){monthOthersOpen=!monthOthersOpen;draw();return}
  if(b.id==='h50refresh')load();
- if(b.dataset.filter){filter=b.dataset.filter;draw();return}
+ if(b.dataset.filter){filter=b.dataset.filter;draw();scheduleFinances();return}
 
- if(b.dataset.open){const id=b.dataset.open;expanded.has(id)?expanded.delete(id):expanded.add(id);draw();}
+ if(b.dataset.open){const id=b.dataset.open;expanded.has(id)?expanded.delete(id):expanded.add(id);draw();if(expanded.has(id))scheduleFinances();return}
  if(b.dataset.expenses){const id=b.dataset.expenses;const old=finances.get(id)||{};finances.set(id,{...old,detailsOpen:!old.detailsOpen});draw();return}
  if(b.dataset.finance){e.stopPropagation();finance(b.dataset.finance);}
 });
