@@ -1269,9 +1269,9 @@ host.prepend(panel);
 const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50list'),summary=panel.querySelector('#h50summary');
 let days=35,orders=[],expanded=new Set(),finances=new Map(),request=0;
 let financeRun=0,financeQueueBusy=false,financePauseUntil=0;
-const financeCachePrefix='hogar_fbs_finance_v76_';
-const legacyFinancePrefixes=['hogar_fbs_finance_v753_'];
-const financeCacheTTL=12*60*60*1000;
+const financeCachePrefix='hogar_fbs_finance_v763_';
+const legacyFinancePrefixes=['hogar_fbs_finance_v76_','hogar_fbs_finance_v753_'];
+const financeCacheTTL=24*60*60*1000;
 const financePauseKey='hogar_fbs_finance_pause_v753';
 try{financePauseUntil=Number(localStorage.getItem(financePauseKey))||0}catch(_){}
 function cacheKey(o){return financeCachePrefix+encodeURIComponent(String(o.posting_number))+'_'+String(o.created_at||'').slice(0,10)}
@@ -1440,12 +1440,12 @@ async function scheduleFinances(){
   for(const o of visibleFinanceOrders()){
    if(run!==financeRun||Date.now()<financePauseUntil||filter!=='delivered')break;
    const id=String(o.posting_number);
-   if(finances.has(id))continue;
+   if(finances.get(id)?.operations||finances.get(id)?.loading||finances.get(id)?.error)continue;
    await finance(id);
    if(run!==financeRun||Date.now()<financePauseUntil||filter!=='delivered')break;
    // Wait between requests, but never wait after the last missing order.
-   if(visibleFinanceOrders().some(x=>!finances.has(String(x.posting_number))))
-    await new Promise(resolve=>setTimeout(resolve,30000));
+   if(visibleFinanceOrders().some(x=>!finances.get(String(x.posting_number))?.operations&&!finances.get(String(x.posting_number))?.error))
+    await new Promise(resolve=>setTimeout(resolve,10000));
   }
  }finally{
   financeQueueBusy=false;

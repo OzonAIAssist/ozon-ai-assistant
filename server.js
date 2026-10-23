@@ -140,7 +140,7 @@ if(path.pathname==='/api/orders'){
 }
 const financeCache=new Map();
 let financeCooldownUntil=0;
-const FINANCE_TTL=10*60*1000;
+const FINANCE_TTL=24*60*60*1000;
 if(path.pathname==='/api/orders/finance'){
  const posting=path.searchParams.get('posting_number')||'';
  const created=path.searchParams.get('created_at')||'';
@@ -183,12 +183,12 @@ if(path.pathname==='/api/orders/finance'){
   };
   // Only acquiring charges may be joined from the parent order number.
   // Never merge other parent-level operations, as they may belong to sibling postings.
-  const acquisition=baseRaw.filter(x=>/эквайр|acquir|payment.processing|card.processing/i.test(String(types.get(String(x.type_id))||x.name||x.description||'')));
+  const acquisition=baseRaw.filter(x=>/эквайр|acquir|payment[ ._-]*processing|card[ ._-]*processing|обработк[аи] платеж|оплат[аыу] карт|payment gateway/i.test([types.get(String(x.type_id)),x.name,x.description,x.operation_type].filter(Boolean).join(' ')));
   const normalized=[...raw.map(x=>({x,origin:posting})),...acquisition.map(x=>({x,origin:basePosting}))];
   const dedup=new Set();
   const lines=normalized.filter(({x,origin})=>{const key=JSON.stringify([origin,x.type_id,x.accrual_date,x.accrued,x.sku,x.quantity]);if(dedup.has(key))return false;dedup.add(key);return true}).map(({x,origin},i)=>{
    const typeId=x.type_id==null?'':String(x.type_id);
-   const label=types.get(typeId)||('Начисление Ozon · тип '+(typeId||'не указан'));
+   const label=types.get(typeId)||String(x.name||x.description||'').slice(0,140)||('Начисление Ozon · тип '+(typeId||'не указан'));
    const accrued=amount(x.accrued);
    return {id:String(i+1),date:String(x.accrual_date||''),name:label,amount:accrued,
     type_id:typeId,source_posting_number:origin,sku:x.sku==null?null:String(x.sku),quantity:Number.isFinite(Number(x.quantity))?Number(x.quantity):null,
