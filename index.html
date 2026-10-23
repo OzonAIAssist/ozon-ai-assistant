@@ -1303,6 +1303,21 @@ const currentMonthOrders=()=>Array.isArray(monthOrders)?monthOrders.filter(o=>{c
 const monthTitle=()=>new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',month:'long',year:'numeric'}).format(new Date());
 
 const token=()=>document.getElementById('v10token')?.value.trim()||sessionStorage.getItem('hogar_session_access_v44')||'';
+function showOrdersAuth(){
+ const current=panel.querySelector('#h768auth');if(current)return;
+ const wrap=document.createElement('div');wrap.id='h768auth';
+ wrap.style.cssText='background:#fff7ef;border:1px solid #ebc7a7;border-radius:15px;padding:16px;margin:12px 0;color:#65412e';
+ wrap.innerHTML='<strong style="display:block;margin-bottom:8px">Требуется доступ к серверу</strong><p style="margin:0 0 12px;line-height:1.5">Сервер отклонил пароль APP_ACCESS_TOKEN. Введите значение из Render → Environment. Это не ключ Ozon Seller API.</p><input type="password" id="h768password" autocomplete="off" placeholder="APP_ACCESS_TOKEN" style="width:100%;box-sizing:border-box;min-height:44px;border:1px solid #dcb99d;border-radius:10px;padding:10px;background:#fff;color:#432e24"><button type="button" id="h768retry" style="margin-top:10px;background:#fb8331;color:white;border:0;border-radius:10px;padding:12px 16px;font-weight:700">Проверить и загрузить заказы</button>';
+ status.after(wrap);
+ wrap.querySelector('#h768retry').addEventListener('click',()=>{
+  const v=wrap.querySelector('#h768password').value.trim();
+  if(!v){wrap.querySelector('#h768password').focus();return}
+  const input=document.getElementById('v10token');if(input)input.value=v;
+  try{sessionStorage.setItem('hogar_session_access_v44',v)}catch(_){}
+  wrap.remove();load();
+ });
+}
+function hideOrdersAuth(){panel.querySelector('#h768auth')?.remove()}
 const row=(name,value)=>'<div class="h50-line"><span>'+esc(name)+'</span><b>'+esc(value)+'</b></div>';
 let filter='other';
 const statusName=s=>({'delivered':'Доставлен','delivered_to_customer':'Доставлен','delivering':'В пути','awaiting_deliver':'Ожидает отправки','awaiting_packaging':'Ожидает сборки','awaiting_registration':'Ожидает регистрации','acceptance_in_progress':'Приёмка','cancelled':'Отменён','arbitration':'Спорный'}[String(s||'').toLowerCase()]||'Статус: '+String(s||'неизвестен'));
@@ -1385,8 +1400,8 @@ async function load(){
  try{
   const requestDays=35;
   const r=await fetch(base+'/api/orders?days='+requestDays,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
-  const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?' · Код Ozon: '+(d.diagnostic.code||'неизвестен')+' · '+d.diagnostic.reason:''));
-  if(seq!==request)return;panel.classList.remove('h63-api-error');orders=(d.orders||[]);financeRun++;
+  const d=await r.json();if(r.status===401){showOrdersAuth();throw Error('Сервер приложения вернул 401: неверный или устаревший APP_ACCESS_TOKEN (это не ошибка ключа Ozon).')}if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?' · Код Ozon: '+(d.diagnostic.code||'неизвестен')+' · '+d.diagnostic.reason:''));
+  if(seq!==request)return;hideOrdersAuth();panel.classList.remove('h63-api-error');orders=(d.orders||[]);financeRun++;
   const currentIds=new Set(orders.map(o=>String(o.posting_number)));
   for(const id of finances.keys())if(!currentIds.has(id))finances.delete(id);
   for(const o of orders){if(o.delivered){const id=String(o.posting_number);const existing=finances.get(id);if(existing?.operations)continue;const cached=readCachedFinance(o);if(cached)finances.set(id,{...cached,detailsOpen:!!existing?.detailsOpen});}}
