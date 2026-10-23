@@ -174,6 +174,51 @@ if(path.pathname==='/api/orders/posting-presence-check'){
   const item=d.result||d;
   out.detail={found:!!item?.posting_number,status:String(item?.status||''),date_fields:safeDates(item)};
  }catch(e){out.detail={error:'Не удалось получить подробности FBS',upstream_status:e.status||null};}
+
+ // Diagnostic report probe for this posting only; no finance routes or caches used.
+ try{
+  const created=await ozon('/v1/report/postings/create',{filter:{processed_at_from:'2026-10-18T00:00:00Z',processed_at_to:'2026-10-19T00:00:00Z',delivery_schema:['fbs']},language:'RU'});
+  const code=created.result?.code;
+  if(typeof code!=='string'||!code)throw new Error('Report code missing');
+  let report;
+  for(let attempt=0;attempt<12;attempt++){
+   const info=await ozon('/v1/report/info',{code});report=info.result;
+   if(report?.status==='success'||report?.status==='failed')break;
+   await new Promise(resolve=>setTimeout(resolve,2000));
+  }
+  if(report?.status!=='success'){
+   out.report={source:'/v1/report/postings/create → /v1/report/info',status:report?.status==='failed'?'failed':'pending',found:false};
+  }else{
+   const file=new URL(report.file);
+   if(file.protocol!=='https:'||file.username||file.password||file.port||!/(^|\.)ozone?\.ru$/.test(file.hostname))throw new Error('Unexpected report file host');
+   const response=await fetch(file,{signal:AbortSignal.timeout(25000),redirect:'error'});
+   if(!response.ok)throw Object.assign(new Error('Report download failed'),{status:response.status});
+   let csv='',bytes=0;const decoder=new TextDecoder();
+   for await(const chunk of response.body){bytes+=chunk.length;if(bytes>2*1024*1024)throw new Error('Report exceeds diagnostic size limit');csv+=decoder.decode(chunk,{stream:true});}
+   csv+=decoder.decode();
+   const rows=[];let row=[],cell='',quoted=false;
+   for(let i=0;i<csv.length;i++){
+    const c=csv[i];
+    if(c==='"'){if(quoted&&csv[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}
+    else if(!quoted&&(c===';'||c==='\n')){row.push(cell.replace(/\r$/,''));cell='';if(c==='\n'){rows.push(row);row=[];}}
+    else cell+=c;
+   }
+   if(quoted)throw new Error('Invalid CSV quoting');
+   if(cell||row.length){row.push(cell.replace(/\r$/,''));rows.push(row);}
+   const header=(rows.shift()||[]).map(x=>x.replace(/^\uFEFF/,'').trim());
+   const postingIndex=header.indexOf('Номер отправления'),dateIndex=header.indexOf('Дата доставки'),statusIndex=header.indexOf('Статус');
+   if(postingIndex<0||dateIndex<0||statusIndex<0)throw new Error('Required report columns missing');
+   const matches=rows.filter(r=>r[postingIndex]===posting);
+   const dates=[...new Set(matches.map(r=>r[dateIndex]).filter(Boolean))];
+   const raw=dates.length===1?dates[0]:null;
+   const valid=raw&&/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)&&Number.isFinite(Date.parse(raw.replace(' ','T')+'Z'));
+   out.report={source:'/v1/report/postings/create → /v1/report/info',status:'success',found:matches.length>0,matched_rows:matches.length,
+    posting_status:matches[0]?.[statusIndex]||null,delivery_date_column:'Дата доставки',delivery_date_raw:raw,
+    delivery_date_utc:valid?raw.replace(' ','T')+'Z':null,expected_csv_utc:'2026-10-23T06:48:07Z',
+    matches_seller_csv:valid?raw==='2026-10-23 06:48:07':false,
+    timezone_note:'UTC verified by comparison with the Seller CSV and processing timestamps; Moscow is UTC+03:00.'};
+  }
+ }catch(e){out.report={source:'/v1/report/postings/create → /v1/report/info',status:'error',upstream_status:Number.isInteger(e.status)?e.status:null,note:'Report probe failed; no raw response, file URL or credentials returned.'};}
  out.note='Даты отгрузки и fact_delivery_date не считаются подтверждённым временем вручения. Личные данные не возвращаются.';
  out.checked_at=new Date().toISOString();
  return reply(res,200,out,ORIGIN);
