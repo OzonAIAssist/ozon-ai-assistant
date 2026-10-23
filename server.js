@@ -122,7 +122,7 @@ if(path.pathname==='/api/orders'){
     const status=String(x.status||x.status_alias||'');
     const deliveredAt=x.delivered_at||x.delivery_date||x.delivered_date||x.delivery?.delivered_at||null;
     const substatus=String(x.substatus||x.sub_status||'');
-    orders.push({posting_number:String(x.posting_number||''),order_id:String(x.order_id??''),scheme:'FBS',status,substatus,delivered_at:deliveredAt,delivered:['delivered','delivered_to_customer'].includes(status.toLowerCase()),created_at:x.in_process_at||x.created_at||'',shipment_date:x.shipment_date||null,products,amount:null,financial_ready:false});
+    orders.push({posting_number:String(x.posting_number||''),order_id:String(x.order_id??''),scheme:'FBS',status,substatus,delivered_at:deliveredAt,delivery_date_source:deliveredAt?'fbs_list':'not_provided',delivered:['delivered','delivered_to_customer'].includes(status.toLowerCase()),created_at:x.in_process_at||x.created_at||'',shipment_date:x.shipment_date||null,products,amount:null,financial_ready:false});
    }
    if(!payload.has_next)break;
    const next=String(payload.cursor||'');
@@ -199,7 +199,7 @@ if(path.pathname==='/api/orders/finance'){
   const complete=lines.every(x=>x.amount!==null&&x.currency==='RUB');
   const total=lines.length&&complete?Math.round(lines.reduce((sum,x)=>sum+x.amount,0)*100)/100:null;
   const result={read_only:true,posting_number:posting,source:'Ozon Seller API /v1/finance/accrual/postings',
-   operations:lines,total_accrued:total,types_available,acquiring_from_parent:acquisition.length,checked_at:new Date().toISOString(),finalized:false,
+   operations:lines,total_accrued:total,types_available,acquiring_from_parent:acquisition.length,acquiring_detected:lines.some(x=>x.name==='Эквайринг'),acquiring_check:'Эквайринг показан только если отдельная операция явно идентифицирована в ответе Ozon; отсутствие строки не подтверждает отсутствие списания.',checked_at:new Date().toISOString(),finalized:false,
    note:lines.length?'Это сумма полученных начислений и удержаний, не прибыль. Ozon может обновить данные позже.':'Ozon пока не передал начисления по этому отправлению.'};
   financeCache.set(cacheKey,{data:result,expires:Date.now()+FINANCE_TTL});
   return reply(res,200,result,ORIGIN);

@@ -1269,8 +1269,9 @@ host.prepend(panel);
 const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50list'),summary=panel.querySelector('#h50summary');
 let days=35,orders=[],expanded=new Set(),finances=new Map(),request=0;
 let financeRun=0,financeQueueBusy=false,financePauseUntil=0,financeRetryTimer=null;
-const financeCachePrefix='hogar_fbs_finance_v764_';
-const legacyFinancePrefixes=['hogar_fbs_finance_v763_','hogar_fbs_finance_v76_','hogar_fbs_finance_v753_'];
+const financeFailures=new Map();
+const financeCachePrefix='hogar_fbs_finance_v765_';
+const legacyFinancePrefixes=['hogar_fbs_finance_v764_','hogar_fbs_finance_v763_','hogar_fbs_finance_v76_','hogar_fbs_finance_v753_'];
 const financeCacheTTL=24*60*60*1000;
 const financePauseKey='hogar_fbs_finance_pause_v753';
 try{financePauseUntil=Number(localStorage.getItem(financePauseKey))||0}catch(_){}
@@ -1314,7 +1315,7 @@ const detailedStatus=o=>{const st=String(o.status||'').toLowerCase(),sub=String(
 };
 const dateGroup=o=>{const d=new Date(o.delivered_at);return o.delivered_at&&Number.isFinite(d.getTime())?moscowDay(d):'unknown'};
 const daysAgo=n=>{const d=new Date();d.setUTCDate(d.getUTCDate()-n);return moscowDay(d)};
-const deliveryLabel=key=>key==='unknown'?'Дата доставки не указана':key===daysAgo(0)?'Сегодня':key===daysAgo(1)?'Вчера':key===daysAgo(2)?'Позавчера':new Date(key+'T12:00:00Z').toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
+const deliveryLabel=key=>key==='unknown'?'Дата доставки не передана Ozon':key===daysAgo(0)?'Сегодня':key===daysAgo(1)?'Вчера':key===daysAgo(2)?'Позавчера':new Date(key+'T12:00:00Z').toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
 const shortDate=v=>{const d=new Date(v);return Number.isFinite(d.getTime())?d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'}):'Дата неизвестна'};
 const money=v=>{if(typeof v==='number')return fmt(v,' ₽');if(typeof v==='string'&&v.trim()&&Number.isFinite(Number(v)))return fmt(Number(v),' ₽');if(v&&typeof v==='object'){for(const k of ['price','amount','value'])if(v[k]!=null&&Number.isFinite(Number(v[k])))return fmt(Number(v[k]),' ₽')}return 'Цена не указана'};
 function draw(){
@@ -1413,12 +1414,15 @@ async function finance(id){
   const r=await fetch(base+'/api/orders/finance?'+q,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(!r.ok){if(r.status===429){const seconds=Number(d.retry_after_seconds);financePauseUntil=Date.now()+((Number.isFinite(seconds)&&seconds>0)?seconds*1000:15*60*1000);try{localStorage.setItem(financePauseKey,String(financePauseUntil))}catch(_){}armFinanceRetry();}throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?.code?' · Код Ozon: '+d.diagnostic.code:'')+(d.diagnostic?.stage?' · Этап: '+d.diagnostic.stage:'')+(d.diagnostic?.reason?' · '+d.diagnostic.reason:''));}
   const result={operations:d.operations||[],total_accrued:d.total_accrued,detailsOpen:previous.detailsOpen,loading:false};
+  financeFailures.delete(id);
   finances.set(id,result);saveCachedFinance(o,result);
  }catch(e){if(/429/.test(e.message)){
    if(financePauseUntil<Date.now())financePauseUntil=Date.now()+15*60*1000;
    try{localStorage.setItem(financePauseKey,String(financePauseUntil))}catch(_){}
    armFinanceRetry();
-  }finances.set(id,{...previous,error:e.message,detailsOpen:previous.detailsOpen,loading:false})}draw();
+  }finances.set(id,{...previous,error:e.message,detailsOpen:previous.detailsOpen,loading:false});
+  if(!/429/.test(e.message)){const f=financeFailures.get(id)||{count:0};financeFailures.set(id,{count:f.count+1,next:Date.now()+Math.min(30*60*1000,60000*Math.pow(2,Math.min(f.count,4)))})}
+ }draw();
 }
 // Gradually fill missing delivered-order finance; reuse local cache across reloads.
 // A single worker, 30-second spacing and persisted 429 cooldown protect Ozon.
@@ -1433,36 +1437,47 @@ function armFinanceRetry(){
   financeRetryTimer=null;
   financePauseUntil=0;
   try{localStorage.removeItem(financePauseKey)}catch(_){}
-  for(const [id,value] of finances){if(value?.error&&/429|ограничил|частоту запросов/i.test(value.error))finances.delete(id)}
+  for(const [id,value] of finances){if(value?.error&&/429|ограничил|частоту запросов/i.test(value.error)){finances.delete(id);financeFailures.delete(id)}}
   scheduleFinances();draw();
  },Math.min(Math.max(1000,financePauseUntil-Date.now()+1000),2147483647));
 }
 armFinanceRetry();
 function visibleFinanceOrders(){
- if(filter!=='delivered')return [];
- const shown=orders.filter(o=>o.delivered&&(!o.delivered_at||(Number.isFinite(new Date(o.delivered_at).getTime())&&moscowDay(new Date(o.delivered_at)).startsWith(monthKey()))));
+ // Finance background loading is independent of the selected tab. Prioritize
+ // expanded orders, then orders missing finance, without losing other orders.
+ const shown=orders.filter(o=>o.delivered);
  return shown.sort((a,b)=>Number(expanded.has(String(b.posting_number)))-Number(expanded.has(String(a.posting_number))));
+}
+let financeWakeTimer=null;
+function scheduleFinanceWake(delay){
+ if(financeWakeTimer!==null)clearTimeout(financeWakeTimer);
+ financeWakeTimer=setTimeout(()=>{financeWakeTimer=null;scheduleFinances()},Math.max(1000,delay));
 }
 async function scheduleFinances(){
  if(financeQueueBusy){financeWorkerWake=true;return}
- if(Date.now()<financePauseUntil){armFinanceRetry();return;}
+ if(Date.now()<financePauseUntil){armFinanceRetry();return}
  const run=financeRun;financeQueueBusy=true;
  try{
   for(const o of visibleFinanceOrders()){
-   if(run!==financeRun||Date.now()<financePauseUntil||filter!=='delivered')break;
-   const id=String(o.posting_number);
-   if(finances.get(id)?.operations||finances.get(id)?.loading||finances.get(id)?.error)continue;
+   if(run!==financeRun||Date.now()<financePauseUntil)break;
+   const id=String(o.posting_number),state=finances.get(id),failure=financeFailures.get(id);
+   if(state?.operations||state?.loading)continue;
+   if(failure&&Date.now()<failure.next)continue;
    await finance(id);
-   if(run!==financeRun||Date.now()<financePauseUntil||filter!=='delivered')break;
-   // Wait between requests, but never wait after the last missing order.
-   if(visibleFinanceOrders().some(x=>!finances.get(String(x.posting_number))?.operations&&!finances.get(String(x.posting_number))?.error))
+   if(run!==financeRun||Date.now()<financePauseUntil)break;
+   if(visibleFinanceOrders().some(x=>{const id=String(x.posting_number);return !finances.get(id)?.operations&&(!financeFailures.get(id)||financeFailures.get(id).next<=Date.now())}))
     await new Promise(resolve=>setTimeout(resolve,3500));
   }
  }finally{
   financeQueueBusy=false;
   if(financeWorkerWake||run!==financeRun){financeWorkerWake=false;queueMicrotask(scheduleFinances)}
+  else if(Date.now()>=financePauseUntil){
+   const retry=[...financeFailures.values()].map(x=>x.next).filter(x=>x>Date.now());
+   if(retry.length)scheduleFinanceWake(Math.min(...retry)-Date.now()+500);
+  }
  }
 }
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&orders.length)scheduleFinances()});
 panel.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
  if(b.dataset.monthOther){monthOthersOpen=!monthOthersOpen;draw();return}
@@ -1471,7 +1486,7 @@ panel.addEventListener('click',e=>{
 
  if(b.dataset.open){const id=b.dataset.open;expanded.has(id)?expanded.delete(id):expanded.add(id);draw();if(expanded.has(id))scheduleFinances();return}
  if(b.dataset.expenses){const id=b.dataset.expenses;const old=finances.get(id)||{};finances.set(id,{...old,detailsOpen:!old.detailsOpen});draw();return}
- if(b.dataset.finance){e.stopPropagation();finances.delete(b.dataset.finance);finance(b.dataset.finance);}
+ if(b.dataset.finance){e.stopPropagation();finances.delete(b.dataset.finance);financeFailures.delete(b.dataset.finance);finance(b.dataset.finance);}
 });
 const nav=document.querySelector('.bottom-nav');
 nav?.addEventListener('click',e=>{if(e.target.closest('[data-tab="orders"]')&&!orders.length)load()});
