@@ -102,7 +102,7 @@ async function cachedPerformance(key,load){
   }finally{entry.pending=null;}
  })();entry.pending=pending;return pending;
 }
-const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check']);
+const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check','/api/orders/posting-presence-check']);
 const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||origin===ORIGIN;const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
 
 // Safe read-only delivery diagnosis: no raw Ozon response, buyer data, or credentials exposed.
@@ -131,6 +131,53 @@ if(path.pathname==='/api/orders/delivery-diagnostic'){
  }catch(e){return reply(res,e.status===429?429:502,{error:'Не удалось получить подробности FBS',upstream_status:e.status||null},ORIGIN)}
 }
 // Isolated read-only check of the last_changed_status_date filter.
+// Read-only comparison: unfiltered FBS list vs individual posting details.
+if(path.pathname==='/api/orders/posting-presence-check'){
+ const posting='28142819-0371-1';
+ const out={read_only:true,posting_number:posting,expected_seller_delivery:'2026-10-23 09:48 МСК',list:{},detail:{}};
+ const safeDates=obj=>{
+  const fields={};
+  const walk=(value,prefix='',depth=0)=>{
+   if(!value||typeof value!=='object'||depth>2)return;
+   for(const [key,v] of Object.entries(value)){
+    if(/customer|buyer|phone|address|recipient|products|financial|analytics|barcode/i.test(key))continue;
+    const path=prefix?prefix+'.'+key:key;
+    if(/status|substatus|date|time|_at$|history|events/i.test(key)){
+     if(typeof v==='string'||typeof v==='number'||v===null)fields[path]=v;
+     else if(Array.isArray(v))fields[path]='array('+v.length+')';
+    }
+    if(v&&typeof v==='object'&&!Array.isArray(v))walk(v,path,depth+1);
+   }
+  };
+  walk(obj);return fields;
+ };
+ try{
+  let cursor='',pages=0,scanned=0,found=null,complete=false;
+  const cursors=new Set();
+  for(let i=0;i<20;i++){
+   const d=await ozon('/v4/posting/fbs/list',{filter:{since:'2026-10-01T00:00:00Z',to:'2026-10-25T00:00:00Z'},limit:100,cursor,sort_dir:'desc',with:{analytics_data:false,financial_data:false}});
+   const payload=Array.isArray(d.postings)?d:(d.result&&typeof d.result==='object'?d.result:d);
+   const items=payload.postings;
+   if(!Array.isArray(items))throw new Error('Unexpected FBS list response');
+   pages++;scanned+=items.length;
+   found=items.find(x=>String(x.posting_number||'')===posting)||null;
+   if(found){complete=true;break;}
+   if(!payload.has_next){complete=true;break;}
+   const next=String(payload.cursor||'');
+   if(!next||next===cursor||cursors.has(next))break;
+   cursors.add(next);cursor=next;
+  }
+  out.list={found:!!found,scanned,pages,complete,filter:'creation period only; no last_changed_status_date',status:found?String(found.status||''):null,date_fields:found?safeDates(found):{}};
+ }catch(e){out.list={error:'Не удалось получить список FBS',upstream_status:e.status||null};}
+ try{
+  const d=await ozon('/v3/posting/fbs/get',{posting_number:posting,with:{analytics_data:false,financial_data:false}});
+  const item=d.result||d;
+  out.detail={found:!!item?.posting_number,status:String(item?.status||''),date_fields:safeDates(item)};
+ }catch(e){out.detail={error:'Не удалось получить подробности FBS',upstream_status:e.status||null};}
+ out.note='Даты отгрузки и fact_delivery_date не считаются подтверждённым временем вручения. Личные данные не возвращаются.';
+ out.checked_at=new Date().toISOString();
+ return reply(res,200,out,ORIGIN);
+}
 if(path.pathname==='/api/orders/status-date-check'){
  const posting='28142819-0371-1';
  const sellerDelivery='2026-10-23 09:48 МСК';
