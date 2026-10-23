@@ -132,14 +132,20 @@ if(path.pathname==='/api/orders/delivery-diagnostic'){
 }
 // Isolated read-only check of the last_changed_status_date filter.
 if(path.pathname==='/api/orders/status-date-check'){
- const posting='31986539-0347-1';
- const windows=[
-  {name:'Вручение по Ozon Seller · 23 октября 12:25 МСК',from:'2026-10-23T09:10:00Z',to:'2026-10-23T09:40:00Z'},
-  {name:'Отгрузка · 20 октября 15:31 МСК',from:'2026-10-20T12:15:00Z',to:'2026-10-20T12:45:00Z'},
-  {name:'Весь день вручения · 23 октября МСК',from:'2026-10-22T21:00:00Z',to:'2026-10-23T20:59:59Z'}
+ const tests=[
+  {posting:'28142819-0371-1',seller_time:'2026-10-23 09:48 МСК',windows:[
+   {name:'Вручение · 23 октября 09:48 МСК ±15 минут',from:'2026-10-23T06:33:00Z',to:'2026-10-23T07:03:00Z'},
+   {name:'Контроль · 23 октября 08:00–08:30 МСК',from:'2026-10-23T05:00:00Z',to:'2026-10-23T05:30:00Z'},
+   {name:'Весь день · 23 октября МСК',from:'2026-10-22T21:00:00Z',to:'2026-10-23T20:59:59Z'}
+  ]},
+  {posting:'13392387-1002-1',seller_time:'2026-10-22 13:21 МСК',windows:[
+   {name:'Вручение · 22 октября 13:21 МСК ±15 минут',from:'2026-10-22T10:06:00Z',to:'2026-10-22T10:36:00Z'},
+   {name:'Контроль · 22 октября 11:00–11:30 МСК',from:'2026-10-22T08:00:00Z',to:'2026-10-22T08:30:00Z'},
+   {name:'Весь день · 22 октября МСК',from:'2026-10-21T21:00:00Z',to:'2026-10-22T20:59:59Z'}
+  ]}
  ];
  const results=[];
- for(const w of windows){
+ for(const test of tests)for(const w of test.windows){
   let cursor='',found=false,scanned=0,pages=0,hasMore=false,error=null;
   try{
    for(let i=0;i<10;i++){
@@ -148,16 +154,16 @@ if(path.pathname==='/api/orders/status-date-check'){
     const items=Array.isArray(payload.postings)?payload.postings:null;
     if(!items)throw Object.assign(new Error('Unexpected FBS list format'),{status:502});
     pages++;scanned+=items.length;
-    if(items.some(x=>String(x.posting_number||'')===posting)){found=true;break;}
+    if(items.some(x=>String(x.posting_number||'')===test.posting)){found=true;break;}
     hasMore=!!payload.has_next;
     const next=String(payload.cursor||'');if(!hasMore||!next||next===cursor)break;
     cursor=next;
    }
   }catch(e){error={upstream_status:e.status||null,reason:e.status===400?'Ozon отклонил параметры фильтра':e.status===429?'Ozon ограничил частоту запросов':'Ошибка запроса Ozon'};}
-  results.push({window:w.name,from:w.from,to:w.to,found,scanned,pages,complete:!hasMore,error});
+  results.push({posting_number:test.posting,ozon_seller_delivery:test.seller_time,window:w.name,from:w.from,to:w.to,found,scanned,pages,complete:!hasMore,error});
   if(error)break;
  }
- return reply(res,200,{read_only:true,posting_number:posting,source:'/v4/posting/fbs/list · filter.last_changed_status_date',results,interpretation:'Совпадение в интервале — косвенное свидетельство времени последнего изменения статуса, не подтверждение вручения. При неполном просмотре отсутствие совпадения не является доказательством.',checked_at:new Date().toISOString()},ORIGIN);
+ return reply(res,200,{read_only:true,postings:tests.map(t=>({posting_number:t.posting,ozon_seller_delivery:t.seller_time})),source:'/v4/posting/fbs/list · filter.last_changed_status_date',results,interpretation:'Совпадение в интервале — косвенное свидетельство времени последнего изменения статуса, не подтверждение вручения. При неполном просмотре отсутствие совпадения не является доказательством.',checked_at:new Date().toISOString()},ORIGIN);
 }
 if(path.pathname==='/api/orders'){
  const days=Math.min(35,Math.max(1,Number(path.searchParams.get('days')||7)||7));
