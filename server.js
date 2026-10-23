@@ -102,9 +102,34 @@ async function cachedPerformance(key,load){
   }finally{entry.pending=null;}
  })();entry.pending=pending;return pending;
 }
-const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance']);
+const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic']);
 const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||origin===ORIGIN;const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
 
+// Safe read-only delivery diagnosis: no raw Ozon response, buyer data, or credentials exposed.
+if(path.pathname==='/api/orders/delivery-diagnostic'){
+ const posting=String(path.searchParams.get('posting')||'');
+ if(!/^\d{6,15}-\d{3,6}-\d{1,3}$/.test(posting))return reply(res,400,{error:'Некорректный номер отправления'},ORIGIN);
+ try{
+  const d=await ozon('/v3/posting/fbs/get',{posting_number:posting,with:{analytics_data:false,financial_data:false}});
+  const item=d.result||d;
+  const fields={};
+  function collect(obj,prefix='',depth=0){
+   if(!obj||typeof obj!=='object'||depth>3)return;
+   for(const [key,value] of Object.entries(obj)){
+    const path=prefix?prefix+'.'+key:key;
+    if(/(?:date|_at$|timestamp|status|history|event|change)/i.test(key)){
+     if(typeof value==='string'||typeof value==='number'||value===null)fields[path]=value;
+     else if(Array.isArray(value))fields[path]='array('+value.length+')';
+    }
+    if(value&&typeof value==='object'&&!Array.isArray(value)&&!/(?:products|financial|analytics|customer|address|phone|recipient|buyer|cancellation)/i.test(key))collect(value,path,depth+1);
+   }
+  }
+  collect(item);
+  const candidates=['delivered_at','delivered_date','delivery.delivered_at','status_changed_at','last_changed_status_date'];
+  const confirmed=candidates.map(k=>({field:k,value:k.split('.').reduce((v,part)=>v?.[part],item)})).filter(x=>typeof x.value==='string'&&Number.isFinite(Date.parse(x.value)));
+  return reply(res,200,{read_only:true,posting_number:posting,status:String(item.status||''),date_fields:fields,confirmed_candidates:confirmed,diagnostic_note:'Поля показаны для диагностики. Дата вручения подтверждается только после проверки значения в Ozon Seller.'},ORIGIN);
+ }catch(e){return reply(res,e.status===429?429:502,{error:'Не удалось получить подробности FBS',upstream_status:e.status||null},ORIGIN)}
+}
 if(path.pathname==='/api/orders'){
  const days=Math.min(35,Math.max(1,Number(path.searchParams.get('days')||7)||7));
  const since=new Date(Date.now()-(days-1)*86400000).toISOString();
