@@ -136,12 +136,18 @@ if(path.pathname==='/api/orders'){
   return reply(res,502,{error:'Не удалось загрузить заказы FBS',diagnostic:{source:'Ozon Seller API /v4/posting/fbs/list',fbs:'error',...diagnostic},read_only:true},ORIGIN);
  }
 }
+const financeCache=new Map();
+let financeCooldownUntil=0;
+const FINANCE_TTL=10*60*1000;
 if(path.pathname==='/api/orders/finance'){
  const posting=path.searchParams.get('posting_number')||'';
  const created=path.searchParams.get('created_at')||'';
  const delivered=path.searchParams.get('delivered')==='true';
  if(!/^[a-zA-Z0-9-]{4,90}$/.test(posting))return reply(res,400,{error:'Неверный номер отправления'},ORIGIN);
  if(!delivered)return reply(res,409,{error:'Финансы доступны после доставки заказа'},ORIGIN);
+ const cacheKey=posting;const cached=financeCache.get(cacheKey);
+ if(cached&&cached.expires>Date.now())return reply(res,200,{...cached.data,cached:true},ORIGIN);
+ if(Date.now()<financeCooldownUntil)return reply(res,429,{error:'Ozon временно ограничил финансовые запросы',retry_after_seconds:Math.ceil((financeCooldownUntil-Date.now())/1000),diagnostic:{stage:'Ожидание после 429',code:429,reason:'Повторите после окончания паузы'}},ORIGIN);
  // Verify delivery independently on the server; do not trust the browser flag.
  let verified=false;
  try{
@@ -182,10 +188,12 @@ if(path.pathname==='/api/orders/finance'){
   });
   const complete=lines.every(x=>x.amount!==null&&x.currency==='RUB');
   const total=lines.length&&complete?Math.round(lines.reduce((sum,x)=>sum+x.amount,0)*100)/100:null;
-  return reply(res,200,{read_only:true,posting_number:posting,source:'Ozon Seller API /v1/finance/accrual/postings',
+  const result={read_only:true,posting_number:posting,source:'Ozon Seller API /v1/finance/accrual/postings',
    operations:lines,total_accrued:total,types_available,checked_at:new Date().toISOString(),finalized:false,
-   note:lines.length?'Это сумма полученных начислений и удержаний, не прибыль. Ozon может обновить данные позже.':'Ozon пока не передал начисления по этому отправлению.'},ORIGIN);
- }catch(e){console.error('Order finance accruals failed:',e.status||e.message);
+   note:lines.length?'Это сумма полученных начислений и удержаний, не прибыль. Ozon может обновить данные позже.':'Ozon пока не передал начисления по этому отправлению.'};
+  financeCache.set(cacheKey,{data:result,expires:Date.now()+FINANCE_TTL});
+  return reply(res,200,result,ORIGIN);
+ }catch(e){if(e.status===429)financeCooldownUntil=Date.now()+15*60*1000;console.error('Order finance accruals failed:',e.status||e.message);
   return reply(res,502,{error:'Не удалось получить начисления Ozon',diagnostic:{stage:'Начисления по отправлению',code:Number.isInteger(e.status)?e.status:null,
    reason:e.status===400?'Ozon отклонил параметры запроса':e.status===401||e.status===403?'Нет доступа к финансовым начислениям Seller API':e.status===429?'Ozon временно ограничил частоту запросов':e.status===404?'Финансовый метод недоступен для данного подключения':'Проверьте ответ Ozon в журнале Render'}},ORIGIN)}
 }
