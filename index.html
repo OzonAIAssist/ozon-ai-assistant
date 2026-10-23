@@ -1219,11 +1219,11 @@ const base='https://ozon-ai-assistant-api.onrender.com';
 const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const fmt=(v,suffix='')=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ru-RU',{maximumFractionDigits:2})+suffix:'—';
 const panel=document.createElement('section');panel.id='h50';
-panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-sub">Ozon · Заказы FBS · Только просмотр</p></div><button id="h50refresh" type="button">↻ Обновить</button></div><div class="h50-period"><button data-days="1" type="button">24 часа</button><button data-days="2" type="button">2 дня</button><button data-days="7" type="button">7 дней</button><button data-days="32" type="button">Этот месяц</button></div><div class="h50-status" id="h50status">Для загрузки заказов нужен доступ к серверу.</div><div class="h50-grid" id="h50summary" hidden></div><div class="h57-info"><div id="h57bar"></div></div><h3 class="h50-section-title">Список заказов</h3><div class="h57-filters"><button type="button" data-filter="all">Все</button><button type="button" data-filter="delivered">Доставлено</button><button type="button" data-filter="other">В пути</button></div><p id="h57count" class="h50-note"></p><div id="h50list"></div><p class="h50-note">Финансовая детализация доступна только для доставленных отправлений. Суммы и операции Ozon могут обновляться после доставки. Это не расчёт чистой прибыли.</p>';
+panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-sub">Ozon · Заказы FBS · Только просмотр</p></div><button id="h50refresh" type="button">↻ Обновить</button></div><div class="h57-info"><div id="h57bar"></div></div><div class="h50-period"><button data-days="1" type="button">24 часа</button><button data-days="2" type="button">2 дня</button><button data-days="7" type="button">7 дней</button><button data-days="32" type="button">Этот месяц</button></div><div class="h50-status" id="h50status">Для загрузки заказов нужен доступ к серверу.</div><div class="h50-grid" id="h50summary" hidden></div><h3 class="h50-section-title">Список заказов</h3><div class="h57-filters"><button type="button" data-filter="all">Все</button><button type="button" data-filter="delivered">Доставлено</button><button type="button" data-filter="other">В пути</button></div><p id="h57count" class="h50-note"></p><div id="h50list"></div><p class="h50-note">Финансовая детализация доступна только для доставленных отправлений. Суммы и операции Ozon могут обновляться после доставки. Это не расчёт чистой прибыли.</p>';
 host.prepend(panel);
 const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50list'),summary=panel.querySelector('#h50summary');
 let days=7,orders=[],expanded=new Set(),finances=new Map(),request=0;
-let monthOrders=null,monthPartial=false,monthError=false;
+let monthOrders=null,monthPartial=false,monthError=false,monthOthersOpen=false;
 const moscowDay=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
 const monthKey=()=>moscowDay(new Date()).slice(0,7);
 const currentMonthOrders=()=>Array.isArray(monthOrders)?monthOrders.filter(o=>{const d=new Date(o.created_at);return Number.isFinite(d.getTime())&&moscowDay(d).startsWith(monthKey())}):null;
@@ -1250,7 +1250,9 @@ function draw(){
    const transit=mo.filter(o=>['delivering','arbitration','last_mile','sent_by_seller','awaiting_deliver'].includes(String(o.status).toLowerCase())).length;
    const rest=mo.length-done-transit;
    const pct=mo.length?Math.round(done/mo.length*100):0;
-   bar.innerHTML='<div class="h65-month-title">Отправления за '+esc(monthTitle())+'</div><div class="h65-month-sub">По дате создания · текущий статус Ozon</div><div class="h65-month-grid"><div class="h65-month-card h65-done"><span>Доставлено</span><strong>'+done+'</strong><small>Получено покупателями</small></div><div class="h65-month-card h65-transit"><span>В пути</span><strong>'+transit+'</strong><small>На этапе доставки</small></div></div>'+(rest?'<div class="h65-other">Другие статусы <b>'+rest+'</b></div>':'')+'<div class="h65-month-progress"><i style="width:'+pct+'%"></i></div><div class="h65-month-foot"><span>Доставлено '+pct+'%</span><span>Всего '+mo.length+'</span></div>'+(monthPartial?'<p class="h50-note">Ozon ограничил объём выгрузки. Месячные показатели могут быть неполными.</p>':'');
+   const otherGroups=new Map();for(const o of mo){const st=String(o.status||'unknown').toLowerCase();if(!o.delivered&&!['delivering','arbitration','last_mile','sent_by_seller','awaiting_deliver'].includes(st)){const key=statusName(st);otherGroups.set(key,(otherGroups.get(key)||0)+1)}}
+   const otherDetails=[...otherGroups.entries()].sort((a,b)=>b[1]-a[1]).map(([name,count])=>'<div class="h71-other-line"><span>'+esc(name)+'</span><strong>'+count+'</strong></div>').join('');
+   bar.innerHTML='<div class="h65-month-title">Отправления за '+esc(monthTitle())+'</div><div class="h65-month-sub">По дате создания · текущий статус Ozon</div><div class="h65-month-grid">'+'<div class="h65-month-card h65-done"><span>Доставлено</span><strong>'+done+'</strong><small>Получено покупателями</small></div><div class="h65-month-card h65-transit"><span>В пути</span><strong>'+transit+'</strong><small>На этапе доставки</small></div></div>'+(rest?'<button type="button" class="h65-other h71-other-toggle" data-month-other="1" aria-expanded="'+monthOthersOpen+'"><span>Другие статусы <span class="h71-chevron">'+(monthOthersOpen?'⌃':'⌄')+'</span></span><b>'+rest+'</b></button>'+(monthOthersOpen?'<div class="h71-other-details">'+otherDetails+'</div>':''):'')+'<div class="h65-month-progress"><i style="width:'+pct+'%"></i></div><div class="h65-month-foot"><span>Доставлено '+pct+'%</span><span>Всего '+mo.length+'</span></div>'+(monthPartial?'<p class="h50-note">Ozon ограничил объём выгрузки. Месячные показатели могут быть неполными.</p>':'');
   }
  }
  panel.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('h57-selected',b.dataset.filter===filter));
@@ -1311,6 +1313,7 @@ async function finance(id){
 }
 panel.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.monthOther){monthOthersOpen=!monthOthersOpen;draw();return}
  if(b.id==='h50refresh')load();
  if(b.dataset.filter){filter=b.dataset.filter;draw();return}
  if(b.dataset.days){days=Number(b.dataset.days);draw();load()}
@@ -1755,5 +1758,17 @@ const orders=document.getElementById('h50');if(orders){
 #h50 .h57-filters button{min-width:0!important;width:100%!important;min-height:52px!important;padding:9px 4px!important;white-space:nowrap!important;font-size:clamp(12px,3.6vw,16px)!important;line-height:1.2!important}
 #h50 .h57-filters button[data-filter="delivered"]::before{content:none!important;display:none!important}
 #h50 .h57-filters button[data-filter="delivered"].h57-selected{background:#dff2e5!important;color:#1b7747!important;border-color:#72bf90!important}
+</style>
+<style id="hogar-v71-monthly-order">
+/* Month-to-date overview first, list period controls directly beneath it. */
+#h50 .h57-info{margin:18px 0 12px!important}
+#h50 .h50-period{margin:12px 0 12px!important}
+#h50 .h71-other-toggle{width:100%;border:0;background:transparent;padding:13px 0 3px;text-align:left;cursor:pointer;font:inherit;align-items:center}
+#h50 .h71-other-toggle:focus-visible{outline:2px solid #db8a50;outline-offset:3px;border-radius:7px}
+#h50 .h71-chevron{font-size:15px;color:#ad7753;margin-left:5px}
+#h50 .h71-other-details{margin:10px 0 3px;padding:8px 13px;background:#fff4e9;border:1px solid #ecd3b9;border-radius:13px}
+#h50 .h71-other-line{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;color:#76533d;font-size:14px}
+#h50 .h71-other-line+.h71-other-line{border-top:1px solid #ecd8c5}
+#h50 .h71-other-line strong{font-size:16px;color:#452d1e;font-variant-numeric:tabular-nums}
 </style>
 </body></html>
