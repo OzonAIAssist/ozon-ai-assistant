@@ -1264,10 +1264,10 @@ const base='https://ozon-ai-assistant-api.onrender.com';
 const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const fmt=(v,suffix='')=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ru-RU',{maximumFractionDigits:2})+suffix:'—';
 const panel=document.createElement('section');panel.id='h50';
-panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-sub">Ozon · Заказы FBS · Только просмотр</p></div><button id="h50refresh" type="button">↻ Обновить</button></div><div class="h57-info"><div id="h57bar"></div></div><div class="h50-period"><button data-days="1" type="button">24 часа</button><button data-days="2" type="button">2 дня</button><button data-days="7" type="button">7 дней</button><button data-days="32" type="button">Этот месяц</button></div><div class="h50-status" id="h50status">Для загрузки заказов нужен доступ к серверу.</div><div class="h50-grid" id="h50summary" hidden></div><h3 class="h50-section-title">Список заказов</h3><div class="h57-filters"><button type="button" data-filter="all">Все</button><button type="button" data-filter="delivered">Доставлено</button><button type="button" data-filter="other">В пути</button></div><p id="h57count" class="h50-note"></p><div id="h50list"></div><p class="h50-note">Финансовая детализация доступна только для доставленных отправлений. Суммы и операции Ozon могут обновляться после доставки. Это не расчёт чистой прибыли.</p>';
+panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-sub">Ozon · Заказы FBS · Только просмотр</p></div><button id="h50refresh" type="button">↻ Обновить</button></div><div class="h57-info"><div id="h57bar"></div></div><div class="h50-status" id="h50status">Для загрузки заказов нужен доступ к серверу.</div><div class="h50-grid" id="h50summary" hidden></div><h3 class="h50-section-title">Список заказов</h3><div class="h57-filters"><button type="button" data-filter="all">Все активные</button><button type="button" data-filter="delivered">Доставлено</button><button type="button" data-filter="other">В пути</button></div><p id="h57count" class="h50-note"></p><div id="h50list"></div><p class="h50-note">Финансовая детализация доступна только для доставленных отправлений. Суммы и операции Ozon могут обновляться после доставки. Это не расчёт чистой прибыли.</p>';
 host.prepend(panel);
 const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50list'),summary=panel.querySelector('#h50summary');
-let days=7,orders=[],expanded=new Set(),finances=new Map(),request=0;
+let days=35,orders=[],expanded=new Set(),finances=new Map(),request=0;
 let financeRun=0,financeQueueBusy=false,financePauseUntil=0;
 const financeCachePrefix='hogar_fbs_finance_v76_';
 const financeCacheTTL=12*60*60*1000;
@@ -1291,7 +1291,7 @@ const monthTitle=()=>new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',m
 
 const token=()=>document.getElementById('v10token')?.value.trim()||sessionStorage.getItem('hogar_session_access_v44')||'';
 const row=(name,value)=>'<div class="h50-line"><span>'+esc(name)+'</span><b>'+esc(value)+'</b></div>';
-let filter='all';
+let filter='other';
 const statusName=s=>({'delivered':'Доставлен','delivered_to_customer':'Доставлен','delivering':'В пути','awaiting_deliver':'Ожидает отправки','awaiting_packaging':'Ожидает сборки','awaiting_registration':'Ожидает регистрации','acceptance_in_progress':'Приёмка','cancelled':'Отменён','arbitration':'Спорный'}[String(s||'').toLowerCase()]||'Статус: '+String(s||'неизвестен'));
 const deliveryStates=new Set(['awaiting_registration','awaiting_packaging','awaiting_deliver','acceptance_in_progress','sent_by_seller','delivering','last_mile','arbitration']);
 const isActive=o=>!o.delivered&&deliveryStates.has(String(o.status||'').toLowerCase());
@@ -1309,7 +1309,7 @@ function draw(){
  panel.querySelectorAll('[data-days]').forEach(b=>b.classList.toggle('h50-active',Number(b.dataset.days)===days));
  const delivered=orders.filter(o=>o.delivered).length,other=orders.length-delivered;
  const units=orders.reduce((s,o)=>s+(o.products||[]).reduce((a,p)=>a+(Number(p.quantity)||0),0),0);
- summary.innerHTML=[['all','Все отправления',orders.length],['delivered','Доставлено',delivered],['other','В пути',orders.filter(isActive).length],['units','Единиц товаров',units]].map(([key,k,v])=>'<button type="button" class="h50-tile h57-stat '+(filter===key?'h57-selected':'')+'" data-filter="'+(key==='units'?'all':key)+'"><small>'+k+'</small><b>'+fmt(v)+'</b></button>').join('');
+ summary.innerHTML=[['all','Все активные',orders.filter(isActive).length],['delivered','Доставлено',delivered],['other','В пути',orders.filter(isActive).length],['units','Единиц товаров',units]].map(([key,k,v])=>'<button type="button" class="h50-tile h57-stat '+(filter===key?'h57-selected':'')+'" data-filter="'+(key==='units'?'all':key)+'"><small>'+k+'</small><b>'+fmt(v)+'</b></button>').join('');
  const percent=orders.length?Math.round(100*delivered/orders.length):0;
  const bar=panel.querySelector('#h57bar');
  if(bar){
@@ -1326,10 +1326,10 @@ function draw(){
   }
  }
  panel.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('h57-selected',b.dataset.filter===filter));
- const shown=orders.filter(o=>filter==='all'||(filter==='delivered'?o.delivered:isActive(o)));
+ const shown=orders.filter(o=>filter==='delivered'?o.delivered&&(!o.delivered_at||(Number.isFinite(new Date(o.delivered_at).getTime())&&moscowDay(new Date(o.delivered_at)).startsWith(monthKey())) ):isActive(o));
  if(filter==='delivered')shown.sort((a,b)=>String(b.delivered_at||'').localeCompare(String(a.delivered_at||'')));
  if(filter==='other')shown.sort((a,b)=>String(a.status||'').localeCompare(String(b.status||'')));
- const count=panel.querySelector('#h57count');if(count)count.textContent='Показано: '+shown.length+' из '+orders.length;
+ const count=panel.querySelector('#h57count');if(count)count.textContent='Показано: '+shown.length+(filter==='delivered'?' · доставлено в этом месяце':' · активные отправления');
  const cardsByIndex=shown.length?shown.map(o=>{
   const id=String(o.posting_number),open=expanded.has(id),finance=finances.get(id),p=o.products?.[0]||{};
   const name=p.name||'Товар Ozon',extra=(o.products||[]).length>1?' · ещё '+((o.products||[]).length-1)+' поз.':'';
@@ -1370,14 +1370,14 @@ async function load(){
  const t=token();if(!t){status.textContent='Сначала введите пароль доступа к серверу в разделе «Цены» (синхронизация каталога).';return}
  const seq=++request;panel.classList.remove('h63-api-error');status.textContent='Загружаем заказы Ozon…';
  try{
-  const requestDays=filter==='delivered'?35:(days===32?Math.min(35,Number(moscowDay(new Date()).slice(8))+2):days);
+  const requestDays=35;
   const r=await fetch(base+'/api/orders?days='+requestDays,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?' · Код Ozon: '+(d.diagnostic.code||'неизвестен')+' · '+d.diagnostic.reason:''));
-  if(seq!==request)return;panel.classList.remove('h63-api-error');orders=(d.orders||[]).filter(o=>{if(filter==='delivered'&&o.delivered){if(!o.delivered_at)return true;const k=moscowDay(new Date(o.delivered_at));return days===32?k.startsWith(monthKey()):k>=daysAgo(days-1)}return days!==32||(o.created_at&&Number.isFinite(new Date(o.created_at).getTime())&&moscowDay(new Date(o.created_at)).startsWith(monthKey()))});financeRun++;finances.clear();
+  if(seq!==request)return;panel.classList.remove('h63-api-error');orders=(d.orders||[]);financeRun++;finances.clear();
   for(const o of orders){if(o.delivered){const cached=readCachedFinance(o);if(cached)finances.set(String(o.posting_number),cached)}}
-  status.textContent='FBS · Загружено отправлений: '+orders.length+(d.partial?' · Достигнут лимит выгрузки, список может быть неполным':'');
+  status.textContent='FBS · Проверено отправлений: '+orders.length+(d.partial?' · Достигнут лимит выгрузки, список может быть неполным':'');
   draw();scheduleFinances();
-  // Independent month-to-date request; period buttons only affect the order list and daily chart.
+  // Independent month-to-date summary; all tabs use current live status.
   monthOrders=null;monthError=false;draw();
   const elapsed=Number(moscowDay(new Date()).slice(8));
   try{
@@ -1432,8 +1432,8 @@ panel.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
  if(b.dataset.monthOther){monthOthersOpen=!monthOthersOpen;draw();return}
  if(b.id==='h50refresh')load();
- if(b.dataset.filter){const next=b.dataset.filter;if(filter!==next){filter=next;load()}else draw();return}
- if(b.dataset.days){days=Number(b.dataset.days);draw();load()}
+ if(b.dataset.filter){filter=b.dataset.filter;draw();return}
+
  if(b.dataset.open){const id=b.dataset.open;expanded.has(id)?expanded.delete(id):expanded.add(id);draw();}
  if(b.dataset.expenses){const id=b.dataset.expenses;const old=finances.get(id)||{};finances.set(id,{...old,detailsOpen:!old.detailsOpen});draw();return}
  if(b.dataset.finance){e.stopPropagation();finance(b.dataset.finance);}
