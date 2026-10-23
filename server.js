@@ -5,7 +5,7 @@ const PORT=Number(process.env.PORT||10000);
 const CLIENT_ID=process.env.OZON_CLIENT_ID||'';
 const API_KEY=process.env.OZON_API_KEY||'';
 const ACCESS_TOKEN=process.env.APP_ACCESS_TOKEN||'';
-const ORIGIN=(process.env.ALLOWED_ORIGIN||'https://ozonaiassist.github.io').trim().replace(/\/+$/,'');
+const ALLOWED_ORIGINS=new Set(['https://ozonaiassist.github.io','https://ozon-ai-assistant.onrender.com']);
 const API_BASE='https://api-seller.ozon.ru';
 const PERFORMANCE_BASE='https://api-performance.ozon.ru';
 const PERF_ID=process.env.OZON_PERFORMANCE_CLIENT_ID||'';
@@ -103,7 +103,7 @@ async function cachedPerformance(key,load){
  })();entry.pending=pending;return pending;
 }
 const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check','/api/orders/posting-presence-check']);
-const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||origin===ORIGIN;const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
+const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||ALLOWED_ORIGINS.has(origin);const ORIGIN=allowed?origin:'';const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
 
 // Safe read-only delivery diagnosis: no raw Ozon response, buyer data, or credentials exposed.
 if(path.pathname==='/api/orders/delivery-diagnostic'){
