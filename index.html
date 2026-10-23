@@ -1981,4 +1981,26 @@ const orders=document.getElementById('h50');if(orders){
 #h50 button.h71-other-toggle:active{background:#f9e6d4!important}
 #h50 button.h71-other-toggle:focus-visible{outline:2px solid #d78347!important;outline-offset:2px!important}
 </style>
+<script id="hogar-v776-status-check">
+(function(){
+ 'use strict';
+ const pane=document.getElementById('tab-more');if(!pane)return;
+ const card=document.createElement('section');card.className='card';
+ card.style.cssText='margin-top:18px;padding:18px;border-radius:16px';
+ card.innerHTML='<h3 style="margin:0 0 8px">Проверка времени статуса FBS</h3><p style="font-size:13px;line-height:1.5">Разовая диагностика отправления № 31986539-0347-1. Только чтение. Финансы и заказы не изменяются.</p><button type="button" id="h776run" style="background:#e98240;color:#fff;border:0;border-radius:10px;padding:12px 15px;font-weight:700">Проверить время статуса</button><pre id="h776result" style="display:none;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.5"></pre><button type="button" id="h776copy" style="display:none;background:#f5e3d2;color:#68412c;border:1px solid #e5c7ab;border-radius:10px;padding:10px 14px">Скопировать результат</button>';
+ pane.appendChild(card);
+ const run=card.querySelector('#h776run'),out=card.querySelector('#h776result'),copy=card.querySelector('#h776copy');
+ run.addEventListener('click',async()=>{
+  const token=document.getElementById('v10token')?.value.trim()||sessionStorage.getItem('hogar_session_access_v44')||'';
+  out.style.display='block';copy.style.display='none';out.textContent='Проверяем фильтр Ozon…';run.disabled=true;
+  try{
+   const r=await fetch('https://ozon-ai-assistant-api.onrender.com/api/orders/status-date-check',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+   const d=await r.json();out.textContent=JSON.stringify(d,null,2);copy.style.display='inline-block';
+   if(!r.ok)out.textContent='HTTP '+r.status+'\n'+out.textContent;
+  }catch(e){out.textContent='Ошибка соединения: '+String(e.message||e)}
+  finally{run.disabled=false}
+ });
+ copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(out.textContent);copy.textContent='Скопировано'}catch(e){copy.textContent='Выделите текст и скопируйте'}});
+})();
+</script>
 </body></html>

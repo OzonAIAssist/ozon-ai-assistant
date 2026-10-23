@@ -102,7 +102,7 @@ async function cachedPerformance(key,load){
   }finally{entry.pending=null;}
  })();entry.pending=pending;return pending;
 }
-const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic']);
+const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check']);
 const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||origin===ORIGIN;const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
 
 // Safe read-only delivery diagnosis: no raw Ozon response, buyer data, or credentials exposed.
@@ -129,6 +129,35 @@ if(path.pathname==='/api/orders/delivery-diagnostic'){
   const confirmed=candidates.map(k=>({field:k,value:k.split('.').reduce((v,part)=>v?.[part],item)})).filter(x=>typeof x.value==='string'&&Number.isFinite(Date.parse(x.value)));
   return reply(res,200,{read_only:true,posting_number:posting,status:String(item.status||''),date_fields:fields,confirmed_candidates:confirmed,diagnostic_note:'Поля показаны для диагностики. Дата вручения подтверждается только после проверки значения в Ozon Seller.'},ORIGIN);
  }catch(e){return reply(res,e.status===429?429:502,{error:'Не удалось получить подробности FBS',upstream_status:e.status||null},ORIGIN)}
+}
+// Isolated read-only check of the last_changed_status_date filter.
+if(path.pathname==='/api/orders/status-date-check'){
+ const posting='31986539-0347-1';
+ const windows=[
+  {name:'Вручение по Ozon Seller · 23 октября 12:25 МСК',from:'2026-10-23T09:10:00Z',to:'2026-10-23T09:40:00Z'},
+  {name:'Отгрузка · 20 октября 15:31 МСК',from:'2026-10-20T12:15:00Z',to:'2026-10-20T12:45:00Z'},
+  {name:'Весь день вручения · 23 октября МСК',from:'2026-10-22T21:00:00Z',to:'2026-10-23T20:59:59Z'}
+ ];
+ const results=[];
+ for(const w of windows){
+  let cursor='',found=false,scanned=0,pages=0,hasMore=false,error=null;
+  try{
+   for(let i=0;i<10;i++){
+    const d=await ozon('/v4/posting/fbs/list',{filter:{since:'2026-10-19T00:00:00Z',to:'2026-10-24T00:00:00Z',status:['delivered'],last_changed_status_date:{from:w.from,to:w.to}},limit:100,cursor,sort_dir:'desc',with:{analytics_data:false,financial_data:false}});
+    const payload=Array.isArray(d.postings)?d:(d.result&&typeof d.result==='object'?d.result:d);
+    const items=Array.isArray(payload.postings)?payload.postings:null;
+    if(!items)throw Object.assign(new Error('Unexpected FBS list format'),{status:502});
+    pages++;scanned+=items.length;
+    if(items.some(x=>String(x.posting_number||'')===posting)){found=true;break;}
+    hasMore=!!payload.has_next;
+    const next=String(payload.cursor||'');if(!hasMore||!next||next===cursor)break;
+    cursor=next;
+   }
+  }catch(e){error={upstream_status:e.status||null,reason:e.status===400?'Ozon отклонил параметры фильтра':e.status===429?'Ozon ограничил частоту запросов':'Ошибка запроса Ozon'};}
+  results.push({window:w.name,from:w.from,to:w.to,found,scanned,pages,complete:!hasMore,error});
+  if(error)break;
+ }
+ return reply(res,200,{read_only:true,posting_number:posting,source:'/v4/posting/fbs/list · filter.last_changed_status_date',results,interpretation:'Совпадение в интервале — косвенное свидетельство времени последнего изменения статуса, не подтверждение вручения. При неполном просмотре отсутствие совпадения не является доказательством.',checked_at:new Date().toISOString()},ORIGIN);
 }
 if(path.pathname==='/api/orders'){
  const days=Math.min(35,Math.max(1,Number(path.searchParams.get('days')||7)||7));
