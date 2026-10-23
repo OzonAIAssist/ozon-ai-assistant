@@ -1270,30 +1270,31 @@ const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50lis
 let days=35,orders=[],expanded=new Set(),finances=new Map(),request=0;
 let financeRun=0,financeQueueBusy=false,financePauseUntil=0,financeRetryTimer=null;
 const financeFailures=new Map();
-const financeCachePrefix='hogar_fbs_finance_v770_';
+const financeCachePrefix='hogar_fbs_finance_permanent_v1_';
 const legacyFinancePrefixes=['hogar_fbs_finance_v766_','hogar_fbs_finance_v765_','hogar_fbs_finance_v764_','hogar_fbs_finance_v763_','hogar_fbs_finance_v76_','hogar_fbs_finance_v753_'];
-const financeCacheTTL=2*60*60*1000;
+const financeCacheTTL=30*24*60*60*1000; // Retain confirmed operations for 30 days; display older records until refreshed.
 const financePauseKey='hogar_fbs_finance_pause_v753';
 try{financePauseUntil=Number(localStorage.getItem(financePauseKey))||0}catch(_){}
 function cacheKey(o){return financeCachePrefix+encodeURIComponent(String(o.posting_number))+'_'+String(o.created_at||'').slice(0,10)}
 function readCachedFinance(o){
  const suffix=encodeURIComponent(String(o.posting_number))+'_'+String(o.created_at||'').slice(0,10);
  let best=null;
- for(const prefix of [financeCachePrefix]){
+ for(const prefix of [financeCachePrefix,'hogar_fbs_finance_v770_',...legacyFinancePrefixes]){
   try{
    const saved=JSON.parse(localStorage.getItem(prefix+suffix)||'null');
    if(!saved||!Array.isArray(saved.operations)||!Number.isFinite(saved.at)||saved.at>Date.now())continue;
-   if(Date.now()-saved.at>financeCacheTTL)continue;
+   // Old confirmed finance remains visible even when due for refresh.
    if(!best||saved.at>best.at)best=saved;
   }catch(_){}
  }
  if(!best)return null;
- const result={operations:best.operations,total_accrued:best.total_accrued,loading:false,detailsOpen:false};
+ const result={operations:best.operations,total_accrued:best.total_accrued,loading:false,detailsOpen:false,cachedAt:best.at,stale:Date.now()-best.at>financeCacheTTL};
  // Migrate without changing the timestamp, so stale data do not live forever.
  try{localStorage.setItem(cacheKey(o),JSON.stringify(best))}catch(_){}
  return result;
 }
 function saveCachedFinance(o,data){
+ if(!Array.isArray(data.operations)||!data.operations.length)return;
  try{localStorage.setItem(cacheKey(o),JSON.stringify({at:Date.now(),operations:data.operations,total_accrued:data.total_accrued}))}catch(_){}
 }
 let monthOrders=null,monthPartial=false,monthError=false,monthOthersOpen=false;
@@ -1385,6 +1386,7 @@ function draw(){
     '<button type="button" class="h75-expense-row" data-expenses="'+esc(id)+'" aria-expanded="'+(!!finance?.detailsOpen)+'"><span>Расходы Ozon <span class="h75-arrow">'+(finance?.detailsOpen?'⌃':'⌄')+'</span></span><strong class="h75-expense">'+esc(expenses!==null?fmt(expenses,' ₽'):pending)+'</strong></button>'+
     (finance?.detailsOpen?'<div class="h75-breakdown">'+(detail||'<p class="h50-note">Финансовые операции ещё не получены.</p>')+'</div>':'')+
     '<div><span>После удержаний</span><strong class="h75-remaining">'+esc(remaining!==null?fmt(remaining,' ₽'):pending)+'</strong></div></div>'+
+    (ops?.length&&finance?.cachedAt?'<p class="h75-finance-message">Финансы '+(finance.stale?'из сохранённой копии · ожидают обновления':'сохранены')+' · '+esc(new Date(finance.cachedAt).toLocaleString('ru-RU'))+'</p>':'')+
     (remaining!==null?'<p class="h74-disclaimer">Предварительный остаток после известных операций Ozon. Не чистая прибыль и не подтверждённая выплата.</p>':'')+
     (o.delivered&&finance?.error?'<div class="h75-finance-message">Не удалось загрузить финансы: '+esc(finance.error)+' <button type="button" data-finance="'+esc(id)+'">Повторить</button></div>':
      o.delivered&&!finance?.loading&&!ops?'<p class="h75-finance-message">Финансы появятся автоматически после загрузки.</p>':'')+
@@ -1404,7 +1406,7 @@ async function load(){
   const d=await r.json();if(r.status===401){showOrdersAuth();throw Error('Сервер приложения вернул 401: неверный или устаревший APP_ACCESS_TOKEN (это не ошибка ключа Ozon).')}if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?' · Код Ozon: '+(d.diagnostic.code||'неизвестен')+' · '+d.diagnostic.reason:''));
   if(seq!==request)return;hideOrdersAuth();panel.classList.remove('h63-api-error');orders=(d.orders||[]);financeRun++;
   const currentIds=new Set(orders.map(o=>String(o.posting_number)));
-  for(const id of finances.keys())if(!currentIds.has(id))finances.delete(id);
+  // Keep previously loaded finance for orders outside the current listing.
   for(const o of orders){if(o.delivered){const id=String(o.posting_number);const existing=finances.get(id);if(existing?.operations)continue;const cached=readCachedFinance(o);if(cached)finances.set(id,{...cached,detailsOpen:!!existing?.detailsOpen});}}
   status.textContent='FBS · Проверено отправлений: '+orders.length+(d.partial?' · Достигнут лимит выгрузки, список может быть неполным':'');
   draw();scheduleFinances();
@@ -1481,11 +1483,11 @@ async function scheduleFinances(){
   for(const o of visibleFinanceOrders()){
    if(run!==financeRun||Date.now()<financePauseUntil)break;
    const id=String(o.posting_number),state=finances.get(id),failure=financeFailures.get(id);
-   if(state?.operations||state?.loading)continue;
+   if(state?.loading||(state?.operations&&!state.stale))continue;
    if(failure&&Date.now()<failure.next)continue;
    await finance(id);
    if(run!==financeRun||Date.now()<financePauseUntil)break;
-   if(visibleFinanceOrders().some(x=>{const id=String(x.posting_number);return !finances.get(id)?.operations&&(!financeFailures.get(id)||financeFailures.get(id).next<=Date.now())}))
+   if(visibleFinanceOrders().some(x=>{const id=String(x.posting_number);return (!finances.get(id)?.operations||finances.get(id)?.stale)&&(!financeFailures.get(id)||financeFailures.get(id).next<=Date.now())}))
     await new Promise(resolve=>setTimeout(resolve,3500));
   }
  }finally{
@@ -1506,7 +1508,7 @@ panel.addEventListener('click',e=>{
 
  if(b.dataset.open){const id=b.dataset.open;expanded.has(id)?expanded.delete(id):expanded.add(id);draw();if(expanded.has(id))scheduleFinances();return}
  if(b.dataset.expenses){const id=b.dataset.expenses;const old=finances.get(id)||{};finances.set(id,{...old,detailsOpen:!old.detailsOpen});draw();return}
- if(b.dataset.finance){e.stopPropagation();finances.delete(b.dataset.finance);financeFailures.delete(b.dataset.finance);finance(b.dataset.finance);}
+ if(b.dataset.finance){e.stopPropagation();financeFailures.delete(b.dataset.finance);finance(b.dataset.finance);}
 });
 const nav=document.querySelector('.bottom-nav');
 nav?.addEventListener('click',e=>{if(e.target.closest('[data-tab="orders"]')&&!orders.length)load()});
