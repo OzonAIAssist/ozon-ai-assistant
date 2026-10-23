@@ -125,9 +125,21 @@ if(path.pathname==='/api/orders/delivery-diagnostic'){
    }
   }
   collect(item);
+  const eventPaths=[];
+  function scanEvents(obj,prefix='',depth=0){
+   if(!obj||typeof obj!=='object'||depth>3)return;
+   for(const [key,value] of Object.entries(obj)){
+    if(/customer|buyer|address|phone|recipient|product|financial|analytics/i.test(key))continue;
+    const name=prefix?prefix+'.'+key:key;
+    if(/history|events|status_history|status_changes|tracking/i.test(key))
+     eventPaths.push({path:name,type:Array.isArray(value)?'array':typeof value,count:Array.isArray(value)?value.length:null});
+    if(value&&typeof value==='object'&&!Array.isArray(value))scanEvents(value,name,depth+1);
+   }
+  }
+  scanEvents(item);
   const candidates=['delivered_at','delivered_date','delivery.delivered_at','status_changed_at','last_changed_status_date'];
   const confirmed=candidates.map(k=>({field:k,value:k.split('.').reduce((v,part)=>v?.[part],item)})).filter(x=>typeof x.value==='string'&&Number.isFinite(Date.parse(x.value)));
-  return reply(res,200,{read_only:true,posting_number:posting,status:String(item.status||''),date_fields:fields,confirmed_candidates:confirmed,diagnostic_note:'Поля показаны для диагностики. Дата вручения подтверждается только после проверки значения в Ozon Seller.'},ORIGIN);
+  return reply(res,200,{read_only:true,posting_number:posting,status:String(item.status||''),date_fields:fields,event_history_candidates:eventPaths,confirmed_candidates:confirmed,diagnostic_note:'Поля показаны для диагностики. Дата вручения подтверждается только после проверки значения в Ozon Seller.'},ORIGIN);
  }catch(e){return reply(res,e.status===429?429:502,{error:'Не удалось получить подробности FBS',upstream_status:e.status||null},ORIGIN)}
 }
 if(path.pathname==='/api/orders'){
@@ -146,11 +158,12 @@ if(path.pathname==='/api/orders'){
     const products=Array.isArray(x.products)?x.products.map(p=>({name:String(p.name||p.product_name||''),sku:String(p.sku??p.product_id??''),quantity:Number(p.quantity||1),price:p.price??null})):[];
     const status=String(x.status||x.status_alias||'');
     const deliveredStatus=['delivered','delivered_to_customer'].includes(status.toLowerCase());
-    // The date of the *current delivered status*, never in_process_at or shipment_date.
-    // status_changed_at is only used when the current status is delivered.
-    const deliveredAt=deliveredStatus?(x.delivered_at||x.delivery_date||x.delivered_date||x.delivery?.delivered_at||x.status_changed_at||null):null;
+    // Neither fact_delivery_date nor delivering_date is a reliable buyer handoff timestamp.
+    // A delivered status alone does not prove when the status transition happened.
+    // Until a verified event-history timestamp is available, leave delivery time unknown.
+    const deliveredAt=null;
     const substatus=String(x.substatus||x.sub_status||'');
-    orders.push({posting_number:String(x.posting_number||''),order_id:String(x.order_id??''),scheme:'FBS',status,substatus,delivered_at:deliveredAt,delivery_date_source:deliveredAt?(x.status_changed_at===deliveredAt?'fbs_status_changed_at':'fbs_list'):'not_provided',delivered:['delivered','delivered_to_customer'].includes(status.toLowerCase()),created_at:x.in_process_at||x.created_at||'',shipment_date:x.shipment_date||null,products,amount:null,financial_ready:false});
+    orders.push({posting_number:String(x.posting_number||''),order_id:String(x.order_id??''),scheme:'FBS',status,substatus,delivered_at:deliveredAt,delivery_date_source:'not_verified',delivered:['delivered','delivered_to_customer'].includes(status.toLowerCase()),created_at:x.in_process_at||x.created_at||'',shipment_date:x.shipment_date||null,products,amount:null,financial_ready:false});
    }
    if(!payload.has_next)break;
    const next=String(payload.cursor||'');
@@ -206,7 +219,7 @@ if(path.pathname==='/api/orders/finance'){
  if(!verified)try{
   const d=await ozon('/v3/posting/fbs/get',{posting_number:posting,with:{analytics_data:false,financial_data:false}});
   verified=['delivered','delivered_to_customer'].includes(String(d.result?.status||d.status||'').toLowerCase());
-  if(verified){const item=d.result||d;verifiedDeliveryDate=item.delivered_at||item.delivery_date||item.delivered_date||item.delivery?.delivered_at||item.status_changed_at||null;}
+  // Do not use ambiguous date fields from FBS detail as delivery confirmation.
   if(verified)deliveryVerificationCache.set(posting,Date.now()+30*60*1000);
  }catch(e){console.error('FBS delivery verification failed:',e.message);return reply(res,502,{error:'Не удалось проверить статус доставки через Ozon',diagnostic:{stage:'Проверка доставки FBS',code:Number.isInteger(e.status)?e.status:null,reason:'Проверка статуса не прошла. Финансовые данные не запрашивались.'}},ORIGIN)}
  if(!verified)return reply(res,409,{error:'Ozon не подтвердил статус «Доставлен»',diagnostic:{stage:'Проверка доставки FBS',reason:'Ответ Ozon не содержит подтверждённого статуса доставки'}},ORIGIN);

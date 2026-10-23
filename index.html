@@ -1347,7 +1347,7 @@ const detailedStatus=o=>{const st=String(o.status||'').toLowerCase(),sub=String(
  if(/courier|курьер/.test(sub))return 'У курьера';
  return ({awaiting_registration:'Ожидает регистрации',awaiting_packaging:'Ожидает сборки',awaiting_deliver:'Ожидает отправки',acceptance_in_progress:'На приёмке',sent_by_seller:'Передан в доставку',delivering:'В пути',last_mile:'На последнем этапе доставки',arbitration:'Уточнение статуса доставки'})[st]||statusName(o.status);
 };
-const dateGroup=o=>{const d=new Date(o.delivered_at);return o.delivered_at&&Number.isFinite(d.getTime())?moscowDay(d):'unknown'};
+const dateGroup=o=>{const d=new Date(o.delivery_date_source==='verified_status_event'?o.delivered_at:null);return o.delivered_at&&Number.isFinite(d.getTime())?moscowDay(d):'unknown'};
 const daysAgo=n=>{const d=new Date();d.setUTCDate(d.getUTCDate()-n);return moscowDay(d)};
 const deliveryLabel=key=>key==='unknown'?'Дата доставки не передана Ozon':key===daysAgo(0)?'Сегодня':key===daysAgo(1)?'Вчера':key===daysAgo(2)?'Позавчера':new Date(key+'T12:00:00Z').toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
 const shortDate=v=>{const d=new Date(v);return Number.isFinite(d.getTime())?d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'}):'Дата неизвестна'};
@@ -1373,7 +1373,7 @@ function draw(){
   }
  }
  panel.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('h57-selected',b.dataset.filter===filter));
- const shown=orders.filter(o=>filter==='delivered'?o.delivered&&(!o.delivered_at||(Number.isFinite(new Date(o.delivered_at).getTime())&&moscowDay(new Date(o.delivered_at)).startsWith(monthKey())) ):isActive(o));
+ const shown=orders.filter(o=>filter==='delivered'?o.delivered&&(!o.delivered_at||o.delivery_date_source!=='verified_status_event'||(Number.isFinite(new Date(o.delivered_at).getTime())&&moscowDay(new Date(o.delivered_at)).startsWith(monthKey())):isActive(o));
  if(filter==='delivered')shown.sort((a,b)=>String(b.delivered_at||'').localeCompare(String(a.delivered_at||'')));
  if(filter==='other')shown.sort((a,b)=>String(a.status||'').localeCompare(String(b.status||'')));
  const count=panel.querySelector('#h57count');if(count)count.textContent='Показано: '+shown.length+(filter==='delivered'?' · доставленные (дата уточняется)':' · активные отправления');
@@ -1410,7 +1410,7 @@ function draw(){
      o.delivered&&!finance?.loading&&!ops?'<p class="h75-finance-message">Финансы появятся автоматически после загрузки.</p>':'')+
     (o.delivered&&ops&&!ops.length?'<p class="h75-finance-message">Ozon пока не передал начисления по этому отправлению.</p>':'')+
     (o.delivered&&ops?.length&&!ops.some(x=>/эквайр|acquir/i.test(x.name||''))?'<p class="h75-finance-message">Эквайринг пока не найден в ответе API Ozon. Показанный остаток не включает неподтверждённое удержание.</p>':'');
-  return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'"><span class="h57-order-main"><span class="h57-order-meta"><em class="'+(o.delivered?'h57-done':'h57-pending')+'">'+esc(detailedStatus(o))+'</em><small>'+esc(o.delivered?(o.delivered_at?shortDate(o.delivered_at):'Дата доставки неизвестна'):shortDate(o.created_at))+'</small></span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((s,x)=>s+(Number(x.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><span class="h57-chevron">'+(open?'⌃':'⌄')+'</span></button>'+(open?'<div class="h50-body">'+items+'</div>':'')+'</article>';
+  return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'"><span class="h57-order-main"><span class="h57-order-meta"><em class="'+(o.delivered?'h57-done':'h57-pending')+'">'+esc(detailedStatus(o))+'</em><small>'+esc(o.delivered?(o.delivery_date_source==='verified_status_event'&&o.delivered_at?shortDate(o.delivered_at):'Дата доставки неизвестна'):shortDate(o.created_at))+'</small></span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((s,x)=>s+(Number(x.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><span class="h57-chevron">'+(open?'⌃':'⌄')+'</span></button>'+(open?'<div class="h50-body">'+items+'</div>':'')+'</article>';
  }):[];
  const cards=cardsByIndex.length?cardsByIndex.join(''):'<p class="h50-note">В выбранной категории отправлений нет.</p>';
  if(filter==='delivered'&&shown.length){let idx=0;list.innerHTML=shown.map(o=>{const key=dateGroup(o);const previous=idx?dateGroup(shown[idx-1]):null;const card=cardsByIndex[idx++];return (key!==previous?'<h4 class="h76-group">'+esc(deliveryLabel(key))+'</h4>':'')+card}).join('')}else list.innerHTML=cards;
@@ -1450,7 +1450,7 @@ async function finance(id){
   const r=await fetch(base+'/api/orders/finance?'+q,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(!r.ok){if(r.status===429){const seconds=Number(d.retry_after_seconds);financePauseUntil=Date.now()+((Number.isFinite(seconds)&&seconds>0)?seconds*1000:15*60*1000);try{localStorage.setItem(financePauseKey,String(financePauseUntil))}catch(_){}armFinanceRetry();}throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?.code?' · Код Ozon: '+d.diagnostic.code:'')+(d.diagnostic?.stage?' · Этап: '+d.diagnostic.stage:'')+(d.diagnostic?.reason?' · '+d.diagnostic.reason:''));}
   if(d.verified_delivery_at&&Number.isFinite(Date.parse(d.verified_delivery_at))){
-   o.delivered_at=d.verified_delivery_at;o.delivery_date_source='fbs_get';
+   // FBS detail dates are not proof of buyer handoff; never override delivery date.
  }
  const result={operations:d.operations||[],total_accrued:d.total_accrued,detailsOpen:previous.detailsOpen,loading:false,
   acquiring_detected:!!d.acquiring_detected,acquiring_lookup_complete:!!d.acquiring_lookup_complete};
