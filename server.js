@@ -140,10 +140,32 @@ if(path.pathname==='/api/orders'){
 }
 const financeCache=new Map();
 let financeCooldownUntil=0;
-const FINANCE_TTL=24*60*60*1000;
+// Financial accruals can arrive after delivery; do not freeze incomplete results for a day.
+const FINANCE_TTL=2*60*60*1000;
+const deliveryVerificationCache=new Map();
+let accrualTypesCache={expires:0,types:new Map(),available:false};
+let accrualTypesPending=null;
+async function getAccrualTypes(){
+ if(accrualTypesCache.expires>Date.now())return accrualTypesCache;
+ if(accrualTypesPending)return accrualTypesPending;
+ accrualTypesPending=(async()=>{
+  try{
+   const t=await ozon('/v1/finance/accrual/types',{});
+   if(!Array.isArray(t.accrual_types))throw Error('Unexpected accrual type response');
+   const types=new Map(t.accrual_types.filter(x=>x&&x.id!=null).map(x=>[String(x.id),String(x.description||x.name||x.type_name||x.title||'').slice(0,140)]));
+   accrualTypesCache={expires:Date.now()+6*60*60*1000,types,available:true};
+  }catch(e){
+   console.warn('Finance type dictionary unavailable:',e.status||e.message);
+   accrualTypesCache={expires:Date.now()+15*60*1000,types:new Map(),available:false};
+  }
+  return accrualTypesCache;
+ })();
+ try{return await accrualTypesPending}finally{accrualTypesPending=null}
+}
 if(path.pathname==='/api/orders/finance'){
  const posting=path.searchParams.get('posting_number')||'';
  const created=path.searchParams.get('created_at')||'';
+ const orderDate=/^\d{4}-\d{2}-\d{2}/.test(created)?Date.parse(created):NaN;
  const delivered=path.searchParams.get('delivered')==='true';
  if(!/^[a-zA-Z0-9-]{4,90}$/.test(posting))return reply(res,400,{error:'Неверный номер отправления'},ORIGIN);
  if(!delivered)return reply(res,409,{error:'Финансы доступны после доставки заказа'},ORIGIN);
@@ -151,10 +173,11 @@ if(path.pathname==='/api/orders/finance'){
  if(cached&&cached.expires>Date.now())return reply(res,200,{...cached.data,cached:true},ORIGIN);
  if(Date.now()<financeCooldownUntil)return reply(res,429,{error:'Ozon временно ограничил финансовые запросы',retry_after_seconds:Math.ceil((financeCooldownUntil-Date.now())/1000),diagnostic:{stage:'Ожидание после 429',code:429,reason:'Повторите после окончания паузы'}},ORIGIN);
  // Verify delivery independently on the server; do not trust the browser flag.
- let verified=false;
- try{
+ let verified=deliveryVerificationCache.get(posting)>Date.now();
+ if(!verified)try{
   const d=await ozon('/v3/posting/fbs/get',{posting_number:posting,with:{analytics_data:false,financial_data:false}});
   verified=['delivered','delivered_to_customer'].includes(String(d.result?.status||d.status||'').toLowerCase());
+  if(verified)deliveryVerificationCache.set(posting,Date.now()+30*60*1000);
  }catch(e){console.error('FBS delivery verification failed:',e.message);return reply(res,502,{error:'Не удалось проверить статус доставки через Ozon',diagnostic:{stage:'Проверка доставки FBS',code:Number.isInteger(e.status)?e.status:null,reason:'Проверка статуса не прошла. Финансовые данные не запрашивались.'}},ORIGIN)}
  if(!verified)return reply(res,409,{error:'Ozon не подтвердил статус «Доставлен»',diagnostic:{stage:'Проверка доставки FBS',reason:'Ответ Ozon не содержит подтверждённого статуса доставки'}},ORIGIN);
  // The accrual/postings API accepts shipment numbers, not date ranges.
@@ -167,14 +190,8 @@ if(path.pathname==='/api/orders/finance'){
   const raw=matched.flatMap(x=>Array.isArray(x.accruals)?x.accruals:[]);
   const baseRaw=basePosting!==posting?d.posting_accruals.filter(x=>String(x.posting_number||'')===basePosting).flatMap(x=>Array.isArray(x.accruals)?x.accruals:[]):[];
   // The type dictionary may be unavailable to this API key; raw type IDs still work.
-  let types=new Map(),types_available=false;
-  if(raw.length||baseRaw.length){try{
-   const t=await ozon('/v1/finance/accrual/types',{});
-   if(Array.isArray(t.accrual_types)){
-    types=new Map(t.accrual_types.filter(x=>x&&x.id!=null).map(x=>[String(x.id),String(x.description||x.name||'').slice(0,140)]));
-    types_available=true;
-   }
-  }catch(err){console.warn('Finance type dictionary unavailable:',err.status||'upstream error')}}
+  const typeInfo=(raw.length||baseRaw.length)?await getAccrualTypes():{types:new Map(),available:false};
+  const types=typeInfo.types,types_available=typeInfo.available;
   const amount=v=>{
    const rawValue=v&&typeof v==='object'?v.amount:v;
    if(rawValue===null||rawValue===undefined||rawValue==='')return null;
@@ -184,7 +201,17 @@ if(path.pathname==='/api/orders/finance'){
   // Only acquiring charges may be joined from the parent order number.
   // Never merge other parent-level operations, as they may belong to sibling postings.
   const isAcquiring=x=>/эквайр|acquir|payment[ ._-]*processing|card[ ._-]*processing|обработк[аи] платеж|оплат[аыу] карт|payment gateway|processing fee|комисси[яи] за (?:оплат|перевод)/i.test([types.get(String(x.type_id)),x.name,x.description,x.operation_type,x.operation_type_name].filter(Boolean).join(' '));
+  // Acquiring is often posted on the parent order ID on the purchase date,
+  // before shipment delivery. Use the creation date as a cross-check, never
+  // as the sole identifier (Ozon may book the charge later).
+  const nearOrderDate=x=>{
+   if(!Number.isFinite(orderDate))return null;
+   const date=Date.parse(String(x.accrual_date||x.date||x.created_at||''));
+   return Number.isFinite(date)?Math.abs(date-orderDate)<=14*86400000:null;
+  };
   const acquisition=baseRaw.filter(isAcquiring);
+  const acquiringDateMatches=acquisition.filter(x=>nearOrderDate(x)===true).length;
+  const acquiringDateUnknown=acquisition.filter(x=>nearOrderDate(x)===null).length;
   const normalized=[...raw.map(x=>({x,origin:posting})),...acquisition.map(x=>({x,origin:basePosting}))];
   const dedup=new Set();
   const lines=normalized.filter(({x,origin})=>{const key=JSON.stringify([origin,x.type_id,x.accrual_date,x.accrued,x.sku,x.quantity]);if(dedup.has(key))return false;dedup.add(key);return true}).map(({x,origin},i)=>{
@@ -199,9 +226,16 @@ if(path.pathname==='/api/orders/finance'){
   const complete=lines.every(x=>x.amount!==null&&x.currency==='RUB');
   const total=lines.length&&complete?Math.round(lines.reduce((sum,x)=>sum+x.amount,0)*100)/100:null;
   const result={read_only:true,posting_number:posting,source:'Ozon Seller API /v1/finance/accrual/postings',
-   operations:lines,total_accrued:total,types_available,acquiring_from_parent:acquisition.length,acquiring_detected:lines.some(x=>x.name==='Эквайринг'),acquiring_check:'Эквайринг показан только если отдельная операция явно идентифицирована в ответе Ozon; отсутствие строки не подтверждает отсутствие списания.',checked_at:new Date().toISOString(),finalized:false,
+   operations:lines,total_accrued:total,types_available,acquiring_from_parent:acquisition.length,
+   diagnostic:{matched_postings:matched.length,own_accruals:raw.length,parent_accruals:baseRaw.length,
+    parent_acquiring_identified:acquisition.length,parent_unidentified:baseRaw.length-acquisition.length,
+    order_created_at:created||null,acquiring_date_matches:acquiringDateMatches,
+    acquiring_date_unknown:acquiringDateUnknown,
+    acquiring_date_outside_window:acquisition.length-acquiringDateMatches-acquiringDateUnknown,
+    type_dictionary_available:types_available},
+   acquiring_detected:lines.some(x=>x.name==='Эквайринг'),acquiring_check:'Эквайринг проверяется по родительскому номеру заказа без суффикса отправления. Дата заказа используется для диагностики, но не исключает поздние начисления. Отсутствие строки не подтверждает отсутствие списания.',checked_at:new Date().toISOString(),finalized:false,
    note:lines.length?'Это сумма полученных начислений и удержаний, не прибыль. Ozon может обновить данные позже.':'Ozon пока не передал начисления по этому отправлению.'};
-  financeCache.set(cacheKey,{data:result,expires:Date.now()+FINANCE_TTL});
+  financeCache.set(cacheKey,{data:result,expires:Date.now()+(lines.length?FINANCE_TTL:10*60*1000)});
   return reply(res,200,result,ORIGIN);
  }catch(e){if(e.status===429)financeCooldownUntil=Date.now()+15*60*1000;console.error('Order finance accruals failed:',e.status||e.message);
   return reply(res,e.status===429?429:502,{retry_after_seconds:e.status===429?Math.ceil((financeCooldownUntil-Date.now())/1000):undefined,error:'Не удалось получить начисления Ozon',diagnostic:{stage:'Начисления по отправлению',code:Number.isInteger(e.status)?e.status:null,

@@ -1270,16 +1270,16 @@ const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50lis
 let days=35,orders=[],expanded=new Set(),finances=new Map(),request=0;
 let financeRun=0,financeQueueBusy=false,financePauseUntil=0,financeRetryTimer=null;
 const financeFailures=new Map();
-const financeCachePrefix='hogar_fbs_finance_v765_';
-const legacyFinancePrefixes=['hogar_fbs_finance_v764_','hogar_fbs_finance_v763_','hogar_fbs_finance_v76_','hogar_fbs_finance_v753_'];
-const financeCacheTTL=24*60*60*1000;
+const financeCachePrefix='hogar_fbs_finance_v767_';
+const legacyFinancePrefixes=['hogar_fbs_finance_v766_','hogar_fbs_finance_v765_','hogar_fbs_finance_v764_','hogar_fbs_finance_v763_','hogar_fbs_finance_v76_','hogar_fbs_finance_v753_'];
+const financeCacheTTL=2*60*60*1000;
 const financePauseKey='hogar_fbs_finance_pause_v753';
 try{financePauseUntil=Number(localStorage.getItem(financePauseKey))||0}catch(_){}
 function cacheKey(o){return financeCachePrefix+encodeURIComponent(String(o.posting_number))+'_'+String(o.created_at||'').slice(0,10)}
 function readCachedFinance(o){
  const suffix=encodeURIComponent(String(o.posting_number))+'_'+String(o.created_at||'').slice(0,10);
  let best=null;
- for(const prefix of [financeCachePrefix,...legacyFinancePrefixes]){
+ for(const prefix of [financeCachePrefix]){
   try{
    const saved=JSON.parse(localStorage.getItem(prefix+suffix)||'null');
    if(!saved||!Array.isArray(saved.operations)||!Number.isFinite(saved.at)||saved.at>Date.now())continue;
