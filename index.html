@@ -1302,7 +1302,7 @@ function draw(){
     ?[...bySku.values()].reduce((v,x)=>v+x.val*x.qty,0):null;
   const sale=orderSale!==null?orderSale:financeSale;
   const amounts=ops?ops.map(x=>x.amount):[];
-  const complete=ops&&ops.length&&amounts.every(x=>typeof x==='number'&&Number.isFinite(x));
+  const complete=!!(ops&&ops.length&&amounts.every(x=>typeof x==='number'&&Number.isFinite(x)));
   const expenses=complete?Math.round(amounts.filter(v=>v<0).reduce((a,v)=>a-v,0)*100)/100:null;
   const net=complete?Math.round(amounts.reduce((a,v)=>a+v,0)*100)/100:null;
   const remaining=sale!==null&&net!==null?Math.round((sale+net)*100)/100:null;
@@ -1317,7 +1317,7 @@ function draw(){
     (o.delivered&&finance?.error?'<div class="h75-finance-message">Не удалось загрузить финансы: '+esc(finance.error)+' <button type="button" data-finance="'+esc(id)+'">Повторить</button></div>':
      o.delivered&&!finance?.loading&&!ops?'<p class="h75-finance-message">Финансы появятся автоматически после загрузки.</p>':'')+
     (o.delivered&&ops&&!ops.length?'<p class="h75-finance-message">Ozon пока не передал начисления по этому отправлению.</p>':'');
-  return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'"><span class="h57-order-main"><span class="h57-order-meta"><em class="'+(o.delivered?'h57-done':'h57-pending')+'">'+esc(statusName(o.status))+'</em><small>'+esc(shortDate(o.created_at))+'</small></span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((s,x)=>s+(Number(x.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><span class="h57-chevron">'+(open?'⌃':'⌄')+'</span></button>'+(open?'<div class="h50-body">'+items+fin+'</div>':'')+'</article>';
+  return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'"><span class="h57-order-main"><span class="h57-order-meta"><em class="'+(o.delivered?'h57-done':'h57-pending')+'">'+esc(statusName(o.status))+'</em><small>'+esc(shortDate(o.created_at))+'</small></span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((s,x)=>s+(Number(x.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><span class="h57-chevron">'+(open?'⌃':'⌄')+'</span></button>'+(open?'<div class="h50-body">'+items+'</div>':'')+'</article>';
  }).join(''):'<p class="h50-note">В выбранной категории отправлений нет.</p>';
 }
 async function load(){
@@ -1329,7 +1329,7 @@ async function load(){
   const d=await r.json();if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?' · Код Ozon: '+(d.diagnostic.code||'неизвестен')+' · '+d.diagnostic.reason:''));
   if(seq!==request)return;panel.classList.remove('h63-api-error');orders=(d.orders||[]).filter(o=>days!==32||(o.created_at&&Number.isFinite(new Date(o.created_at).getTime())&&moscowDay(new Date(o.created_at)).startsWith(monthKey())));financeRun++;finances.clear();
   status.textContent='FBS · Загружено отправлений: '+orders.length+(d.partial?' · Достигнут лимит выгрузки, список может быть неполным':'');
-  draw();
+  draw();scheduleFinances();
   // Independent month-to-date request; period buttons only affect the order list and daily chart.
   monthOrders=null;monthError=false;draw();
   const elapsed=Number(moscowDay(new Date()).slice(8));
