@@ -132,38 +132,48 @@ if(path.pathname==='/api/orders/delivery-diagnostic'){
 }
 // Isolated read-only check of the last_changed_status_date filter.
 if(path.pathname==='/api/orders/status-date-check'){
- const tests=[
-  {posting:'28142819-0371-1',seller_time:'2026-10-23 09:48 МСК',windows:[
-   {name:'Вручение · 23 октября 09:48 МСК ±15 минут',from:'2026-10-23T06:33:00Z',to:'2026-10-23T07:03:00Z'},
-   {name:'Контроль · 23 октября 08:00–08:30 МСК',from:'2026-10-23T05:00:00Z',to:'2026-10-23T05:30:00Z'},
-   {name:'Весь день · 23 октября МСК',from:'2026-10-22T21:00:00Z',to:'2026-10-23T20:59:59Z'}
-  ]},
-  {posting:'13392387-1002-1',seller_time:'2026-10-22 13:21 МСК',windows:[
-   {name:'Вручение · 22 октября 13:21 МСК ±15 минут',from:'2026-10-22T10:06:00Z',to:'2026-10-22T10:36:00Z'},
-   {name:'Контроль · 22 октября 11:00–11:30 МСК',from:'2026-10-22T08:00:00Z',to:'2026-10-22T08:30:00Z'},
-   {name:'Весь день · 22 октября МСК',from:'2026-10-21T21:00:00Z',to:'2026-10-22T20:59:59Z'}
-  ]}
- ];
+ const posting='28142819-0371-1';
+ const sellerDelivery='2026-10-23 09:48 МСК';
  const results=[];
- for(const test of tests)for(const w of test.windows){
+ async function checkWindow(name,from,to){
   let cursor='',found=false,scanned=0,pages=0,hasMore=false,error=null;
   try{
    for(let i=0;i<10;i++){
-    const d=await ozon('/v4/posting/fbs/list',{filter:{since:'2026-10-19T00:00:00Z',to:'2026-10-24T00:00:00Z',status:['delivered'],last_changed_status_date:{from:w.from,to:w.to}},limit:100,cursor,sort_dir:'desc',with:{analytics_data:false,financial_data:false}});
+    const d=await ozon('/v4/posting/fbs/list',{filter:{since:'2026-10-19T00:00:00Z',to:'2026-10-25T00:00:00Z',status:['delivered'],last_changed_status_date:{from,to}},limit:100,cursor,sort_dir:'desc',with:{analytics_data:false,financial_data:false}});
     const payload=Array.isArray(d.postings)?d:(d.result&&typeof d.result==='object'?d.result:d);
     const items=Array.isArray(payload.postings)?payload.postings:null;
     if(!items)throw Object.assign(new Error('Unexpected FBS list format'),{status:502});
     pages++;scanned+=items.length;
-    if(items.some(x=>String(x.posting_number||'')===test.posting)){found=true;break;}
+    if(items.some(x=>String(x.posting_number||'')===posting)){found=true;break;}
     hasMore=!!payload.has_next;
     const next=String(payload.cursor||'');if(!hasMore||!next||next===cursor)break;
     cursor=next;
    }
   }catch(e){error={upstream_status:e.status||null,reason:e.status===400?'Ozon отклонил параметры фильтра':e.status===429?'Ozon ограничил частоту запросов':'Ошибка запроса Ozon'};}
-  results.push({posting_number:test.posting,ozon_seller_delivery:test.seller_time,window:w.name,from:w.from,to:w.to,found,scanned,pages,complete:!hasMore,error});
-  if(error)break;
+  const complete=!hasMore&&!error;
+  const row={window:name,from,to,found,scanned,pages,complete,error};results.push(row);
+  return row;
  }
- return reply(res,200,{read_only:true,postings:tests.map(t=>({posting_number:t.posting,ozon_seller_delivery:t.seller_time})),source:'/v4/posting/fbs/list · filter.last_changed_status_date',results,interpretation:'Совпадение в интервале — косвенное свидетельство времени последнего изменения статуса, не подтверждение вручения. При неполном просмотре отсутствие совпадения не является доказательством.',checked_at:new Date().toISOString()},ORIGIN);
+ // Calendar dates are Moscow local time (UTC+03:00).
+ let matchDay=null;
+ for(const day of ['21','22','23','24']){
+  const from=`2026-10-${day}T00:00:00+03:00`;
+  const to=`2026-10-${day}T23:59:59+03:00`;
+  const row=await checkWindow(`Весь день ${day} октября МСК`,new Date(from).toISOString(),new Date(to).toISOString());
+  if(row.found)matchDay=day;
+  if(row.error)break;
+ }
+ // If a date matched, narrow only that day into six-hour windows.
+ if(matchDay&&!results.some(x=>x.error)){
+  for(let hour=0;hour<24;hour+=6){
+   const from=new Date(`2026-10-${matchDay}T${String(hour).padStart(2,'0')}:00:00+03:00`).toISOString();
+   const to=new Date(`2026-10-${matchDay}T${String(hour+5).padStart(2,'0')}:59:59+03:00`).toISOString();
+   const row=await checkWindow(`${matchDay} октября, ${String(hour).padStart(2,'0')}:00–${String(hour+6).padStart(2,'0')}:00 МСК`,from,to);
+   if(row.error)break;
+  }
+ }
+ return reply(res,200,{read_only:true,posting_number:posting,ozon_seller_delivery:sellerDelivery,source:'/v4/posting/fbs/list · filter.last_changed_status_date',results,interpretation:'Найденный интервал относится к последнему изменению статуса, не обязательно ко времени вручения. Если ни один день не совпал, фильтр не подтверждает дату доставки.',checked_at:new Date().toISOString()},ORIGIN);
+
 }
 if(path.pathname==='/api/orders'){
  const days=Math.min(35,Math.max(1,Number(path.searchParams.get('days')||7)||7));
