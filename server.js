@@ -107,7 +107,7 @@ async function deliveryDatesFromReport(from,to){
   const code=created.result?.code;
   if(typeof code!=='string'||!code)throw new Error('Report code missing');
   let report;
-  for(let attempt=0;attempt<12;attempt++){
+  for(let attempt=0;attempt<60;attempt++){
    const info=await ozon('/v1/report/info',{code});report=info.result;
    if(report?.status==='success'||report?.status==='failed')break;
    await new Promise(resolve=>setTimeout(resolve,2000));
@@ -350,7 +350,9 @@ if(path.pathname==='/api/orders'){
      order.delivery_date_source=order.delivered_at?'seller_postings_report':'not_provided';
     }
     deliveryDatesStatus='ok';
-   }catch(_){
+   }catch(e){
+    const knownReasons=new Set(['Report code missing','Delivery report is not ready','Unexpected report file host','Report download failed','Report exceeds diagnostic size limit','Invalid CSV quoting','Delivery report columns missing']);
+    console.warn('Delivery dates unavailable:',Number.isInteger(e.status)?e.status:null,knownReasons.has(e.message)?e.message:'Upstream request failed');
     deliveryDatesStatus='unavailable';
     for(const order of unique){if(order.delivered){order.delivered_at=null;order.delivery_date_source='not_provided';}}
    }
