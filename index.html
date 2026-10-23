@@ -1264,7 +1264,7 @@ const base='https://ozon-ai-assistant-api.onrender.com';
 const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const fmt=(v,suffix='')=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ru-RU',{maximumFractionDigits:2})+suffix:'—';
 const panel=document.createElement('section');panel.id='h50';
-panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-sub">Ozon · Заказы FBS · Только просмотр</p></div><button id="h50refresh" type="button">↻ Обновить</button></div><div class="h57-info"><div id="h57bar"></div></div><div class="h77-diagnostic" style="margin:12px 0;padding:12px;border:1px solid #e8c9ad;border-radius:14px;background:#fff8f0"><button type="button" id="h77diagnose" style="padding:11px 14px;border:1px solid #dfb998;border-radius:11px;background:#fbe7d5;color:#77492e;font-weight:700">Проверить дату доставки</button><p style="font-size:12px;color:#926f58;margin:8px 0">Диагностика отправления № 31986539-0347-1 · только чтение</p><div id="h77diagbox" hidden><pre id="h77diagresult" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;background:#fff;padding:10px;border-radius:8px;border:1px solid #ead5c2;max-height:340px;overflow:auto"></pre><button type="button" id="h77copy" style="padding:9px 12px;background:#fbe7d5;color:#77492e;border:1px solid #dfb998;border-radius:9px">Скопировать результат</button></div></div><div class="h50-status" id="h50status">Для загрузки заказов нужен доступ к серверу.</div><div class="h50-grid" id="h50summary" hidden></div><h3 class="h50-section-title">Список заказов</h3><div class="h57-filters"><button type="button" data-filter="all">Все активные</button><button type="button" data-filter="delivered">Доставлено</button><button type="button" data-filter="other">В пути</button></div><p id="h57count" class="h50-note"></p><div id="h50list"></div><p class="h50-note">Финансовая детализация доступна только для доставленных отправлений. Суммы и операции Ozon могут обновляться после доставки. Это не расчёт чистой прибыли.</p>';
+panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-sub">Ozon · Заказы FBS · Только просмотр</p></div><button id="h50refresh" type="button">↻ Обновить</button></div><div class="h57-info"><div id="h57bar"></div></div><div class="h50-status" id="h50status">Для загрузки заказов нужен доступ к серверу.</div><div class="h50-grid" id="h50summary" hidden></div><h3 class="h50-section-title">Список заказов</h3><div class="h57-filters"><button type="button" data-filter="all">Все активные</button><button type="button" data-filter="delivered">Доставлено</button><button type="button" data-filter="other">В пути</button></div><p id="h57count" class="h50-note"></p><div id="h50list"></div><p class="h50-note">Финансовая детализация доступна только для доставленных отправлений. Суммы и операции Ozon могут обновляться после доставки. Это не расчёт чистой прибыли.</p>';
 host.prepend(panel);
 const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50list'),summary=panel.querySelector('#h50summary');
 let days=35,orders=[],expanded=new Set(),finances=new Map(),request=0;
@@ -1319,24 +1319,6 @@ function showOrdersAuth(){
  });
 }
 function hideOrdersAuth(){panel.querySelector('#h768auth')?.remove()}
-async function diagnoseDelivery(){
- const box=panel.querySelector('#h77diagbox'),out=panel.querySelector('#h77diagresult'),button=panel.querySelector('#h77diagnose');
- box.hidden=false;out.textContent='Проверяем ответ Ozon…';button.disabled=true;
- try{
-  const t=token();if(!t){out.textContent='Сначала укажи пароль доступа к серверу в разделе «Цены».';return}
-  const r=await fetch(base+'/api/orders/delivery-diagnostic?posting='+encodeURIComponent('31986539-0347-1'),{headers:{Authorization:'Bearer '+t},cache:'no-store'});
-  const d=await r.json();
-  if(r.status===401){showOrdersAuth();out.textContent='Ошибка 401: сервер не принял APP_ACCESS_TOKEN. Введи пароль в появившемся поле и повтори проверку.';return}
-  out.textContent=JSON.stringify(d,null,2);
- }catch(e){out.textContent='Ошибка проверки: '+(e?.message||String(e))}
- finally{button.disabled=false}
-}
-async function copyDeliveryDiagnostic(){
- const content=panel.querySelector('#h77diagresult')?.textContent||'';
- try{await navigator.clipboard.writeText(content);panel.querySelector('#h77copy').textContent='Скопировано ✓'}
- catch(_){const ta=document.createElement('textarea');ta.value=content;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');panel.querySelector('#h77copy').textContent='Скопировано ✓'}catch(_){panel.querySelector('#h77copy').textContent='Выдели текст выше и скопируй'}finally{ta.remove()}}
-}
-
 const row=(name,value)=>'<div class="h50-line"><span>'+esc(name)+'</span><b>'+esc(value)+'</b></div>';
 let filter='other';
 const statusName=s=>({'delivered':'Доставлен','delivered_to_customer':'Доставлен','delivering':'В пути','awaiting_deliver':'Ожидает отправки','awaiting_packaging':'Ожидает сборки','awaiting_registration':'Ожидает регистрации','acceptance_in_progress':'Приёмка','cancelled':'Отменён','arbitration':'Спорный'}[String(s||'').toLowerCase()]||'Статус: '+String(s||'неизвестен'));
@@ -1521,8 +1503,6 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&orders.le
 panel.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
  if(b.dataset.monthOther){monthOthersOpen=!monthOthersOpen;draw();return}
- if(b.id==='h77diagnose'){diagnoseDelivery();return}
- if(b.id==='h77copy'){copyDeliveryDiagnostic();return}
  if(b.id==='h50refresh')load();
  if(b.dataset.filter){filter=b.dataset.filter;draw();scheduleFinances();return}
 
