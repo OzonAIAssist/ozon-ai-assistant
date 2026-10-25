@@ -40,3 +40,7 @@ DOM-тест: npm install --no-save --package-lock=false jsdom@30.1.3; node acqu
 https://dev.ozon.ru/community/2348-Ne-poluchit-ekvairing-cherez-v1-finance-accrual-postings/
 https://dev.ozon.ru/community/843-Metod-v3-finance-transaction-list/
 https://dev.ozon.ru/community/1698-Voznikaet-EXEMPLAR-INFO-NOT-FILLED-COMPLETELY-pri-pustom-requiremets-pri-ship/
+
+## Дополнение после развёртывания 68b04bc
+
+Backend и интерфейс 68b04bc запущены. Живую проверку финансов временно блокирует сохранённая пауза после ответа Ozon 429. В интерфейсе добавлено явное сообщение о времени возобновления проверки по Москве; пауза не сбрасывается и лишние запросы не отправляются. Проверка суммы на живом отправлении пока не завершена.
