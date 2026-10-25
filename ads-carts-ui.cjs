@@ -1,6 +1,6 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {JSDOM,VirtualConsole}=require('jsdom');
-const root=__dirname,html=fs.readFileSync(path.join(root,'index.html'),'utf8').replace(/<script src="([^"]+)"><\/script>/g,(_,name)=>'<script>'+fs.readFileSync(path.join(root,name),'utf8')+'</script>');
+const root=__dirname,html=fs.readFileSync(path.join(root,'index.html'),'utf8').replace(/<script src="([^"]+)"><\/script>/g,(_,name)=>'<script>'+fs.readFileSync(path.join(root,name.split('?')[0]),'utf8')+'</script>');
 const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>{if(!/Not implemented/.test(e.message))errors.push(e.message)});
 const calls=[],storage=new Map([['hogar_fbs_finance_v770_sentinel','unchanged']]);
 const campaigns=['11','22','33'].map(id=>({id,name:'Fixture '+id,status:'CAMPAIGN_STATE_RUNNING'}));
@@ -14,3 +14,4 @@ const tick=()=>new Promise(r=>setTimeout(r,25));
 (async()=>{await tick();const d=dom.window.document;d.querySelector('#h44refresh').click();await tick();const cards=d.querySelectorAll('#h44list article');assert.equal(cards.length,3);assert.match(cards[0].textContent,/Корзины7/);assert.match(cards[1].textContent,/Корзины0/);assert.match(cards[2].textContent,/Корзины—/);assert.match(d.querySelector('#h68reportnotes').textContent,/2 из 3/);cards[0].querySelector('button[data-id]').click();assert.match(d.querySelector('#h44list').textContent,/Конверсия клика в корзину70%/);
  for(const p of ['today','yesterday','week','month']){d.querySelector('#h44 [data-period="'+p+'"]').click();await tick();}
  unavailable=true;d.querySelector('#h44refresh').click();await tick();assert.match(d.querySelector('#h52diag').textContent,/Отчёт корзин временно недоступен \(HTTP 429\)/);assert.match(d.querySelector('#h44list').textContent,/Расходы20/);assert.equal(storage.get('hogar_fbs_finance_v770_sentinel'),'unchanged');assert.ok(calls.every(c=>c.method==='GET'));assert.equal(errors.length,0,errors.join('\n'));console.log('PASS: campaign carts, real zero vs missing, partial coverage, detail conversion, all four periods, optional 429, finance cache untouched, GET only');dom.window.close();})().catch(e=>{console.error(e);dom.window.close();process.exit(1)});
+

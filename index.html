@@ -1282,7 +1282,7 @@ const panel=document.createElement('section');panel.id='h50';
 panel.innerHTML='<div class="h50-head"><div><h2>Заказы</h2><p class="h50-sub">Ozon · Заказы FBS · Только просмотр</p></div><button id="h50refresh" type="button">↻ Обновить</button></div><div class="h57-info"><div id="h57bar"></div></div><div class="h50-status" id="h50status">Для загрузки заказов нужен доступ к серверу.</div><p class="h50-note" id="hAcquiringState" role="status" hidden></p><div class="h50-grid" id="h50summary" hidden></div><h3 class="h50-section-title">Список заказов</h3><div class="h57-filters"><button type="button" data-filter="all">Все активные</button><button type="button" data-filter="delivered">Доставлено</button><button type="button" data-filter="other">В пути</button></div><p id="h57count" class="h50-note"></p><div id="h50list"></div><p class="h50-note">Финансовая детализация доступна только для доставленных отправлений. Суммы и операции Ozon могут обновляться после доставки. Это не расчёт чистой прибыли.</p>';
 host.prepend(panel);
 const status=panel.querySelector('#h50status'),list=panel.querySelector('#h50list'),summary=panel.querySelector('#h50summary');
-let days=35,orders=[],expanded=new Set(),finances=new Map(),request=0;
+let days=35,orders=[],expanded=new Set(),finances=new Map(),request=0;let orderDataLoaded=false;
 let financeRun=0,financeQueueBusy=false,financePauseUntil=0,financeRetryTimer=null;
 const financeFailures=new Map();
 const financeCachePrefix='hogar_fbs_finance_permanent_v1_';
@@ -1370,12 +1370,14 @@ function draw(){
  const inRange=d=>d&&d>=range.from&&d<=range.to;
  const relevant=orders.filter(o=>inRange(orderDay(o))),done=relevant.filter(o=>o.delivered).length,transit=relevant.filter(isActive).length,cancelled=relevant.filter(o=>String(o.status).toLowerCase()==='cancelled').length;
  const total=relevant.length,tiles=[['Всего заказов',total,'По датам списка'],['Доставлено',done,'По дате доставки'],['В пути',transit,'Созданы за период'],['Отмены',cancelled,'Созданы за период']];
- if(bar)bar.innerHTML='<div class="h90-order-summary">'+tiles.map(([label,n,note],i)=>'<div class="h90-stat h90-tone-'+i+'"><span>'+label+'</span><strong>'+n+'</strong><small>'+note+'</small></div>').join('')+'</div><div class="h90-order-periods">'+[['today','Сегодня'],['yesterday','Вчера'],['week','7 дней'],['month','Этот месяц']].map(([id,label])=>'<button type="button" data-order-period="'+id+'" aria-pressed="'+(!customOrderRange&&orderPeriod===id)+'">'+label+'</button>').join('')+'</div><details class="h90-custom-range"><summary>Выбрать период · '+esc(range.from)+' — '+esc(range.to)+'</summary><label>С <input type="date" data-order-date="from" value="'+esc(range.from)+'"></label><label>По <input type="date" data-order-date="to" value="'+esc(range.to)+'"></label><small>Доступна полученная выгрузка FBS за 35 дней. Старые доставки могут отсутствовать.</small></details><div class="h90-status-overview"><b>Статусы заказов</b><span>Всего: '+total+'</span><div class="h90-status-bar"><i style="width:'+(total?100*done/total:0)+'%"></i><i style="width:'+(total?100*transit/total:0)+'%"></i><i style="width:'+(total?100*cancelled/total:0)+'%"></i></div><small>Доставлено '+done+' · В пути '+transit+' · Отмены '+cancelled+(total-done-transit-cancelled?' · Другие '+(total-done-transit-cancelled):'')+'</small></div>';
- const filters=panel.querySelector('.h57-filters');filters.innerHTML=[['all','Все заказы',total],['delivered','Доставлено',done],['other','В пути',transit],['cancelled','Отмены',cancelled]].map(([id,label,n])=>'<button type="button" data-filter="'+id+'" class="'+(filter===id?'h57-selected':'')+'">'+label+' ('+n+')</button>').join('');
+ if(bar)bar.innerHTML='<div class="h90-order-summary">'+tiles.map(([label,n,note],i)=>'<div class="h90-stat h90-tone-'+i+'"><span>'+label+'</span><strong>'+(orderDataLoaded?n:'—')+'</strong><small>'+note+'</small></div>').join('')+'</div><div class="h90-order-periods">'+[['today','Сегодня'],['yesterday','Вчера'],['week','7 дней'],['month','Этот месяц']].map(([id,label])=>'<button type="button" data-order-period="'+id+'" aria-pressed="'+(!customOrderRange&&orderPeriod===id)+'">'+label+'</button>').join('')+'</div><details class="h90-custom-range"><summary>Выбрать период · '+esc(range.from)+' — '+esc(range.to)+'</summary><label>С <input type="date" data-order-date="from" value="'+esc(range.from)+'"></label><label>По <input type="date" data-order-date="to" value="'+esc(range.to)+'"></label><small>Доступна полученная выгрузка FBS за 35 дней. Старые доставки могут отсутствовать.</small></details><div class="h90-status-overview"><b>Статусы заказов</b><span>Всего: '+(orderDataLoaded?total:'—')+'</span><div class="h90-status-bar"><i style="width:'+(total?100*done/total:0)+'%"></i><i style="width:'+(total?100*transit/total:0)+'%"></i><i style="width:'+(total?100*cancelled/total:0)+'%"></i></div><small>Доставлено '+(orderDataLoaded?done:'—')+' · В пути '+(orderDataLoaded?transit:'—')+' · Отмены '+(orderDataLoaded?cancelled:'—')+(total-done-transit-cancelled?' · Другие '+(total-done-transit-cancelled):'')+'</small></div>';
+ const filters=panel.querySelector('.h57-filters');filters.innerHTML=[['all','Все заказы',total],['delivered','Доставлено',done],['other','В пути',transit],['cancelled','Отмены',cancelled]].map(([id,label,n])=>'<button type="button" data-filter="'+id+'" class="'+(filter===id?'h57-selected':'')+'">'+label+' ('+(orderDataLoaded?n:'—')+')</button>').join('');
  const q=orderQuery.trim().toLowerCase();
- const shown=relevant.filter(o=>(filter==='all'||filter==='delivered'&&o.delivered||filter==='other'&&isActive(o)||filter==='cancelled'&&String(o.status).toLowerCase()==='cancelled')&&(!q||[o.posting_number,...(o.products||[]).flatMap(p=>[p.name,p.offer_id,p.sku])].join(' ').toLowerCase().includes(q)));
+ const unknownDeliveries=orders.filter(o=>o.delivered&&!orderDay(o));
+ const listing=(filter==='all'||filter==='delivered')?relevant.concat(unknownDeliveries):relevant;
+ const shown=listing.filter(o=>(filter==='all'||filter==='delivered'&&o.delivered||filter==='other'&&isActive(o)||filter==='cancelled'&&String(o.status).toLowerCase()==='cancelled')&&(!q||[o.posting_number,...(o.products||[]).flatMap(p=>[p.name,p.offer_id,p.sku])].join(' ').toLowerCase().includes(q)));
  shown.sort((a,b)=>(orderAscending?1:-1)*String(orderDay(a)).localeCompare(String(orderDay(b)))||(orderAscending?1:-1)*String(a.delivered?a.delivered_at:a.created_at).localeCompare(String(b.delivered?b.delivered_at:b.created_at)));
- const count=panel.querySelector('#h57count');if(count)count.textContent='Показано: '+shown.length+' · даты по Москве';
+ const count=panel.querySelector('#h57count');if(count)count.textContent='Показано: '+shown.length+' · даты по Москве'+(unknownDeliveries.length?' · У '+unknownDeliveries.length+' доставок дата не подтверждена: они показаны отдельно и не включены в сводку периода.':'');
  const oldModal=panel.querySelector('.h90-order-dialog'),modalScroll=oldModal?.scrollTop||0;
  const cardsByIndex=shown.length?shown.map(o=>{
   const id=String(o.posting_number),open=expanded.has(id),finance=finances.get(id),p=o.products?.[0]||{};
@@ -1429,7 +1431,7 @@ async function load(){
   const requestDays=35;
   const r=await fetch(base+'/api/orders?days='+requestDays,{headers:{Authorization:'Bearer '+t},cache:'no-store'});
   const d=await r.json();if(r.status===401){showOrdersAuth();throw Error('Сервер приложения вернул 401: неверный или устаревший APP_ACCESS_TOKEN (это не ошибка ключа Ozon).')}if(!r.ok)throw Error((d.error||'HTTP '+r.status)+(d.diagnostic?' · Код Ozon: '+(d.diagnostic.code||'неизвестен')+' · '+d.diagnostic.reason:''));
-  if(seq!==request)return;hideOrdersAuth();panel.classList.remove('h63-api-error');orders=(d.orders||[]);financeRun++;
+  if(seq!==request)return;hideOrdersAuth();panel.classList.remove('h63-api-error');orders=(d.orders||[]);orderDataLoaded=true;financeRun++;
   const currentIds=new Set(orders.map(o=>String(o.posting_number)));
   // Keep previously loaded finance for orders outside the current listing.
   for(const o of orders){if(o.delivered){const id=String(o.posting_number);const existing=finances.get(id);if(existing?.operations)continue;const cached=readCachedFinance(o);if(cached)finances.set(id,{...cached,detailsOpen:!!existing?.detailsOpen});}}
@@ -2037,9 +2039,9 @@ const orders=document.getElementById('h50');if(orders){
 <link rel="stylesheet" href="hogar-catalog.css">
 <script src="product-analytics.js"></script>
 <link rel="stylesheet" href="hogar-home.css">
-<script src="dashboard-model.js"></script>
-<script src="hogar-home.js"></script>
-<script src="hogar-catalog.js"></script>
+<script src="dashboard-model.js?v=20261025r3"></script>
+<script src="hogar-home.js?v=20261025r3"></script>
+<script src="hogar-catalog.js?v=20261025r3"></script>
 <style id="hogar-compact-header-alignment">
 /* Compact brand bars and consistent text geometry across all seven tabs. */
 body > header{padding:10px 16px!important;min-height:64px!important;box-shadow:none!important}
@@ -2157,6 +2159,6 @@ body #hd-brand button.hd-header-safe{color:#bfe6c2!important;background:#3d66354
  #premium22 .p23-status{font-size:9px!important;line-height:1.3;padding:3px 6px;margin-top:4px}
 }
 </style>
-<link rel="stylesheet" href="hogar-reference.css">
+<link rel="stylesheet" href="hogar-reference.css?v=20261025r3">
 </body></html>
 
