@@ -1041,7 +1041,9 @@ function summaryDraw(){
  const warnings=[];
  if(data.length<ids.length)warnings.push('Покрытие '+data.length+' из '+ids.length+' кампаний: итог может быть неполным (часть кампаний могла не иметь активности).');
  if(orders!==null&&revenue!==null&&orders>0&&revenue/orders>50000)warnings.push('Средняя сумма на заказ '+formatMetric(revenue/orders,' ₽')+': проверьте её в кабинете Ozon. Это показатель рекламного отчёта, не подтверждённая выплата.');
- if(carts===null)warnings.push('Дневной отчёт Ozon не содержит поля корзин. Для него нужен отдельный подтверждённый источник.');
+ const knownCarts=data.filter(d=>typeof d.carts==='number').length;
+ if(carts===null)warnings.push('Ozon пока не передал число корзин за выбранный период. Прочерк не означает ноль.');
+ else if(knownCarts<ids.length)warnings.push('Корзины получены для '+knownCarts+' из '+ids.length+' кампаний; сумма может быть неполной.');
  summary.innerHTML='<div class="h47-summary-title">Итоги по всем кампаниям <small>· Данные: '+data.length+' из '+ids.length+' кампаний</small></div><div class="h47-summary-grid">'+fields.map(([label,value,suffix])=>'<div><span>'+label+'</span><b>'+formatMetric(value,suffix)+'</b></div>').join('')+'</div>';
  const details=document.getElementById('h68reportnotes');
  if(details)details.innerHTML='<p>Сумма по кампаниям, по которым Ozon передал статистику за выбранный период. Заказы и их сумма — рекламная атрибуция, не все продажи магазина. Прочерк — нет данных.</p>'+(warnings.length?'<p>'+warnings.map(esc).join('<br>')+'</p>':'');
@@ -1055,11 +1057,14 @@ async function loadStatistics(){const t=token();if(!t||!campaigns.length)return;
  const diag=document.getElementById('h52diag');
  if(diag){const x=d.diagnostic||{};diag.textContent=d.parsed_count===0?'Диагностика (без секретов): строк '+(x.rows_count??'?')+'; поля ответа: '+(x.top_level_keys||[]).join(', ')+'; поля строки: '+(x.row_field_names||[]).join(', ')+'; найдено ID: '+(x.campaign_id_field_present?'да':'нет'):'';
  const missing=x.missing_metrics||{};
+ const cartReport=x.carts_report;
  if(d.parsed_count>0&&(missing.carts||missing.orders||missing.revenue)){
   const names=[missing.carts?'корзины':null,missing.orders?'заказы':null,missing.revenue?'сумма заказов':null].filter(Boolean);
   diag.textContent='Ozon не передал распознанные поля: '+names.join(', ')+'. Поля строки ответа (только названия): '+(x.row_field_names||[]).join(', ');
   diag.hidden=false;
- }else diag.hidden=d.parsed_count!==0;}
+ }else diag.hidden=d.parsed_count!==0;
+ if(cartReport?.status==='unavailable'){diag.textContent+=(diag.textContent?' · ':'')+'Отчёт корзин временно недоступен'+(cartReport.upstream_status?' (HTTP '+cartReport.upstream_status+')':'')+'. Остальная статистика сохранена.';diag.hidden=false;}
+ }
  draw()}
  catch(e){if(serial!==statsRequest)return;statsStatus.textContent='Не удалось обновить статистику: '+e.message+' · сохранённые цифры остаются на экране';draw()}}
 

@@ -1,0 +1,16 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const {JSDOM,VirtualConsole}=require('jsdom');
+const root=__dirname,html=fs.readFileSync(path.join(root,'index.html'),'utf8').replace(/<script src="([^"]+)"><\/script>/g,(_,name)=>'<script>'+fs.readFileSync(path.join(root,name),'utf8')+'</script>');
+const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>{if(!/Not implemented/.test(e.message))errors.push(e.message)});
+const calls=[],storage=new Map([['hogar_fbs_finance_v770_sentinel','unchanged']]);
+const campaigns=['11','22','33'].map(id=>({id,name:'Fixture '+id,status:'CAMPAIGN_STATE_RUNNING'}));
+const rows=[{id:'11',carts:7,cart_rate:70,spend:20,clicks:10,impressions:100,orders:3,revenue:75},{id:'22',carts:0,spend:0,clicks:0},{id:'33',carts:null,spend:2,clicks:1}];
+let unavailable=false;
+const dom=new JSDOM(html,{url:'https://ozon-ai-assistant.onrender.com/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){
+ Object.defineProperty(w,'localStorage',{value:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,String(v)),removeItem:k=>storage.delete(k)}});w.sessionStorage.setItem('hogar_session_access_v44','fixture-not-secret');w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.HTMLCanvasElement.prototype.getContext=()=>({clearRect(){},fillRect(){},fillText(){}});
+ w.fetch=async(url,opts={})=>{calls.push({url:String(url),method:opts.method||'GET'});const u=new URL(url);const data=u.pathname.endsWith('/campaigns')?{campaigns,checked_at:new Date().toISOString()}:{rows:unavailable?rows.map(r=>({...r,carts:null})):rows,parsed_count:3,checked_at:new Date().toISOString(),diagnostic:{missing_metrics:{carts:unavailable},carts_report:{status:unavailable?'unavailable':'ok',upstream_status:unavailable?429:undefined}}};return {ok:true,status:200,json:async()=>data};};
+}});
+const tick=()=>new Promise(r=>setTimeout(r,25));
+(async()=>{await tick();const d=dom.window.document;d.querySelector('#h44refresh').click();await tick();const cards=d.querySelectorAll('#h44list article');assert.equal(cards.length,3);assert.match(cards[0].textContent,/Корзины7/);assert.match(cards[1].textContent,/Корзины0/);assert.match(cards[2].textContent,/Корзины—/);assert.match(d.querySelector('#h68reportnotes').textContent,/2 из 3/);cards[0].querySelector('button[data-id]').click();assert.match(d.querySelector('#h44list').textContent,/Конверсия клика в корзину70%/);
+ for(const p of ['today','yesterday','week','month']){d.querySelector('#h44 [data-period="'+p+'"]').click();await tick();}
+ unavailable=true;d.querySelector('#h44refresh').click();await tick();assert.match(d.querySelector('#h52diag').textContent,/Отчёт корзин временно недоступен \(HTTP 429\)/);assert.match(d.querySelector('#h44list').textContent,/Расходы20/);assert.equal(storage.get('hogar_fbs_finance_v770_sentinel'),'unchanged');assert.ok(calls.every(c=>c.method==='GET'));assert.equal(errors.length,0,errors.join('\n'));console.log('PASS: campaign carts, real zero vs missing, partial coverage, detail conversion, all four periods, optional 429, finance cache untouched, GET only');dom.window.close();})().catch(e=>{console.error(e);dom.window.close();process.exit(1)});

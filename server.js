@@ -23,10 +23,43 @@ async function priceDiagnostic(offerId){const data=await ozon('/v5/product/info/
 let cachedToken='',tokenExpiry=0;
 async function performanceToken(){if(cachedToken&&Date.now()<tokenExpiry-60000)return cachedToken;if(!PERF_ID||!PERF_SECRET)throw new Error('Performance API credentials are not configured');const data=await fetchJSON(PERFORMANCE_BASE+'/api/client/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:PERF_ID,client_secret:PERF_SECRET,grant_type:'client_credentials'})});if(!data.access_token)throw new Error('Performance token missing in response');cachedToken=data.access_token;tokenExpiry=Date.now()+Math.max(120,Number(data.expires_in)||1800)*1000;return cachedToken;}
 async function performanceCampaigns(){let token=await performanceToken();const all=[];const ids=new Set();for(let page=1;page<=30;page++){const url=PERFORMANCE_BASE+'/api/client/campaign?page='+page+'&pageSize=100';let data;for(let attempt=0;attempt<2;attempt++){try{data=await fetchJSON(url,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});break;}catch(e){if(e.status!==401||attempt===1)throw e;cachedToken='';token=await performanceToken();}}const list=Array.isArray(data.list)?data.list:(Array.isArray(data.campaigns)?data.campaigns:[]);for(const c of list){const id=String(c.id??'');if(!id||ids.has(id))continue;ids.add(id);all.push({id,name:String(c.title||c.name||''),status:String(c.state||''),type:String(c.advObjectType||''),payment_type:String(c.paymentType||''),autopilot_in_ozon:String(c.productAutopilotStrategy||'')});}if(list.length<100)break;if(page===30)throw new Error('Campaign page limit reached');}return all;}
+// Campaign-period totals contain add-to-cart counts; daily rows do not promise them.
+async function performanceGet(path,query){
+ let token=await performanceToken();
+ for(let attempt=0;attempt<2;attempt++){
+  try{return await fetchJSON(PERFORMANCE_BASE+path+'?'+query,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});}
+  catch(e){if(e.status!==401||attempt===1)throw e;cachedToken='';token=await performanceToken();}
+ }
+}
+function performanceRows(data){
+ return Array.isArray(data)?data:[data?.rows,data?.data,data?.result?.rows,data?.result?.data,data?.result].find(Array.isArray)||[];
+}
+function campaignCartTotals(data){
+ const rows=performanceRows(data),totals=new Map(),duplicates=new Set();
+ const fields=['addToCart','add_to_cart','addToCartCount','add_to_cart_count','cartAdds','cart_adds','addedToCart','cartCount','carts','addToCartQuantity','addToCartTotal','add_to_cart_total','cartAddsCount','toCart'];
+ for(const row of rows){
+  if(!row||typeof row!=='object')continue;
+  const id=String(row.campaignId??row.campaign_id??row.id??row.campaign?.id??'');
+  if(!/^\d+$/.test(id))continue;
+  // This endpoint returns period totals per campaign, not daily or SKU rows.
+  // Never add a repeated campaign total twice or guess which duplicate is right.
+  if(totals.has(id)||duplicates.has(id)){totals.delete(id);duplicates.add(id);continue;}
+  let carts=null;
+  for(const field of fields){
+   const raw=row[field];
+   if((typeof raw!=='number'&&typeof raw!=='string')||String(raw).trim()==='')continue;
+   const value=Number(String(raw).replace(/\s/g,'').replace(',','.'));
+   if(Number.isSafeInteger(value)&&value>=0){carts=value;break;}
+  }
+  totals.set(id,carts);
+ }
+ const names=x=>x&&typeof x==='object'&&!Array.isArray(x)?Object.keys(x).filter(k=>/^[a-zA-Z_][a-zA-Z_0-9]{0,39}$/.test(k)).slice(0,24):[];
+ return {totals,rows:rows.length,duplicates:duplicates.size,top_level_keys:names(data),row_field_names:rows.length?names(rows[0]):[]};
+}
 async function performanceDaily(from,to){
- let token=await performanceToken();const qs=new URLSearchParams({dateFrom:from,dateTo:to});
- let data;for(let attempt=0;attempt<2;attempt++){try{data=await fetchJSON(PERFORMANCE_BASE+'/api/client/statistics/daily/json?'+qs,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});break;}catch(e){if(e.status!==401||attempt===1)throw e;cachedToken='';token=await performanceToken();}}
- const rows=Array.isArray(data)?data:[data?.rows,data?.data,data?.result?.rows,data?.result?.data,data?.result].find(Array.isArray)||[];
+ const qs=new URLSearchParams({dateFrom:from,dateTo:to});
+ const data=await performanceGet('/api/client/statistics/daily/json',qs);
+ const rows=performanceRows(data);
  const shapeOf=x=>x&&typeof x==='object'&&!Array.isArray(x)?Object.keys(x).filter(k=>/^[a-zA-Z_][a-zA-Z_0-9]{0,39}$/.test(k)).slice(0,24):[];
  const diagnostic={response_type:Array.isArray(data)?'array':typeof data,
   top_level_keys:shapeOf(data),rows_count:rows.length,
@@ -58,6 +91,20 @@ async function performanceDaily(from,to){
    if(value!==null){old.sums[field]=(old.sums[field]||0)+value;old.seen[field]=true}
   }
   groups.set(id,old);
+ }
+ // Join only carts by campaign ID and the exact same date bounds.
+ // Do not mix the other campaign totals into the existing daily sums.
+ try{
+  const report=campaignCartTotals(await performanceGet('/api/client/statistics/campaign/product/json',qs));
+  for(const [id,carts] of report.totals){
+   if(carts===null)continue;
+   const group=groups.get(id)||{id,sums:{},seen:{}};
+   group.sums.carts=carts;group.seen.carts=true;groups.set(id,group);
+  }
+  diagnostic.carts_report={status:'ok',source:'/api/client/statistics/campaign/product/json',rows_count:report.rows,top_level_keys:report.top_level_keys,row_field_names:report.row_field_names,duplicate_campaigns:report.duplicates,campaigns_with_carts:[...report.totals.values()].filter(x=>x!==null).length};
+ }catch(e){
+  // Optional enrichment must not hide otherwise valid spend, clicks and orders.
+  diagnostic.carts_report={status:'unavailable',source:'/api/client/statistics/campaign/product/json',upstream_status:Number.isInteger(e.status)?e.status:null};
  }
  diagnostic.missing_metrics={
   carts:![...groups.values()].some(g=>g.seen.carts),
