@@ -1293,14 +1293,14 @@ function readCachedFinance(o){
   }catch(_){}
  }
  if(!best)return null;
- const result={operations:best.operations,total_accrued:best.total_accrued,loading:false,detailsOpen:false,cachedAt:best.at,stale:Date.now()-best.at>financeCacheTTL};
+ const result={operations:best.operations,total_accrued:best.total_accrued,loading:false,detailsOpen:false,cachedAt:best.at,acquiring_version:best.acquiring_version||0,acquiring_detected:!!best.acquiring_detected,acquiring_lookup_complete:!!best.acquiring_lookup_complete,acquiring_lookup_status:best.acquiring_lookup_status||'not_checked',acquiring_unallocated:best.acquiring_unallocated||0,acquiring_overlap:best.acquiring_overlap||0,stale:Date.now()-best.at>financeCacheTTL||best.acquiring_version!==2||(!best.acquiring_detected&&Date.now()-best.at>10*60*1000)};
  // Migrate without changing the timestamp, so stale data do not live forever.
  try{localStorage.setItem(cacheKey(o),JSON.stringify(best))}catch(_){}
  return result;
 }
 function saveCachedFinance(o,data){
  if(!Array.isArray(data.operations)||!data.operations.length)return;
- try{localStorage.setItem(cacheKey(o),JSON.stringify({at:Date.now(),operations:data.operations,total_accrued:data.total_accrued}))}catch(_){}
+ try{localStorage.setItem(cacheKey(o),JSON.stringify({at:Date.now(),operations:data.operations,total_accrued:data.total_accrued,acquiring_version:data.acquiring_version,acquiring_detected:data.acquiring_detected,acquiring_lookup_complete:data.acquiring_lookup_complete,acquiring_lookup_status:data.acquiring_lookup_status,acquiring_unallocated:data.acquiring_unallocated,acquiring_overlap:data.acquiring_overlap}))}catch(_){}
 }
 let monthOrders=null,monthPartial=false,monthError=false,monthOthersOpen=false;
 const moscowDay=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
@@ -1385,19 +1385,22 @@ function draw(){
   const expenses=complete?Math.round(amounts.filter(v=>v<0).reduce((a,v)=>a-v,0)*100)/100:null;
   const net=complete?Math.round(amounts.reduce((a,v)=>a+v,0)*100)/100:null;
   const remaining=sale!==null&&net!==null?Math.round((sale+net)*100)/100:null;
+  const acquiringOps=ops?ops.filter(x=>x.is_acquiring||/эквайр|acquir/i.test(x.name||'')):[];
+  const acquiringSum=acquiringOps.length&&acquiringOps.every(x=>typeof x.amount==='number'&&Number.isFinite(x.amount))?(Math.round(-acquiringOps.reduce((v,x)=>v+x.amount,0)*100)/100||0):null;
   const pending=finance?.loading?'Загрузка…':'—';
   const detail=ops?.length?ops.map(x=>'<div class="h752-operation"><span>'+esc(x.name||'Операция Ozon')+'</span><strong>'+esc(typeof x.amount==='number'?fmt(x.amount,' ₽'):'—')+'</strong></div>').join(''):'';
   const items='<div class="h66-order-facts h75-facts">'+
     '<div><span>Сумма продажи</span><strong>'+esc(sale!==null?fmt(sale,' ₽'):'—')+'</strong></div>'+
     '<button type="button" class="h75-expense-row" data-expenses="'+esc(id)+'" aria-expanded="'+(!!finance?.detailsOpen)+'"><span>Расходы Ozon <span class="h75-arrow">'+(finance?.detailsOpen?'⌃':'⌄')+'</span></span><strong class="h75-expense">'+esc(expenses!==null?fmt(expenses,' ₽'):pending)+'</strong></button>'+
     (finance?.detailsOpen?'<div class="h75-breakdown">'+(detail||'<p class="h50-note">Финансовые операции ещё не получены.</p>')+'</div>':'')+
+    '<div><span>Эквайринг (в расходах Ozon)</span><strong>'+esc(acquiringSum!==null?fmt(acquiringSum,' ₽'):'—')+'</strong></div>'+
     '<div><span>После удержаний</span><strong class="h75-remaining">'+esc(remaining!==null?fmt(remaining,' ₽'):pending)+'</strong></div></div>'+
     (ops?.length&&finance?.cachedAt?'<p class="h75-finance-message">Финансы '+(finance.stale?'из сохранённой копии · ожидают обновления':'сохранены')+' · '+esc(new Date(finance.cachedAt).toLocaleString('ru-RU'))+'</p>':'')+
     (remaining!==null?'<p class="h74-disclaimer">Предварительный остаток после известных операций Ozon. Не чистая прибыль и не подтверждённая выплата.</p>':'')+
     (o.delivered&&finance?.error?'<div class="h75-finance-message">Не удалось загрузить финансы: '+esc(finance.error)+' <button type="button" data-finance="'+esc(id)+'">Повторить</button></div>':
      o.delivered&&!finance?.loading&&!ops?'<p class="h75-finance-message">Финансы появятся автоматически после загрузки.</p>':'')+
     (o.delivered&&ops&&!ops.length?'<p class="h75-finance-message">Ozon пока не передал начисления по этому отправлению.</p>':'')+
-    (o.delivered&&ops?.length&&!ops.some(x=>/эквайр|acquir/i.test(x.name||''))?'<p class="h75-finance-message">Эквайринг пока не найден в ответе API Ozon. Показанный остаток не включает неподтверждённое удержание.</p>':'');
+    (o.delivered&&ops?.length&&acquiringSum===null?'<p class="h75-finance-message">'+esc(finance?.acquiring_unallocated?'Ozon передал общую комиссию заказа. Без подтверждённого распределения между отправлениями она не вычитается из каждого.':finance?.acquiring_overlap?'Эквайринг требует сверки с уже учтёнными операциями; повторное списание исключено.':finance?.acquiring_lookup_status==='rate_limited'?'Эквайринг временно недоступен из-за ограничения Ozon. Сохранённые начисления остаются на экране.':'Эквайринг пока не подтверждён ответом Ozon. Показанный остаток не включает неподтверждённое удержание.')+'</p>':'');
   return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'"><span class="h57-order-main"><span class="h57-order-meta"><em class="'+(o.delivered?'h57-done':'h57-pending')+'">'+esc(detailedStatus(o))+'</em><small>'+esc(o.delivered?(o.delivered_at?deliveryDate(o.delivered_at):'Дата доставки неизвестна'):shortDate(o.created_at))+'</small></span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((s,x)=>s+(Number(x.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><span class="h57-chevron">'+(open?'⌃':'⌄')+'</span></button>'+(open?'<div class="h50-body">'+items+'</div>':'')+'</article>';
  }):[];
  const cards=cardsByIndex.length?cardsByIndex.join(''):'<p class="h50-note">В выбранной категории отправлений нет.</p>';
@@ -1440,8 +1443,8 @@ async function finance(id){
   if(o.delivery_date_source!=='seller_postings_report'&&d.verified_delivery_at&&Number.isFinite(Date.parse(d.verified_delivery_at))){
    o.delivered_at=d.verified_delivery_at;o.delivery_date_source='fbs_get';
  }
- const result={operations:d.operations||[],total_accrued:d.total_accrued,detailsOpen:previous.detailsOpen,loading:false,
-  acquiring_detected:!!d.acquiring_detected,acquiring_lookup_complete:!!d.acquiring_lookup_complete};
+ const result={operations:d.operations||[],total_accrued:d.total_accrued,detailsOpen:previous.detailsOpen,loading:false,cachedAt:Date.now(),acquiring_version:d.acquiring_version||0,
+  acquiring_detected:!!d.acquiring_detected,acquiring_lookup_complete:!!d.acquiring_lookup_complete,acquiring_lookup_status:d.acquiring_lookup_status||'not_checked',acquiring_unallocated:d.acquiring_unallocated||0,acquiring_overlap:d.acquiring_overlap||0};
   financeFailures.delete(id);
   finances.set(id,result);saveCachedFinance(o,result);
  }catch(e){if(/429/.test(e.message)){
@@ -1476,6 +1479,7 @@ function visibleFinanceOrders(){
  const shown=orders.filter(o=>o.delivered);
  return shown.sort((a,b)=>Number(expanded.has(String(b.posting_number)))-Number(expanded.has(String(a.posting_number))));
 }
+function needsFinanceRefresh(state){return !state?.operations||state.stale||state.acquiring_version!==2||(!state.acquiring_detected&&Date.now()-(state.cachedAt||0)>10*60*1000);}
 let financeWakeTimer=null;
 function scheduleFinanceWake(delay){
  if(financeWakeTimer!==null)clearTimeout(financeWakeTimer);
@@ -1489,11 +1493,11 @@ async function scheduleFinances(){
   for(const o of visibleFinanceOrders()){
    if(run!==financeRun||Date.now()<financePauseUntil)break;
    const id=String(o.posting_number),state=finances.get(id),failure=financeFailures.get(id);
-   if(state?.loading||(state?.operations&&!state.stale))continue;
+   if(state?.loading||!needsFinanceRefresh(state))continue;
    if(failure&&Date.now()<failure.next)continue;
    await finance(id);
    if(run!==financeRun||Date.now()<financePauseUntil)break;
-   if(visibleFinanceOrders().some(x=>{const id=String(x.posting_number);return (!finances.get(id)?.operations||finances.get(id)?.stale)&&(!financeFailures.get(id)||financeFailures.get(id).next<=Date.now())}))
+   if(visibleFinanceOrders().some(x=>{const id=String(x.posting_number);return needsFinanceRefresh(finances.get(id))&&(!financeFailures.get(id)||financeFailures.get(id).next<=Date.now())}))
     await new Promise(resolve=>setTimeout(resolve,3500));
   }
  }finally{
