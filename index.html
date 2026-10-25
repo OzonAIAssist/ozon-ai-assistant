@@ -1967,7 +1967,7 @@ const root=document.getElementById('premium22');if(root){
  }
 }
 const orders=document.getElementById('h50');if(orders){
- const filters=orders.querySelector('.h57-filters');if(filters){const b=filters.querySelector('[data-filter="other"]');if(b)b.textContent='В пути';}
+ const filters=orders.querySelector('.h57-filters');if(filters){const b=filters.querySelector('[data-filter="other"]');if(b&&!b.textContent.includes('('))b.textContent='В пути';}
 
 }
 })();
@@ -2043,9 +2043,9 @@ const orders=document.getElementById('h50');if(orders){
 <link rel="stylesheet" href="hogar-catalog.css">
 <script src="product-analytics.js"></script>
 <link rel="stylesheet" href="hogar-home.css">
-<script src="dashboard-model.js?v=20261025r4"></script>
-<script src="hogar-home.js?v=20261025r4"></script>
-<script src="hogar-catalog.js?v=20261025r4"></script>
+<script src="dashboard-model.js?v=20261025r5"></script>
+<script src="hogar-home.js?v=20261025r5"></script>
+<script src="hogar-catalog.js?v=20261025r5"></script>
 <style id="hogar-compact-header-alignment">
 /* Compact brand bars and consistent text geometry across all seven tabs. */
 body > header{padding:10px 16px!important;min-height:64px!important;box-shadow:none!important}
@@ -2163,6 +2163,6 @@ body #hd-brand button.hd-header-safe{color:#bfe6c2!important;background:#3d66354
  #premium22 .p23-status{font-size:9px!important;line-height:1.3;padding:3px 6px;margin-top:4px}
 }
 </style>
-<link rel="stylesheet" href="hogar-reference.css?v=20261025r4">
+<link rel="stylesheet" href="hogar-reference.css?v=20261025r5">
 </body></html>
 

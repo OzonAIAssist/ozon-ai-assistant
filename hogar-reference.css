@@ -254,3 +254,7 @@ body:has(#tab-orders.active) main{max-width:800px!important;padding:8px 11px 22p
 #h50 .h91-advanced-filters label{font-size:10px!important;margin:0!important;flex:1;min-width:0}
 #h50 .h91-advanced-filters select{font-size:12px!important;padding:6px!important;min-height:32px!important;background:#fff8ee!important;border:1px solid #eddbc6!important;border-radius:7px}
 #h50 .h91-advanced-filters small{flex:1;font-size:9px!important;color:#9a8068!important;line-height:1.4!important}
+body:has(#tab-orders.active) #hd-brand .hd-brand-copy{color:#fff5e9!important}
+body:has(#tab-orders.active) #hd-brand .hd-brand-copy small{color:#e5c6a3!important}
+#tab-orders #h50 .h57-info{margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+#tab-orders #h50 #h57bar{margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
