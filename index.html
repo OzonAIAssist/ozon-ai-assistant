@@ -1019,9 +1019,11 @@ const host=document.getElementById('tab-ads');if(!host)return;
 const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const base='https://ozon-ai-assistant-api.onrender.com';
 const cacheKey='hogar_ads_readonly_cache_v44',tabKey='hogar_ads_selected_tab_v44',sessionKey='hogar_session_access_v44';
+const adIcon=k=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+({wallet:'<path d="M4 5h15v15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12M15 10h7v6h-7z"/>',eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',cursor:'<path d="m5 2 15 11-8 1-4 7z"/>',cart:'<path d="M2 3h3l3 13h12l2-9H6M10 21h1M18 21h1"/>',box:'<path d="m3 7 9-5 9 5v11l-9 5-9-5zM3 7l9 5 9-5M12 12v11"/>',coins:'<ellipse cx="14" cy="5" rx="7" ry="3"/><path d="M7 5v9c0 4 14 4 14 0V5M7 10c0 4 14 4 14 0M3 11v8c0 3 12 4 15 1"/>',chart:'<path d="M5 21V12M12 21V4M19 21V8"/>',megaphone:'<path d="M3 9h5l13-5v14L8 13H3zM7 13l2 8h4l-2-7"/>',pause:'<path d="M8 5v14M16 5v14"/>',refresh:'<path d="M20 7a9 9 0 1 0 1 9M20 2v6h-6"/>'}[k]||'')+'</svg>';
 const panel=document.createElement('section');panel.id='h44';
 panel.innerHTML='<div class="h44-head"><div><h2>Рекламные кампании</h2><p class="h44-safe">Ozon · Только просмотр</p></div><button type="button" id="h44refresh" aria-label="Обновить кампании" title="Обновить кампании"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 1-2.4-5.7M20 4v6h-6"/></svg></button></div><div class="h44-tabs" role="tablist"><button type="button" class="h44-tab" data-tab="active">Активные <b>0</b></button><button type="button" class="h44-tab" data-tab="inactive">Неактивные <b>0</b></button><button type="button" class="h44-tab" data-tab="archived">Архив <b>0</b></button></div><div id="h44list"></div><div class="h44-last" id="h44updated"></div><div class="h44-actions"><button type="button" id="h44diagnose">Проверить подключение</button></div><div id="h44diagnostics" class="h44-diagnostics"></div><p class="h44-note">Статистика загружается из Ozon. Прочерк означает отсутствие данных, а не ноль.</p>';
 host.prepend(panel);
+panel.querySelectorAll('.h44-tab').forEach((b,i)=>{const label=b.childNodes[0].textContent.trim();b.childNodes[0].remove();b.insertAdjacentHTML('afterbegin','<i class="h93-category-icon">'+adIcon(['megaphone','pause','box'][i])+'</i><span>'+label+'</span>')});
 const listEl=panel.querySelector('#h44list'),updated=panel.querySelector('#h44updated'),diagnostics=panel.querySelector('#h44diagnostics');
 const status={CAMPAIGN_STATE_RUNNING:'Активна',CAMPAIGN_STATE_PLANNED:'Запланирована',CAMPAIGN_STATE_STOPPED:'Остановлена',CAMPAIGN_STATE_INACTIVE:'Выключена',CAMPAIGN_STATE_ARCHIVED:'В архиве',CAMPAIGN_STATE_FINISHED:'Завершена'};
 let campaigns=[],selected='active',expanded=new Set();
@@ -1033,6 +1035,7 @@ panel.querySelector('.h44-tabs').before(periodBar);
 const statsStatus=document.createElement('p');statsStatus.id='h46statsstatus';statsStatus.className='h44-muted';panel.querySelector('.h44-tabs').after(statsStatus);
 const summary=document.createElement('section');summary.className='h47-summary';summary.setAttribute('aria-label','Сводка по рекламе');
 statsStatus.after(summary);
+const adOverview=document.createElement('div');adOverview.className='h93-ad-overview';panel.prepend(adOverview);adOverview.append(panel.querySelector('.h44-head'),periodBar,panel.querySelector('.h44-tabs'));
 const diagEl=document.createElement('p');diagEl.id='h52diag';diagEl.hidden=true;diagEl.className='h44-muted';diagEl.style.cssText='overflow-wrap:anywhere;border:1px solid #345576;border-radius:9px;padding:10px;line-height:1.6';
 statsStatus.after(diagEl);
 function formatMetric(v,suffix=''){return v===null||v===undefined||!Number.isFinite(Number(v))?'—':Number(v).toLocaleString('ru-RU',{maximumFractionDigits:2})+suffix}
@@ -1049,7 +1052,7 @@ function summaryDraw(){
  const knownCarts=data.filter(d=>typeof d.carts==='number').length;
  if(carts===null)warnings.push('Ozon пока не передал число корзин за выбранный период. Прочерк не означает ноль.');
  else if(knownCarts<ids.length)warnings.push('Корзины получены для '+knownCarts+' из '+ids.length+' кампаний; сумма может быть неполной.');
- summary.innerHTML='<div class="h47-summary-title">Итоги по всем кампаниям <small>· Данные: '+data.length+' из '+ids.length+' кампаний</small></div><div class="h47-summary-grid">'+fields.map(([label,value,suffix])=>'<div><span>'+label+'</span><b>'+formatMetric(value,suffix)+'</b></div>').join('')+'</div>';
+ summary.innerHTML='<div class="h47-summary-title"><span class="h93-summary-heading">'+adIcon('chart')+'Итоги по всем кампаниям</span><small>Данные: '+data.length+' из '+ids.length+' кампаний</small></div><div class="h47-summary-grid">'+fields.map(([label,value,suffix],i)=>'<div><span class="h93-metric-label"><i>'+adIcon(['wallet','eye','cursor','cart','box','coins'][i])+'</i>'+label+'</span><b>'+formatMetric(value,suffix)+'</b></div>').join('')+'</div>';
  const details=document.getElementById('h68reportnotes');
  if(details)details.innerHTML='<p>Сумма по кампаниям, по которым Ozon передал статистику за выбранный период. Заказы и их сумма — рекламная атрибуция, не все продажи магазина. Прочерк — нет данных.</p>'+(warnings.length?'<p>'+warnings.map(esc).join('<br>')+'</p>':'');
 }
@@ -1134,10 +1137,11 @@ async function diagnose(){
 panel.querySelectorAll('.h44-tab').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.tab;try{localStorage.setItem(tabKey,selected)}catch(_){}draw()}));
 listEl.addEventListener('click',e=>{if(e.target.closest('[data-close-ad]')){expanded.clear();draw();return}if(e.target.closest('[data-refresh-ad]')){loadStatistics();return}const b=e.target.closest('button[data-id]');if(!b)return;expanded.clear();expanded.add(b.dataset.id);draw()});
 listEl.addEventListener('change',e=>{if(e.target.matches('.h90-ad-period')){period=e.target.value;markPeriod();loadStatistics()}});
-const refreshStats=document.createElement('button');refreshStats.className='h90-refresh-ad';refreshStats.type='button';refreshStats.textContent='↻ Обновить статистику';refreshStats.addEventListener('click',()=>campaigns.length?loadStatistics():refresh());listEl.after(refreshStats);
+const refreshStats=document.createElement('button');refreshStats.className='h90-refresh-ad';refreshStats.type='button';refreshStats.innerHTML=adIcon('refresh')+'<span>Обновить статистику</span>';refreshStats.addEventListener('click',()=>campaigns.length?loadStatistics():refresh());listEl.after(refreshStats);
 panel.querySelector('#h44refresh').addEventListener('click',refresh);
 panel.querySelector('#h44diagnose').addEventListener('click',diagnose);
 document.getElementById('v10sync')?.addEventListener('click',()=>{syncToken();setTimeout(refresh,1500)});
+const adCampaignsPanel=document.createElement('div');adCampaignsPanel.className='h93-campaigns-panel';listEl.before(adCampaignsPanel);adCampaignsPanel.append(listEl,panel.querySelector('.h44-note'),refreshStats);
 cacheLoad();draw();
 if(token())setTimeout(refresh,1200);
 })();
@@ -1794,7 +1798,7 @@ if(tile){const go=()=>document.querySelector('.bottom-nav [data-tab="orders"]')?
 @media(max-width:380px){#h44{padding:14px 10px!important}#h44 .h47-summary-grid>div{padding:10px 8px!important}#premium22 #p22detail .p22-price{padding:11px 8px!important}}
 </style>
 <script id="hogar-v62-diagnostics">
-(function(){'use strict';const diag=document.getElementById('h52diag');if(!diag||diag.closest('details'))return;const wrapper=document.createElement('details');wrapper.className='h62-diagnostics';const summary=document.createElement('summary');summary.textContent='Диагностика отчёта Ozon';diag.parentNode.insertBefore(wrapper,diag);wrapper.append(summary,diag);const notes=document.createElement('div');notes.id='h68reportnotes';notes.className='h68-report-notes';wrapper.append(notes);const observer=new MutationObserver(()=>{wrapper.hidden=diag.hidden});observer.observe(diag,{attributes:true,attributeFilter:['hidden']});wrapper.hidden=false})();
+(function(){'use strict';const diag=document.getElementById('h52diag');if(!diag||diag.closest('details'))return;const wrapper=document.createElement('details');wrapper.className='h62-diagnostics';const summary=document.createElement('summary');summary.textContent='Диагностика отчёта Ozon';document.querySelector('#h44 .h47-summary').after(wrapper);wrapper.append(summary,diag);const notes=document.createElement('div');notes.id='h68reportnotes';notes.className='h68-report-notes';wrapper.append(notes);const check=document.querySelector('#h44 .h44-actions'),result=document.getElementById('h44diagnostics');if(check)wrapper.append(check);if(result)wrapper.append(result);const observer=new MutationObserver(()=>{wrapper.hidden=false});observer.observe(diag,{attributes:true,attributeFilter:['hidden']});wrapper.hidden=false})();
 </script>
 <style id="hogar-warm-v63">
 /* Consistent fireplace-inspired palette throughout all nested pages */
@@ -2050,9 +2054,9 @@ const orders=document.getElementById('h50');if(orders){
 <link rel="stylesheet" href="hogar-catalog.css">
 <script src="product-analytics.js"></script>
 <link rel="stylesheet" href="hogar-home.css">
-<script src="dashboard-model.js?v=20261025r6"></script>
-<script src="hogar-home.js?v=20261025r6"></script>
-<script src="hogar-catalog.js?v=20261025r6"></script>
+<script src="dashboard-model.js?v=20261025r7"></script>
+<script src="hogar-home.js?v=20261025r7"></script>
+<script src="hogar-catalog.js?v=20261025r7"></script>
 <style id="hogar-compact-header-alignment">
 /* Compact brand bars and consistent text geometry across all seven tabs. */
 body > header{padding:10px 16px!important;min-height:64px!important;box-shadow:none!important}
@@ -2170,6 +2174,6 @@ body #hd-brand button.hd-header-safe{color:#bfe6c2!important;background:#3d66354
  #premium22 .p23-status{font-size:9px!important;line-height:1.3;padding:3px 6px;margin-top:4px}
 }
 </style>
-<link rel="stylesheet" href="hogar-reference.css?v=20261025r6">
+<link rel="stylesheet" href="hogar-reference.css?v=20261025r7">
 </body></html>
 
