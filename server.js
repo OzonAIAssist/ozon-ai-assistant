@@ -2,6 +2,8 @@
 const http=require('node:http');
 const crypto=require('node:crypto');
 const {verificationFromPosting,readAcquiringTransactions}=require('./acquiring');
+const {readStocks}=require('./dashboard-stocks');
+let dashboardStockCache=null,dashboardStockPending=null,dashboardStockPause=0;
 const PORT=Number(process.env.PORT||10000);
 const CLIENT_ID=process.env.OZON_CLIENT_ID||'';
 const API_KEY=process.env.OZON_API_KEY||'';
@@ -221,10 +223,16 @@ async function getAccrualTypes(){
  try{return await accrualTypesPending}finally{accrualTypesPending=null}
 }
 
-const routes=new Set(['/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check','/api/orders/posting-presence-check']);
+const routes=new Set(['/api/dashboard/stocks','/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check','/api/orders/posting-presence-check']);
 const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||ALLOWED_ORIGINS.has(origin);const ORIGIN=allowed?origin:'';const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
 
 // Safe read-only delivery diagnosis: no raw Ozon response, buyer data, or credentials exposed.
+if(path.pathname==='/api/dashboard/stocks'){
+ if(dashboardStockCache&&Date.now()-dashboardStockCache.at<10*60*1000)return reply(res,200,{...dashboardStockCache.data,cache_status:'fresh'},ORIGIN);
+ if(Date.now()<dashboardStockPause)return dashboardStockCache?reply(res,200,{...dashboardStockCache.data,cache_status:'stale'},ORIGIN):reply(res,429,{error:'Ozon временно ограничил остатки',read_only:true},ORIGIN);
+ try{if(!dashboardStockPending)dashboardStockPending=readStocks(ozon).then(data=>{dashboardStockCache={at:Date.now(),data};return data}).finally(()=>{dashboardStockPending=null});return reply(res,200,await dashboardStockPending,ORIGIN)}
+ catch(e){dashboardStockPause=Date.now()+15*60*1000;if(dashboardStockCache)return reply(res,200,{...dashboardStockCache.data,cache_status:'stale'},ORIGIN);return reply(res,e.status===429?429:502,{error:'Не удалось получить остатки FBS',read_only:true},ORIGIN)}
+}
 if(path.pathname==='/api/orders/delivery-diagnostic'){
  const posting=String(path.searchParams.get('posting')||'');
  if(!/^\d{6,15}-\d{3,6}-\d{1,3}$/.test(posting))return reply(res,400,{error:'Некорректный номер отправления'},ORIGIN);
