@@ -1340,7 +1340,7 @@ function orderRange(){if(customOrderRange)return customOrderRange;if(window.Hoga
 function orderDay(o){const d=o.delivered?o.delivered_at:o.created_at;return d&&Number.isFinite(Date.parse(d))?moscowDay(new Date(d)):''}
 function catalogProduct(o){let ps=[];try{ps=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]')}catch(_){}const line=o.products?.[0];if(!line||!Array.isArray(ps))return null;return ps.find(p=>window.HogarAnalytics?.match(p,line)||line.offer_id&&String(line.offer_id)===String(p.sku)||line.sku&&[p.ozon_sku,...(p.ozon_skus||[])].filter(Boolean).map(String).includes(String(line.sku)))}
 function orderPicture(o){const p=catalogProduct(o);return p&&/^https:\/\//i.test(p.image_url||'')?'<img class="h90-order-photo" src="'+esc(p.image_url)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':'<span class="h90-order-photo h90-photo-empty" aria-hidden="true">▣</span>'}
-const orderIcon=k=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+({cart:'<path d="M2 3h3l3 13h12l2-9H6M10 21h1M18 21h1"/>',check:'<path d="m4 12 5 5L21 4"/>',truck:'<path d="M2 5h12v12H2zM14 10h5l3 5v2h-8"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/>',cancel:'<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>',filter:'<path d="M3 4h18l-7 8v8l-4-2v-6z"/>'}[k]||'')+'</svg>';
+const orderIcon=k=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+({cart:'<path d="M2 3h3l3 13h12l2-9H6M10 21h1M18 21h1"/>',check:'<path d="m4 12 5 5L21 4"/>',truck:'<path d="M2 5h12v12H2zM14 10h5l3 5v2h-8"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/>',cancel:'<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>',filter:'<path d="M3 4h18l-7 8v8l-4-2v-6z"/>' ,coins:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 10c0 4 16 4 16 0M4 15c0 4 16 4 16 0"/>',wallet:'<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M15 14h6"/>',chart:'<path d="m3 18 6-6 5 3 7-11M16 4h5v5"/>',bag:'<rect x="4" y="7" width="16" height="15" rx="2"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 11h18"/>',box:'<path d="m3 7 9-5 9 5v11l-9 5-9-5zM3 7l9 5 9-5M12 12v11"/>'}[k]||'')+'</svg>';
 const orderTools=document.createElement('div');orderTools.className='h90-order-tools';orderTools.innerHTML='<div class="h90-search"><input type="search" id="h90-order-search" aria-label="Поиск заказов" placeholder="Поиск по названию, артикулу или номеру отправления…"><button type="button" data-order-filters aria-expanded="false">'+orderIcon('filter')+' Фильтры</button></div>';
 panel.querySelector('#h50list').before(orderTools);
 const advancedOrderFilters=document.createElement('div');advancedOrderFilters.className='h91-advanced-filters';advancedOrderFilters.hidden=true;advancedOrderFilters.innerHTML='<label>Статус заказа <select aria-label="Статус заказа"><option value="all">Все заказы</option><option value="delivered">Доставлено</option><option value="other">В пути</option><option value="cancelled">Отмены</option></select></label><small>Доставленные — по дате доставки. Остальные — по дате создания. Время: Москва.</small>';orderTools.append(advancedOrderFilters);advancedOrderFilters.querySelector('select').addEventListener('change',e=>{filter=e.target.value;draw()});
@@ -1403,22 +1403,29 @@ function draw(){
   const remaining=sale!==null&&net!==null?Math.round((sale+net)*100)/100:null;
   const acquiringOps=ops?ops.filter(x=>x.is_acquiring||/эквайр|acquir/i.test(x.name||'')):[];
   const acquiringSum=acquiringOps.length&&acquiringOps.every(x=>typeof x.amount==='number'&&Number.isFinite(x.amount))?(Math.round(-acquiringOps.reduce((v,x)=>v+x.amount,0)*100)/100||0):null;
+  // Match each line by its real SKU/offer identity; blank and missing costs stay unknown.
+  const costLines=(o.products||[]).map(line=>{const product=catalogProduct({products:[line]}),raw=product?.settings?.cost,qty=Number(line.quantity);const cost=(typeof raw==='number'||typeof raw==='string'&&raw.trim())?Number(raw):NaN;return product&&Number.isFinite(cost)&&cost>=0&&Number.isFinite(qty)&&qty>0?cost*qty:null});
+  const productCost=costLines.length&&costLines.every(x=>x!==null)?Math.round(costLines.reduce((a,b)=>a+b,0)*100)/100:null;
+  const afterCost=remaining!==null&&productCost!==null?Math.round((remaining-productCost)*100)/100:null;
+  const fact=(kind,icon,label,value,note='')=>'<div class="h92-fact h92-'+kind+'"><i class="h92-finance-icon" aria-hidden="true">'+orderIcon(icon)+'</i><span>'+label+'</span><strong>'+esc(value)+'</strong>'+(note?'<small>'+esc(note)+'</small>':'')+'</div>';
   const pending=finance?.loading?'Загрузка…':'—';
   const detail=ops?.length?ops.map(x=>'<div class="h752-operation"><span>'+esc(x.name||'Операция Ozon')+'</span><strong>'+esc(typeof x.amount==='number'?fmt(x.amount,' ₽'):'—')+'</strong></div>').join(''):'';
   const items='<div class="h66-order-facts h75-facts">'+
-    '<div><span>Сумма продажи</span><strong>'+esc(sale!==null?fmt(sale,' ₽'):'—')+'</strong></div>'+
-    '<button type="button" class="h75-expense-row" data-expenses="'+esc(id)+'" aria-expanded="'+(!!finance?.detailsOpen)+'"><span>Расходы Ozon <span class="h75-arrow">'+(finance?.detailsOpen?'⌃':'⌄')+'</span></span><strong class="h75-expense">'+esc(expenses!==null?fmt(expenses,' ₽'):pending)+'</strong></button>'+
+    fact('sale','coins','Сумма продажи',sale!==null?fmt(sale,' ₽'):'—')+
+    '<button type="button" class="h75-expense-row h92-fact h92-expenses" data-expenses="'+esc(id)+'" aria-expanded="'+(!!finance?.detailsOpen)+'"><i class="h92-finance-icon" aria-hidden="true">'+orderIcon('wallet')+'</i><span>Расходы Ozon <span class="h75-arrow">'+(finance?.detailsOpen?'⌃':'⌄')+'</span></span><strong class="h75-expense">'+esc(expenses!==null?fmt(expenses,' ₽'):pending)+'</strong></button>'+
     (finance?.detailsOpen?'<div class="h75-breakdown">'+(detail||'<p class="h50-note">Финансовые операции ещё не получены.</p>')+'</div>':'')+
-    '<div><span>Эквайринг (в расходах Ozon)</span><strong>'+esc(acquiringSum!==null?fmt(acquiringSum,' ₽'):'—')+'</strong></div>'+
-    '<div><span>После удержаний</span><strong class="h75-remaining">'+esc(remaining!==null?fmt(remaining,' ₽'):pending)+'</strong></div></div>'+
+    fact('acquiring','wallet','Эквайринг (в расходах Ozon)',acquiringSum!==null?fmt(acquiringSum,' ₽'):'—',acquiringSum===null?'Пока не подтверждён Ozon':'Уже включён в расходы Ozon')+
+    fact('remaining','chart','После удержаний',remaining!==null?fmt(remaining,' ₽'):pending)+
+    fact('cost','bag','Себестоимость товаров',productCost!==null?fmt(productCost,' ₽'):'—',productCost!==null?'Текущая себестоимость из каталога × количество':'Укажите себестоимость всех товаров в каталоге')+
+    fact('result','chart','После удержаний и себестоимости',afterCost!==null?fmt(afterCost,' ₽'):'—','До логистики до СЦ, налогов и рекламы')+'</div>'+
     (ops?.length&&finance?.cachedAt?'<p class="h75-finance-message">Финансы '+(finance.stale?'из сохранённой копии · ожидают обновления':'сохранены')+' · '+esc(new Date(finance.cachedAt).toLocaleString('ru-RU'))+'</p>':'')+
-    (remaining!==null?'<p class="h74-disclaimer">Предварительный остаток после известных операций Ozon. Не чистая прибыль и не подтверждённая выплата.</p>':'')+
+    (remaining!==null?'<p class="h74-disclaimer">Предварительный расчёт по известным операциям Ozon и текущей себестоимости из каталога. Не чистая прибыль и не подтверждённая выплата. Логистика до СЦ, налоги и реклама не вычтены. Неизвестная себестоимость не считается нулевой.</p>':'')+
     (o.delivered&&finance?.error?'<div class="h75-finance-message">Не удалось загрузить финансы: '+esc(finance.error)+' <button type="button" data-finance="'+esc(id)+'">Повторить</button></div>':
      o.delivered&&!finance?.loading&&!ops?'<p class="h75-finance-message">Финансы появятся автоматически после загрузки.</p>':'')+
     (o.delivered&&ops&&!ops.length?'<p class="h75-finance-message">Ozon пока не передал начисления по этому отправлению.</p>':'')+
     (o.delivered&&ops?.length&&acquiringSum===null?'<p class="h75-finance-message">'+esc(finance?.acquiring_unallocated?'Ozon передал общую комиссию заказа. Без подтверждённого распределения между отправлениями она не вычитается из каждого.':finance?.acquiring_overlap?'Эквайринг требует сверки с уже учтёнными операциями; повторное списание исключено.':finance?.acquiring_lookup_status==='rate_limited'?'Эквайринг временно недоступен из-за ограничения Ozon. Сохранённые начисления остаются на экране.':'Эквайринг пока не подтверждён ответом Ozon. Показанный остаток не включает неподтверждённое удержание.')+'</p>':'');
   const head='<div class="h90-dialog-product">'+orderPicture(o)+'<div><span class="h90-status-tag h91-status-'+(o.delivered?'delivered':String(o.status).toLowerCase()==='cancelled'?'cancelled':'transit')+'">'+esc(detailedStatus(o))+'</span><h3>'+esc(name)+esc(extra)+'</h3><small>'+esc((o.products||[]).reduce((v,l)=>v+(Number(l.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></div></div>';
-  return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'">'+orderPicture(o)+'<span class="h57-order-main"><span class="h90-status-tag h91-status-'+(o.delivered?'delivered':String(o.status).toLowerCase()==='cancelled'?'cancelled':'transit')+'">'+esc(detailedStatus(o))+'</span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((v,l)=>v+(Number(l.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><time>'+esc(o.delivered?deliveryDate(o.delivered_at):deliveryDate(o.created_at))+'</time><span class="h57-chevron">›</span></button>'+(open?'<dialog class="h90-order-dialog"><button type="button" class="h90-close" data-close-order aria-label="Закрыть заказ">×</button>'+head+'<div class="h90-order-dates"><div><small>'+(o.delivered?'Дата доставки':'Дата создания')+'</small><b>'+esc(deliveryDate(o.delivered?o.delivered_at:o.created_at))+'</b></div><div><small>Способ доставки</small><b>FBS</b></div></div><h3 class="h90-finance-heading">Финансовые показатели</h3><div class="h50-body">'+items+'</div></dialog>':'')+'</article>';
+  return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'">'+orderPicture(o)+'<span class="h57-order-main"><span class="h90-status-tag h91-status-'+(o.delivered?'delivered':String(o.status).toLowerCase()==='cancelled'?'cancelled':'transit')+'">'+esc(detailedStatus(o))+'</span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((v,l)=>v+(Number(l.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><time>'+esc(o.delivered?deliveryDate(o.delivered_at):deliveryDate(o.created_at))+'</time><span class="h57-chevron">›</span></button>'+(open?'<dialog class="h90-order-dialog"><button type="button" class="h90-close" data-close-order aria-label="Закрыть заказ">×</button>'+head+'<div class="h90-order-dates"><div><i aria-hidden="true">'+orderIcon('calendar')+'</i><small>'+(o.delivered?'Дата доставки':'Дата создания')+'</small><b>'+esc(deliveryDate(o.delivered?o.delivered_at:o.created_at))+'</b></div><div><i aria-hidden="true">'+orderIcon('box')+'</i><small>Способ доставки</small><b>FBS</b></div></div><h3 class="h90-finance-heading">'+orderIcon('chart')+'Финансовые показатели</h3><div class="h50-body">'+items+'</div></dialog>':'')+'</article>';
 
  }):[];
  const cards=cardsByIndex.length?cardsByIndex.join(''):'<p class="h50-note">В выбранной категории отправлений нет.</p>';
@@ -2043,9 +2050,9 @@ const orders=document.getElementById('h50');if(orders){
 <link rel="stylesheet" href="hogar-catalog.css">
 <script src="product-analytics.js"></script>
 <link rel="stylesheet" href="hogar-home.css">
-<script src="dashboard-model.js?v=20261025r5"></script>
-<script src="hogar-home.js?v=20261025r5"></script>
-<script src="hogar-catalog.js?v=20261025r5"></script>
+<script src="dashboard-model.js?v=20261025r6"></script>
+<script src="hogar-home.js?v=20261025r6"></script>
+<script src="hogar-catalog.js?v=20261025r6"></script>
 <style id="hogar-compact-header-alignment">
 /* Compact brand bars and consistent text geometry across all seven tabs. */
 body > header{padding:10px 16px!important;min-height:64px!important;box-shadow:none!important}
@@ -2163,6 +2170,6 @@ body #hd-brand button.hd-header-safe{color:#bfe6c2!important;background:#3d66354
  #premium22 .p23-status{font-size:9px!important;line-height:1.3;padding:3px 6px;margin-top:4px}
 }
 </style>
-<link rel="stylesheet" href="hogar-reference.css?v=20261025r5">
+<link rel="stylesheet" href="hogar-reference.css?v=20261025r6">
 </body></html>
 
