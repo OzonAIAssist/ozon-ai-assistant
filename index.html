@@ -2070,5 +2070,79 @@ body #hd-brand button svg{width:20px;height:20px}
  body #hd-brand .hd-logo{width:23px;height:30px}
 }
 </style>
+<style id="hogar-mobile-density">
+/* Narrow secondary brand bar; the home header keeps its existing height. */
+body > header{min-height:40px!important;padding:8px 14px!important}
+body > header > b{font-size:14px!important;line-height:24px!important;font-weight:600!important}
+body > header > div{display:none!important}
+body #hd-brand button.hd-header-safe{color:#bfe6c2!important;background:#3d66354d!important}
+.hd-header-safe:focus-visible{outline:3px solid #e8ba73!important;outline-offset:2px}
+@media(max-width:700px){
+ /* Catalogue: a compact toolbar and horizontal product rows. */
+ body:has(#tab-catalog.active) main{padding:12px 14px 24px!important}
+ #tab-catalog .hc-heading{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;margin:0 0 12px!important}
+ #tab-catalog .hc-heading .hc-eyebrow{display:none}
+ #tab-catalog .hc-heading h2{font-size:22px!important;line-height:1.2!important;margin:0 0 4px!important}
+ #tab-catalog .hc-heading p{font-size:11px;line-height:1.35;margin:0!important}
+ #tab-catalog .hc-sync{font-size:10px!important;min-height:40px;padding:8px 10px!important}
+ #tab-catalog .hc-catalog-summary{padding:10px 0;margin-bottom:12px;border-radius:14px}
+ #tab-catalog .hc-catalog-summary>div{padding:0 10px}
+ #tab-catalog .hc-catalog-summary strong{font-size:20px;line-height:1.25}
+ #tab-catalog .hc-catalog-summary span{font-size:10px;line-height:1.3;margin-top:3px}
+ #tab-catalog .hc-search label{font-size:11px!important;margin:0 0 4px!important}
+ #tab-catalog .hc-search input{min-height:42px;padding:9px 12px!important;font-size:16px!important}
+ #tab-catalog .hc-catalog-tools{margin:8px 0;gap:6px;flex-wrap:wrap}
+ #tab-catalog .hc-filters button{min-height:36px;padding:7px 10px!important;font-size:11px!important}
+ #tab-catalog .hc-catalog-tools>span{font-size:10px}
+ #tab-catalog .hc-status{font-size:10px;line-height:1.4;margin-bottom:10px!important}
+ #tab-catalog .hc-product-grid{grid-template-columns:minmax(0,1fr);gap:8px}
+ #tab-catalog .hc-product{display:grid;grid-template-columns:80px minmax(0,1fr);align-items:stretch;border-radius:14px!important}
+ #tab-catalog .hc-product-image{height:100%;min-height:116px;padding:8px}
+ #tab-catalog .hc-product-body{padding:9px 11px;min-width:0}
+ #tab-catalog .hc-product-body>small{font-size:10px;margin-bottom:3px;word-break:normal;overflow-wrap:anywhere}
+ #tab-catalog .hc-product-body>strong{display:block;min-height:0;font-size:12px;line-height:1.35;overflow:visible}
+ #tab-catalog .hc-product-cost{margin:6px 0 2px;font-size:10px;line-height:1.3}
+ #tab-catalog .hc-product-cost b{display:inline;font-size:11px;margin:0}
+ #tab-catalog .hc-product-logistics{font-size:10px;line-height:1.3}
+ #tab-catalog .hc-product-link{padding-top:6px;margin-top:6px;font-size:10px;line-height:1.3}
+ /* Home statuses have enough width for labels and aligned values. */
+ .hd-root .hd-orders-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .hd-root .hd-status-card{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 1fr auto;gap:5px 7px;padding:11px!important;align-content:start;text-align:left}
+ .hd-root .hd-status-title{grid-column:1/-1;display:flex;align-items:center;gap:6px;font-size:12px;min-height:30px}
+ .hd-status-label{min-width:0;flex:1;overflow-wrap:break-word}
+ .hd-root .hd-status-title b{margin-left:auto;flex:none}
+ .hd-root .hd-status-card>strong{grid-column:1;grid-row:2;margin:0;font-size:27px;line-height:1.2;align-self:start}
+ .hd-root .hd-status-card>.hd-badge{grid-column:2;grid-row:2;align-self:start;margin:3px 0 0;font-size:10px}
+ .hd-root .hd-status-card>small{grid-column:1/-1;grid-row:3;min-height:2.7em;font-size:10px;line-height:1.35}
+ .hd-root .hd-card-top>span:nth-child(2){min-width:0;flex:1;overflow-wrap:break-word}
+ .hd-root .hd-card-top .hd-chevron{flex:none;margin-left:0}
+ .hd-root .hd-card-top .hd-info{display:none}
+ .hd-root .hd-finance-grid .hd-card{display:flex;flex-direction:column;align-items:stretch;text-align:left}
+ .hd-root .hd-finance-grid .hd-card-top{min-height:36px;align-items:center}
+ .hd-root .hd-finance-grid .hd-card-value{min-height:36px;margin:6px 0}
+ .hd-root .hd-finance-grid .hd-card-note{margin-top:auto;min-height:2.8em}
+ .hd-root .hd-toolbar{margin-bottom:10px}
+ .hd-root .hd-modules{grid-template-columns:minmax(0,1fr)}
+ /* Prices: compact summary, search, notes and product rows. */
+ #tab-prices>.tab-heading{font-size:22px!important;margin:0 0 10px!important}
+ #tab-prices #premium22{padding:12px!important;border-radius:16px!important}
+ #premium22 .p22-kicker{font-size:12px!important;gap:6px!important;margin:0 0 10px!important}
+ #premium22 .h67-observe{font-size:10px;padding:4px 7px}
+ #premium22 .p22-summary{gap:6px!important;margin:0 0 10px!important}
+ #premium22 .p22-summary>div{padding:8px!important;gap:3px!important;min-height:0!important;border-radius:12px!important}
+ #premium22 .p22-summary small{font-size:10px!important;line-height:1.3!important}
+ #premium22 .p22-summary strong{font-size:24px!important;line-height:1.2!important;margin:0!important}
+ #premium22 .p22-toolbar{gap:7px!important;margin-bottom:8px!important}
+ #premium22 .p22-toolbar input{min-height:42px!important;padding:8px 10px!important}
+ #premium22 .p22-toolbar button{min-height:42px!important;font-size:12px!important;padding:8px 10px!important}
+ #premium22>#p22list{margin-top:0!important}
+ #premium22>.p22-muted{font-size:11px!important;line-height:1.4!important;margin:0 0 9px!important}
+ #premium22 .p22-item{min-height:82px!important;padding:8px!important;gap:9px!important;margin-bottom:7px!important;border-radius:13px!important}
+ #premium22 .p22-item .p22-icon{width:54px!important;flex:0 0 54px!important;height:64px!important;border-radius:8px!important}
+ #premium22 .p22-itemtext b{font-size:12px!important;line-height:1.35!important;white-space:normal!important}
+ #premium22 .p22-itemtext small{font-size:10px!important;line-height:1.35!important;margin-top:3px!important;white-space:normal!important}
+ #premium22 .p23-status{font-size:9px!important;line-height:1.3;padding:3px 6px;margin-top:4px}
+}
+</style>
 </body></html>
 
