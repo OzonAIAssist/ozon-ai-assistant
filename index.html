@@ -89,10 +89,10 @@ try{const saved=JSON.parse(localStorage.getItem(priceKey)||'null');if(saved){doc
 (function(){
 const main=document.querySelector('main');const cards=[...main.querySelectorAll(':scope > .card')];
 const notice=document.createElement('div');notice.className='demo-banner';notice.textContent='🔒 Демоверсия: реальные Ozon и Telegram не подключены. Автоматическая запись цен заблокирована до проверки налогов и исходных данных.';main.prepend(notice);
-const sections={home:document.createElement('section'),ads:document.createElement('section'),prices:document.createElement('section'),analytics:document.createElement('section'),orders:document.createElement('section'),more:document.createElement('section')};
+const sections={home:document.createElement('section'),catalog:document.createElement('section'),ads:document.createElement('section'),prices:document.createElement('section'),analytics:document.createElement('section'),orders:document.createElement('section'),more:document.createElement('section')};
 Object.entries(sections).forEach(([id,el])=>{el.id='tab-'+id;el.className='section-pane';main.appendChild(el)});
 function intro(section,title){const h=document.createElement('h2');h.className='tab-heading';h.textContent=title;section.appendChild(h)}
-intro(sections.home,'Главная');intro(sections.ads,'Реклама');intro(sections.prices,'Цены');intro(sections.analytics,'Аналитика');intro(sections.orders,'Заказы');intro(sections.more,'Ещё · Безопасность');
+intro(sections.home,'Главная');intro(sections.catalog,'Каталог');intro(sections.ads,'Реклама');intro(sections.prices,'Цены');intro(sections.analytics,'Аналитика');intro(sections.orders,'Заказы');intro(sections.more,'Ещё · Безопасность');
 sections.ads.appendChild(cards[0]);sections.analytics.appendChild(cards[1]);sections.prices.appendChild(cards[2]);sections.more.appendChild(cards[3]);
 const homeCard=document.createElement('div');homeCard.className='card';homeCard.innerHTML='<div class="muted">Прогнозная прибыль по заказам · 30 дней</div><div class="demo-stat">+184 650 ₽</div><small>Иллюстративные данные, не из Ozon</small><hr style="border:0;border-top:1px solid #334155;margin:16px 0"><div class="demo-row"><span>Фактическая прибыль</span><b>+167 420 ₽</b></div><small>После возвратов и корректировок · пример</small>';sections.home.appendChild(homeCard);
 const homeMore=document.createElement('div');homeMore.className='card';homeMore.innerHTML='<h3>Рекомендации ИИ · примеры</h3><p>⚠️ Проверить цену комода — прибыль ниже целевой.</p><p>◉ Проверить рекламную кампанию — автоматической остановки нет.</p><small>Рекомендации не связаны с реальным аккаунтом продавца.</small>';sections.home.appendChild(homeMore);
@@ -101,7 +101,7 @@ const demoChart=document.getElementById('chart')?.closest('.card');
 if(demoChart && sections.analytics.contains(demoChart))demoChart.remove();
 const analyticsInfo=document.createElement('div');analyticsInfo.className='card';analyticsInfo.innerHTML='<h3>Аналитика магазина</h3><p>Здесь будут только подтверждённые показатели Ozon. Рекламные расходы и результаты доступны во вкладке «Реклама», заказы FBS — во вкладке «Заказы».</p><small>Почасовые демонстрационные графики и примерные суммы прибыли скрыты.</small>';sections.analytics.prepend(analyticsInfo);
 const sec=document.createElement('div');sec.className='card';sec.innerHTML='<h3>Настройки безопасности · концепция</h3><div class="demo-row"><span>Тайм-аут сессии</span><b>30 мин</b></div><div class="demo-row"><span>Резервные коды</span><b>5 шт.</b></div><div class="demo-row"><span>Смена Telegram</span><b>1 раз / 24 ч</b></div><div class="security-warning">Это только демонстрация требований. Реальной авторизации и восстановления доступа здесь нет.</div>';sections.more.appendChild(sec);
-const nav=document.createElement('nav');nav.className='bottom-nav';nav.setAttribute('aria-label','Разделы приложения');nav.innerHTML='<div>'+[['home','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>','Главная'],['ads','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11v3a2 2 0 0 0 2 2h2l2 4h3l-2-5 7-3V5l-9 4H6a2 2 0 0 0-2 2z"/><path d="M20 8v4"/></svg>','Реклама'],['prices','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V4h8l10 10-7 7L3 10z"/><circle cx="8" cy="8" r="1"/></svg>','Цены'],['analytics','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V12M10 20V5M16 20v-9M22 20V8"/></svg>','Аналитика'],['orders','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 9-4 9 4v10l-9 4-9-4z"/><path d="m3 7 9 5 9-5M12 12v9"/></svg>','Заказы'],['more','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>','Ещё']].map(([id,ico,name])=>'<button type="button" data-tab="'+id+'"><span>'+ico+'</span>'+name+'</button>').join('')+'</div>';document.body.appendChild(nav);
+const nav=document.createElement('nav');nav.className='bottom-nav';nav.setAttribute('aria-label','Разделы приложения');nav.innerHTML='<div>'+[['home','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>','Главная'],['catalog','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>','Каталог'],['ads','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11v3a2 2 0 0 0 2 2h2l2 4h3l-2-5 7-3V5l-9 4H6a2 2 0 0 0-2 2z"/><path d="M20 8v4"/></svg>','Реклама'],['prices','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V4h8l10 10-7 7L3 10z"/><circle cx="8" cy="8" r="1"/></svg>','Цены'],['analytics','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V12M10 20V5M16 20v-9M22 20V8"/></svg>','Аналитика'],['orders','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 9-4 9 4v10l-9 4-9-4z"/><path d="m3 7 9 5 9-5M12 12v9"/></svg>','Заказы'],['more','<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>','Ещё']].map(([id,ico,name])=>'<button type="button" data-tab="'+id+'"><span>'+ico+'</span>'+name+'</button>').join('')+'</div>';document.body.appendChild(nav);
 function activate(id){Object.entries(sections).forEach(([k,v])=>v.classList.toggle('active',k===id));nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));if(id==='analytics')try{draw()}catch(e){}window.scrollTo(0,0)}
 nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activate(b.dataset.tab)));activate('home');
 })();
@@ -259,12 +259,14 @@ nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activat
           existing.product_id = id;
           existing.sku = sku || existing.sku;
           existing.name = item.name || existing.name;
+          if(item.ozon_sku) existing.ozon_sku=String(item.ozon_sku);
+          if(Array.isArray(item.ozon_skus))existing.ozon_skus=item.ozon_skus.map(String);
           if (typeof item.image_url === 'string' && /^https:\/\//i.test(item.image_url)) existing.image_url = item.image_url;
           if (item.image_url) existing.image_url = item.image_url;
           byProductId.set(id, existing);
           updated++;
         } else {
-          const p = {id:'ozon-'+id,product_id:id,sku,
+          const p = {id:'ozon-'+id,product_id:id,sku,ozon_sku:String(item.ozon_sku||''),ozon_skus:Array.isArray(item.ozon_skus)?item.ozon_skus.map(String):[],
             name:item.name || sku || 'Товар '+id,image_url:item.image_url || '',settings:{...blank}};
           next.push(p); byProductId.set(id,p);
           if (sku) bySku.set(sku,p);
@@ -275,6 +277,7 @@ nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activat
       products = next;
       if (!persist()) { products = previous; throw new Error('Недостаточно места для каталога.'); }
       render();
+      window.dispatchEvent(new Event('hogar:products-changed'));
       status.textContent = 'Готово! Получено '+data.items.length+
         ', добавлено '+added+', обновлено '+updated+
         '. Существующие расходы сохранены; у новых товаров заполните расходы.';
@@ -285,6 +288,7 @@ nav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>activat
       sync.disabled = false;
     }
   });
+  window.addEventListener('hogar:products-changed',()=>{try{const saved=JSON.parse(localStorage.getItem(storageKey)||'[]');if(Array.isArray(saved)){products=saved;render()}}catch(_){}});
   render();
 })();
 </script>
@@ -1420,6 +1424,7 @@ async function load(){
   // Keep previously loaded finance for orders outside the current listing.
   for(const o of orders){if(o.delivered){const id=String(o.posting_number);const existing=finances.get(id);if(existing?.operations)continue;const cached=readCachedFinance(o);if(cached)finances.set(id,{...cached,detailsOpen:!!existing?.detailsOpen});}}
   status.textContent='FBS · Проверено отправлений: '+orders.length+(d.partial?' · Достигнут лимит выгрузки, список может быть неполным':'')+(d.diagnostic?.delivery_dates==='unavailable'?' · Даты доставки временно недоступны':'');
+  window.dispatchEvent(new CustomEvent('hogar:orders-loaded',{detail:d}));
   draw();scheduleFinances();
   // Independent month-to-date summary; all tabs use current live status.
   monthOrders=null;monthError=false;draw();
@@ -1449,6 +1454,7 @@ async function finance(id){
   acquiring_detected:!!d.acquiring_detected,acquiring_lookup_complete:!!d.acquiring_lookup_complete,acquiring_lookup_status:d.acquiring_lookup_status||'not_checked',acquiring_unallocated:d.acquiring_unallocated||0,acquiring_overlap:d.acquiring_overlap||0};
   financeFailures.delete(id);
   finances.set(id,result);saveCachedFinance(o,result);
+  window.dispatchEvent(new Event('hogar:finance-updated'));
  }catch(e){if(/429/.test(e.message)){
    if(financePauseUntil<Date.now())financePauseUntil=Date.now()+15*60*1000;
    try{localStorage.setItem(financePauseKey,String(financePauseUntil))}catch(_){}
@@ -2015,4 +2021,7 @@ const orders=document.getElementById('h50');if(orders){
  copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(out.textContent);copy.textContent='Скопировано'}catch(e){copy.textContent='Выделите текст и скопируйте'}});
 })();
 </script>
+<link rel="stylesheet" href="hogar-catalog.css">
+<script src="product-analytics.js"></script>
+<script src="hogar-catalog.js"></script>
 </body></html>
