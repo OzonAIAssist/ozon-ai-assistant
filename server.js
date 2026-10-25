@@ -4,6 +4,7 @@ const crypto=require('node:crypto');
 const {verificationFromPosting,readAcquiringTransactions}=require('./acquiring');
 const {readStocks}=require('./dashboard-stocks');
 let dashboardStockCache=null,dashboardStockPending=null,dashboardStockPause=0;
+let balanceCache=null,balancePending=null,balancePause=0;
 const PORT=Number(process.env.PORT||10000);
 const CLIENT_ID=process.env.OZON_CLIENT_ID||'';
 const API_KEY=process.env.OZON_API_KEY||'';
@@ -223,9 +224,26 @@ async function getAccrualTypes(){
  try{return await accrualTypesPending}finally{accrualTypesPending=null}
 }
 
-const routes=new Set(['/api/dashboard/stocks','/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check','/api/orders/posting-presence-check']);
+const routes=new Set(['/api/dashboard/balance','/api/dashboard/stocks','/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check','/api/orders/posting-presence-check']);
 const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||ALLOWED_ORIGINS.has(origin);const ORIGIN=allowed?origin:'';const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
 
+// Balance is the closing balance of the official rolling report, not a payout.
+if(path.pathname==='/api/dashboard/balance'){
+ if(balanceCache&&Date.now()-balanceCache.at<10*60*1000)return reply(res,200,{...balanceCache.data,cache_status:'fresh'},ORIGIN);
+ if(Date.now()<Math.max(balancePause,financeCooldownUntil))return balanceCache?reply(res,200,{...balanceCache.data,cache_status:'stale'},ORIGIN):reply(res,429,{error:'Обновление баланса на паузе после ограничения Ozon',read_only:true},ORIGIN);
+ try{
+  if(!balancePending)balancePending=(async()=>{
+   const end=new Date(),start=new Date(end);start.setUTCDate(start.getUTCDate()-29);
+   const report={date_from:start.toISOString().slice(0,10),date_to:end.toISOString().slice(0,10)};
+   const d=await ozon('/v1/finance/balance',report),amount=d.total?.closing_balance;
+   const value=(typeof amount?.value==='number'||typeof amount?.value==='string')&&String(amount.value).trim()!==''?Number(amount.value):NaN;
+   if(!Number.isFinite(value)||!['RUB','RUR'].includes(amount?.currency_code))throw Error('Unconfirmed balance');
+   const data={balance:value,currency:'RUB',report,as_of:report.date_to,checked_at:new Date().toISOString(),read_only:true,source:'Ozon Seller API /v1/finance/balance · total.closing_balance',note:'Баланс на конец отчётного периода. Не сумма доступной выплаты и не прибыль.'};
+   balanceCache={at:Date.now(),data};return data;
+  })().finally(()=>{balancePending=null});
+  return reply(res,200,await balancePending,ORIGIN);
+ }catch(e){balancePause=Date.now()+15*60*1000;if(e.status===429)financeCooldownUntil=Math.max(financeCooldownUntil,balancePause);if(balanceCache)return reply(res,200,{...balanceCache.data,cache_status:'stale'},ORIGIN);return reply(res,e.status===429?429:502,{error:'Ozon не передал подтверждённый баланс',read_only:true,upstream_status:Number.isInteger(e.status)?e.status:null},ORIGIN)}
+}
 // Safe read-only delivery diagnosis: no raw Ozon response, buyer data, or credentials exposed.
 if(path.pathname==='/api/dashboard/stocks'){
  if(dashboardStockCache&&Date.now()-dashboardStockCache.at<10*60*1000)return reply(res,200,{...dashboardStockCache.data,cache_status:'fresh'},ORIGIN);
@@ -540,3 +558,4 @@ if(path.pathname==='/api/ads/campaigns'){try{const result=await cachedPerformanc
 if(path.pathname==='/api/price-diagnostic'){const offerId=path.searchParams.get('offer_id')||'';if(!offerId||offerId.length>120||/[\x00-\x1f]/.test(offerId))return reply(res,400,{error:'Укажите корректный offer_id'},ORIGIN);try{return reply(res,200,{checked_at:new Date().toISOString(),source:'Ozon Seller API /v5/product/info/prices',...(await priceDiagnostic(offerId))},ORIGIN);}catch(error){console.error('Price diagnostic failed:',error.message);return reply(res,502,{error:'Не удалось получить цены из Ozon',details:error.message.startsWith('Upstream HTTP ')?error.message:undefined},ORIGIN);}}
 try{const items=await products();return reply(res,200,{count:items.length,items},ORIGIN);}catch(error){console.error('Product import failed:',error.message);return reply(res,502,{error:'Не удалось загрузить товары из Ozon. Проверьте права ключа и журнал сервера.'},ORIGIN);}});
 server.listen(PORT,'0.0.0.0',()=>console.log('Ozon read-only API server listening on port '+PORT));
+

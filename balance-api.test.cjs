@@ -1,0 +1,11 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+test('official closing balance uses exact report fields, auth, cache, concurrent requests, shared cooldown and preserves stale values',async()=>{
+ let handler,limited=false,invalid=false;const calls=[];
+ const ctx={require:n=>n==='node:http'?{createServer:fn=>{handler=fn;return {listen(){}}}}:require(n),process:{env:{OZON_CLIENT_ID:'fixture',OZON_API_KEY:'fixture',APP_ACCESS_TOKEN:'fixture'}},console:{log(){},warn(){},error(){}},URL,URLSearchParams,Buffer,AbortController,TextDecoder,setTimeout,clearTimeout,fetch:async(url,opts)=>{calls.push({url,opts});return limited?{ok:false,status:429}:{ok:true,json:async()=>invalid?{result:{balance:100}}:{total:{closing_balance:{currency_code:'RUB',value:-1234.5}}}}}};
+ vm.createContext(ctx);vm.runInContext(fs.readFileSync(__dirname+'/server.js','utf8'),ctx);
+ async function call(token='fixture',method='GET',origin='https://ozonaiassist.github.io'){let r;await handler({url:'/api/dashboard/balance',method,headers:{authorization:'Bearer '+token,origin}},{writeHead(status,headers){r={status,headers}},end(s){r.data=s?JSON.parse(s):null}});return r}
+ assert.equal((await call('wrong')).status,401);assert.equal((await call('fixture','POST')).status,404);assert.equal((await call('fixture','GET','https://evil.test')).status,403);assert.equal(calls.length,0);
+ const rs=await Promise.all([call(),call()]);assert.equal(calls.length,1);assert.equal(rs[0].data.balance,-1234.5);assert.ok(calls[0].url.endsWith('/v1/finance/balance'));const body=JSON.parse(calls[0].opts.body);assert.equal((Date.parse(body.date_to)-Date.parse(body.date_from))/86400000,29);assert.equal((await call()).data.cache_status,'fresh');assert.equal(calls.length,1);
+ vm.runInContext('balanceCache.at=0',ctx);limited=true;assert.equal((await call()).data.cache_status,'stale');const count=calls.length;await call();assert.equal(calls.length,count);assert.ok(vm.runInContext('financeCooldownUntil>Date.now()',ctx));
+ vm.runInContext('balanceCache=null;balancePause=0;financeCooldownUntil=0',ctx);limited=false;invalid=true;assert.equal((await call()).status,502);
+});

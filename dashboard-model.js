@@ -6,8 +6,10 @@
  function adTotals(data){const rows=Array.isArray(data?.rows)?data.rows:null;if(!rows)return {spend:null,revenue:null,complete:false};
   // Daily report includes inactive campaigns too. Duplicate IDs are ambiguous.
   const ids=new Set(),duplicate=rows.some(r=>{const id=String(r.id||'');if(!id||ids.has(id))return true;ids.add(id);return false});
-  const sum=key=>rows.length&&rows.every(r=>num(r[key])!==null)?rows.reduce((s,r)=>s+num(r[key]),0):null;
-  return {spend:duplicate?null:sum('spend'),revenue:duplicate?null:sum('revenue'),complete:!duplicate&&rows.length>0&&sum('spend')!==null};
+  const known=key=>rows.filter(r=>num(r[key])!==null);
+  const sum=key=>known(key).length?known(key).reduce((s,r)=>s+num(r[key]),0):null;
+  const spendKnown=known('spend').length,revenueKnown=known('revenue').length;
+  return {spend:duplicate?null:sum('spend'),revenue:duplicate?null:sum('revenue'),spendKnown,revenueKnown,rows:rows.length,partial:spendKnown<rows.length||revenueKnown<rows.length,complete:!duplicate&&rows.length>0&&spendKnown===rows.length};
  }
  function build({orders=[],products=[],range,finance=()=>null,hasOrders=false,partial=false,ads=null,checked='',now=new Date()}){
   const s=A.summarize(orders,products,range,finance),a=adTotals(ads),issues=[];
@@ -45,3 +47,4 @@
  }
  return {build,adTotals,previous,change};
 });
+

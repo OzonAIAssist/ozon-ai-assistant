@@ -1025,6 +1025,7 @@ host.prepend(panel);
 const listEl=panel.querySelector('#h44list'),updated=panel.querySelector('#h44updated'),diagnostics=panel.querySelector('#h44diagnostics');
 const status={CAMPAIGN_STATE_RUNNING:'Активна',CAMPAIGN_STATE_PLANNED:'Запланирована',CAMPAIGN_STATE_STOPPED:'Остановлена',CAMPAIGN_STATE_INACTIVE:'Выключена',CAMPAIGN_STATE_ARCHIVED:'В архиве',CAMPAIGN_STATE_FINISHED:'Завершена'};
 let campaigns=[],selected='active',expanded=new Set();
+function showAdModal(){const modal=panel.querySelector('.h90-ad-dialog');if(modal){modal.showModal?.();modal.addEventListener('cancel',()=>{expanded.clear();draw()})}}
 let statistics={},period='today',statsRequest=0;
 const periodBar=document.createElement('div');periodBar.className='h46-periods';
 periodBar.innerHTML='<span>Период статистики</span><div><button type="button" data-period="today">Сегодня</button><button type="button" data-period="yesterday">Вчера</button><button type="button" data-period="week">7 дней</button><button type="button" data-period="month">Этот месяц</button></div>';
@@ -1053,11 +1054,11 @@ function summaryDraw(){
  if(details)details.innerHTML='<p>Сумма по кампаниям, по которым Ozon передал статистику за выбранный период. Заказы и их сумма — рекламная атрибуция, не все продажи магазина. Прочерк — нет данных.</p>'+(warnings.length?'<p>'+warnings.map(esc).join('<br>')+'</p>':'');
 }
 
-function periodDates(){const d=new Date(),today=new Date(d.getFullYear(),d.getMonth(),d.getDate());const start=new Date(today),end=new Date(today);if(period==='yesterday'){start.setDate(start.getDate()-1);end.setDate(end.getDate()-1)}if(period==='week')start.setDate(start.getDate()-6);if(period==='month')start.setDate(1);const fmt=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');return {from:fmt(start),to:fmt(end)}}
+function periodDates(){if(window.HogarAnalytics)return window.HogarAnalytics.period(period);const d=new Date(),today=new Date(d.getFullYear(),d.getMonth(),d.getDate());const start=new Date(today),end=new Date(today);if(period==='yesterday'){start.setDate(start.getDate()-1);end.setDate(end.getDate()-1)}if(period==='week')start.setDate(start.getDate()-6);if(period==='month')start.setDate(1);const fmt=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');return {from:fmt(start),to:fmt(end)}}
 function markPeriod(){periodBar.querySelectorAll('button').forEach(b=>b.classList.toggle('h46-selected',b.dataset.period===period))}markPeriod();
 periodBar.addEventListener('click',e=>{const b=e.target.closest('button[data-period]');if(!b)return;period=b.dataset.period;markPeriod();loadStatistics()});
 async function loadStatistics(){const t=token();if(!t||!campaigns.length)return;const serial=++statsRequest,dates=periodDates();statsStatus.textContent='Проверяем статистику…';const savedKey='hogar_stats_v51_'+dates.from+'_'+dates.to;try{const saved=JSON.parse(localStorage.getItem(savedKey)||'null');if(saved&&saved.rows&&Array.isArray(saved.rows)){statistics=Object.fromEntries(saved.rows.map(x=>[String(x.id),x]));draw()}}catch(_){}
- try{const r=await fetch(base+'/api/ads/statistics?from='+dates.from+'&to='+dates.to,{headers:{Authorization:'Bearer '+t},cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error('HTTP '+r.status+(d.error?' · '+d.error:''));if(!Array.isArray(d.rows))throw Error('Неожиданный ответ');if(serial!==statsRequest)return;statistics=Object.fromEntries(d.rows.map(x=>[String(x.id),x]));try{localStorage.setItem(savedKey,JSON.stringify({rows:d.rows,checked_at:d.checked_at}))}catch(_){}statsStatus.textContent=(d.cache_status==='stale'?'Последние доступные данные':'Статистика Ozon')+' · '+dates.from+' — '+dates.to+' · обновлено '+new Date(d.checked_at).toLocaleString('ru-RU')+(d.parsed_count===0?' · Данные кампаний не распознаны':'');
+ try{const r=await fetch(base+'/api/ads/statistics?from='+dates.from+'&to='+dates.to,{headers:{Authorization:'Bearer '+t},cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error('HTTP '+r.status+(d.error?' · '+d.error:''));if(!Array.isArray(d.rows))throw Error('Неожиданный ответ');if(serial!==statsRequest)return;statistics=Object.fromEntries(d.rows.map(x=>[String(x.id),x]));window.dispatchEvent(new CustomEvent('hogar:ads-updated',{detail:{...d,...dates}}));try{localStorage.setItem(savedKey,JSON.stringify({rows:d.rows,checked_at:d.checked_at}))}catch(_){}statsStatus.textContent=(d.cache_status==='stale'?'Последние доступные данные':'Статистика Ozon')+' · '+dates.from+' — '+dates.to+' · обновлено '+new Date(d.checked_at).toLocaleString('ru-RU')+(d.parsed_count===0?' · Данные кампаний не распознаны':'');
  const diag=document.getElementById('h52diag');
  if(diag){const x=d.diagnostic||{};diag.textContent=d.parsed_count===0?'Диагностика (без секретов): строк '+(x.rows_count??'?')+'; поля ответа: '+(x.top_level_keys||[]).join(', ')+'; поля строки: '+(x.row_field_names||[]).join(', ')+'; найдено ID: '+(x.campaign_id_field_present?'да':'нет'):'';
  const missing=x.missing_metrics||{};
@@ -1085,11 +1086,14 @@ function draw(){
   const metric=(label,value)=>'<div class="h44-metric"><small>'+label+'</small><strong>'+value+'</strong></div>';
   const val=(v,suffix)=>v===null||v===undefined||v===''?'—':esc(v)+suffix;
   const stat=statistics[id]||{};const fmt=v=>typeof v==='number'?v.toLocaleString('ru-RU',{maximumFractionDigits:2}):v;const spend=val(fmt(stat.spend),' ₽'),orders=val(fmt(stat.orders),''),cpc=val(fmt(stat.avg_cpc),' ₽');
-  const more=[['Показы',stat.impressions,''],['Клики',stat.clicks,''],['Добавили в корзину',stat.carts,''],['Выручка от рекламы',stat.revenue,' ₽'],['Количество заказов',stat.orders,''],['CTR',stat.ctr,'%'],['Конверсия клика в корзину',stat.cart_rate,'%'],['Конверсия клика в заказ',stat.order_rate,'%'],['ДРР',stat.drr,'%'],['ROAS',stat.roas,'×']];
-  const extra='<div class="h47-detail-grid">'+more.map(([label,value,suffix])=>'<div><small>'+label+'</small><strong>'+formatMetric(value,suffix)+'</strong></div>').join('')+'</div>';
-  const advice=stat.clicks>0&&stat.impressions>0&&stat.ctr!==null&&stat.ctr<1?'Низкий CTR: стоит проверить привлекательность карточки и соответствие поисковым запросам.':stat.spend>0&&stat.orders===0?'Есть расходы без заказов: проверьте карточку, цену и поисковые запросы.':stat.drr!==null&&stat.drr>25?'ДРР выше 25%: сравните с вашей целевой маржинальностью.':'Для оценки эффективности сравнивайте показатели за 7 дней и текущий месяц.';
-  return '<article class="h44-card"><button type="button" class="h44-title" data-id="'+esc(id)+'" aria-expanded="'+open+'"><span class="h44-text"><b>'+name+'</b><small>'+esc(status[c.status]||c.status||'Статус не указан')+' · № '+esc(id)+'</small></span><span class="h44-chevron">'+(open?'⌃':'⌄')+'</span></button><div class="h44-metrics">'+metric('Расходы',spend)+metric('Корзины',val(stat.carts,''))+metric('Цена клика',cpc)+'</div>'+(open?'<div class="h44-details"><h4>Подробная аналитика</h4>'+extra+'<p>Только анализ. Управление и редактирование недоступны.</p></div>':'')+'</article>';
+  const primary=[['Расходы',stat.spend,' ₽'],['Показы',stat.impressions,''],['Клики',stat.clicks,''],['Добавили в корзину',stat.carts,''],['Количество заказов',stat.orders,''],['Выручка от рекламы',stat.revenue,' ₽']];
+  const more=[['CTR',stat.ctr,'%'],['Конверсия клика в корзину',stat.cart_rate,'%'],['Конверсия клика в заказ',stat.order_rate,'%'],['ROAS',stat.roas,'×'],['Цена клика',stat.avg_cpc,' ₽'],['Цена заказа',typeof stat.spend==='number'&&stat.orders>0?stat.spend/stat.orders:null,' ₽'],['ДРР',stat.drr,'%']];
+  const metricGrid=(values,cls)=>'<div class="'+cls+'">'+values.map(([label,value,suffix],i)=>'<div><span class="h90-metric-symbol" aria-hidden="true">'+['▤','◉','↗','▱','▣','◈'][i%6]+'</span><small>'+label+'</small><strong>'+formatMetric(value,suffix)+'</strong></div>').join('')+'</div>';
+  const stateText=esc(status[c.status]||c.status||'Статус не указан'),dates=periodDates();
+  const dialog=open?'<dialog class="h90-ad-dialog"><button type="button" data-close-ad class="h90-close" aria-label="Закрыть кампанию">×</button><div class="h90-ad-hero"><span class="h90-ad-symbol" aria-hidden="true">◈</span><div><span class="h90-status-tag">'+stateText+'</span><h2>'+name+'</h2><p>Кампания № '+esc(id)+'</p></div></div><div class="h90-ad-meta"><label>Период<select class="h90-ad-period" aria-label="Период кампании">'+[['today','Сегодня'],['yesterday','Вчера'],['week','7 дней'],['month','Этот месяц']].map(([id,label])=>'<option value="'+id+'" '+(period===id?'selected':'')+'>'+label+'</option>').join('')+'</select></label><div><small>Тип кампании</small><b>'+esc(({SKU:'Товарная',SEARCH_PROMO:'Продвижение в поиске',BANNER:'Баннерная'})[c.type]||c.type||'Не передан Ozon')+'</b></div><div><small>Статус</small><b>'+stateText+'</b></div></div><h3>Основные показатели</h3>'+metricGrid(primary,'h90-ad-primary')+'<h3>Дополнительные метрики</h3>'+metricGrid(more,'h90-ad-extra')+'<p class="h90-info">Данные Ozon за '+dates.from+' — '+dates.to+'. Показатели могут обновляться с задержкой. Сравнения не показаны без отчёта за предыдущий период. Управление кампанией недоступно.</p><button type="button" class="h90-refresh-ad" data-refresh-ad>↻ Обновить данные</button></dialog>':'';
+  return '<article class="h44-card"><button type="button" class="h44-title" data-id="'+esc(id)+'" aria-expanded="'+open+'"><span class="h90-campaign-dot h90-campaign-'+category(c)+'"></span><span class="h44-text"><b>'+name+'</b><small>'+stateText+' · № '+esc(id)+'</small></span><span class="h44-chevron">⌄</span></button><div class="h44-metrics">'+metric('Расходы',spend)+metric('Корзины',val(stat.carts,''))+metric('Цена клика',cpc)+'</div>'+dialog+'</article>';
  }).join('');
+ showAdModal();
 }
 function token(){return document.getElementById('v10token')?.value.trim()||sessionStorage.getItem(sessionKey)||''}
 function syncToken(){const input=document.getElementById('v10token');if(!input)return;const v=input.value.trim();if(v)sessionStorage.setItem(sessionKey,v)}
@@ -1128,7 +1132,9 @@ async function diagnose(){
  diagnostics.innerHTML+='<p>Можно прислать скриншот: пароли и секреты в отчёте не отображаются.</p>';
 }
 panel.querySelectorAll('.h44-tab').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.tab;try{localStorage.setItem(tabKey,selected)}catch(_){}draw()}));
-listEl.addEventListener('click',e=>{const b=e.target.closest('button[data-id]');if(!b)return;const id=b.dataset.id;if(expanded.has(id))expanded.delete(id);else expanded.add(id);draw()});
+listEl.addEventListener('click',e=>{if(e.target.closest('[data-close-ad]')){expanded.clear();draw();return}if(e.target.closest('[data-refresh-ad]')){loadStatistics();return}const b=e.target.closest('button[data-id]');if(!b)return;expanded.clear();expanded.add(b.dataset.id);draw()});
+listEl.addEventListener('change',e=>{if(e.target.matches('.h90-ad-period')){period=e.target.value;markPeriod();loadStatistics()}});
+const refreshStats=document.createElement('button');refreshStats.className='h90-refresh-ad';refreshStats.type='button';refreshStats.textContent='↻ Обновить статистику';refreshStats.addEventListener('click',()=>campaigns.length?loadStatistics():refresh());listEl.after(refreshStats);
 panel.querySelector('#h44refresh').addEventListener('click',refresh);
 panel.querySelector('#h44diagnose').addEventListener('click',diagnose);
 document.getElementById('v10sync')?.addEventListener('click',()=>{syncToken();setTimeout(refresh,1500)});
@@ -1329,7 +1335,15 @@ function showOrdersAuth(){
 }
 function hideOrdersAuth(){panel.querySelector('#h768auth')?.remove()}
 const row=(name,value)=>'<div class="h50-line"><span>'+esc(name)+'</span><b>'+esc(value)+'</b></div>';
-let filter='other';
+let filter='all',orderPeriod='month',orderQuery='',orderAscending=false,customOrderRange=null;
+function orderRange(){if(customOrderRange)return customOrderRange;if(window.HogarAnalytics)return window.HogarAnalytics.period(orderPeriod);const day=moscowDay(new Date());return {from:day.slice(0,8)+'01',to:day}}
+function orderDay(o){const d=o.delivered?o.delivered_at:o.created_at;return d&&Number.isFinite(Date.parse(d))?moscowDay(new Date(d)):''}
+function catalogProduct(o){let ps=[];try{ps=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]')}catch(_){}const line=o.products?.[0];if(!line||!Array.isArray(ps))return null;return ps.find(p=>window.HogarAnalytics?.match(p,line)||line.offer_id&&String(line.offer_id)===String(p.sku)||line.sku&&[p.ozon_sku,...(p.ozon_skus||[])].filter(Boolean).map(String).includes(String(line.sku)))}
+function orderPicture(o){const p=catalogProduct(o);return p&&/^https:\/\//i.test(p.image_url||'')?'<img class="h90-order-photo" src="'+esc(p.image_url)+'" alt="" loading="lazy" referrerpolicy="no-referrer">':'<span class="h90-order-photo h90-photo-empty" aria-hidden="true">▣</span>'}
+const orderTools=document.createElement('div');orderTools.className='h90-order-tools';orderTools.innerHTML='<div class="h90-search"><input type="search" id="h90-order-search" aria-label="Поиск заказов" placeholder="Название, артикул или номер отправления"><button type="button" data-order-sort>Сначала новые ↕</button></div>';
+panel.querySelector('#h50list').before(orderTools);
+orderTools.querySelector('input').addEventListener('input',e=>{orderQuery=e.target.value;draw()});
+panel.addEventListener('change',e=>{if(e.target.matches('[data-order-date]')){const from=panel.querySelector('[data-order-date=from]').value,to=panel.querySelector('[data-order-date=to]').value;if(from&&to&&from<=to){customOrderRange={from,to};draw()}}});
 const statusName=s=>({'delivered':'Доставлен','delivered_to_customer':'Доставлен','delivering':'В пути','awaiting_deliver':'Ожидает отправки','awaiting_packaging':'Ожидает сборки','awaiting_registration':'Ожидает регистрации','acceptance_in_progress':'Приёмка','cancelled':'Отменён','arbitration':'Спорный'}[String(s||'').toLowerCase()]||'Статус: '+String(s||'неизвестен'));
 const deliveryStates=new Set(['awaiting_registration','awaiting_packaging','awaiting_deliver','acceptance_in_progress','sent_by_seller','delivering','last_mile','arbitration']);
 const isActive=o=>!o.delivered&&deliveryStates.has(String(o.status||'').toLowerCase());
@@ -1352,25 +1366,17 @@ function draw(){
  const units=orders.reduce((s,o)=>s+(o.products||[]).reduce((a,p)=>a+(Number(p.quantity)||0),0),0);
  summary.innerHTML=[['all','Все активные',orders.filter(isActive).length],['delivered','Доставлено',delivered],['other','В пути',orders.filter(isActive).length],['units','Единиц товаров',units]].map(([key,k,v])=>'<button type="button" class="h50-tile h57-stat '+(filter===key?'h57-selected':'')+'" data-filter="'+(key==='units'?'all':key)+'"><small>'+k+'</small><b>'+fmt(v)+'</b></button>').join('');
  const percent=orders.length?Math.round(100*delivered/orders.length):0;
- const bar=panel.querySelector('#h57bar');
- if(bar){
-  const mo=currentMonthOrders();
-  if(!mo){bar.innerHTML='<div class="h65-month-title">Отправления за '+esc(monthTitle())+'</div><p class="h50-note">'+(monthError?'Не удалось получить месячные данные Ozon. Попробуйте обновить.':'Загружаем отдельную сводку за месяц…')+'</p>'}
-  else{
-   const done=mo.filter(o=>o.delivered).length;
-   const transit=mo.filter(o=>isActive(o)).length;
-   const rest=mo.length-done-transit;
-   const pct=mo.length?Math.round(done/mo.length*100):0;
-   const otherGroups=new Map();for(const o of mo){const st=String(o.status||'unknown').toLowerCase();if(!o.delivered&&!['delivering','arbitration','last_mile','sent_by_seller','awaiting_deliver'].includes(st)){const key=statusName(st);otherGroups.set(key,(otherGroups.get(key)||0)+1)}}
-   const otherDetails=[...otherGroups.entries()].sort((a,b)=>b[1]-a[1]).map(([name,count])=>'<div class="h71-other-line"><span>'+esc(name)+'</span><strong>'+count+'</strong></div>').join('');
-   bar.innerHTML='<div class="h65-month-title">Отправления за '+esc(monthTitle())+'</div><div class="h65-month-sub">По дате создания · текущий статус Ozon</div><div class="h65-month-grid">'+'<div class="h65-month-card h65-done"><span>Доставлено</span><strong>'+done+'</strong><small>Получено покупателями</small></div><div class="h65-month-card h65-transit"><span>В пути</span><strong>'+transit+'</strong><small>На этапе доставки</small></div></div>'+(rest?'<button type="button" class="h65-other h71-other-toggle" data-month-other="1" aria-expanded="'+monthOthersOpen+'"><span>Другие статусы <span class="h71-chevron">'+(monthOthersOpen?'⌃':'⌄')+'</span></span><b>'+rest+'</b></button>'+(monthOthersOpen?'<div class="h71-other-details">'+otherDetails+'</div>':''):'')+'<div class="h65-month-progress"><i style="width:'+pct+'%"></i></div><div class="h65-month-foot"><span>Доставлено '+pct+'%</span><span>Всего '+mo.length+'</span></div>'+(monthPartial?'<p class="h50-note">Ozon ограничил объём выгрузки. Месячные показатели могут быть неполными.</p>':'');
-  }
- }
- panel.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('h57-selected',b.dataset.filter===filter));
- const shown=orders.filter(o=>filter==='delivered'?o.delivered&&(!o.delivered_at||(Number.isFinite(new Date(o.delivered_at).getTime())&&moscowDay(new Date(o.delivered_at)).startsWith(monthKey())) ):isActive(o));
- if(filter==='delivered')shown.sort((a,b)=>String(b.delivered_at||'').localeCompare(String(a.delivered_at||'')));
- if(filter==='other')shown.sort((a,b)=>String(a.status||'').localeCompare(String(b.status||'')));
- const count=panel.querySelector('#h57count');if(count)count.textContent='Показано: '+shown.length+(filter==='delivered'?' · доставленные (дата уточняется)':' · активные отправления');
+ const bar=panel.querySelector('#h57bar'),range=orderRange();
+ const inRange=d=>d&&d>=range.from&&d<=range.to;
+ const relevant=orders.filter(o=>inRange(orderDay(o))),done=relevant.filter(o=>o.delivered).length,transit=relevant.filter(isActive).length,cancelled=relevant.filter(o=>String(o.status).toLowerCase()==='cancelled').length;
+ const total=relevant.length,tiles=[['Всего заказов',total,'По датам списка'],['Доставлено',done,'По дате доставки'],['В пути',transit,'Созданы за период'],['Отмены',cancelled,'Созданы за период']];
+ if(bar)bar.innerHTML='<div class="h90-order-summary">'+tiles.map(([label,n,note],i)=>'<div class="h90-stat h90-tone-'+i+'"><span>'+label+'</span><strong>'+n+'</strong><small>'+note+'</small></div>').join('')+'</div><div class="h90-order-periods">'+[['today','Сегодня'],['yesterday','Вчера'],['week','7 дней'],['month','Этот месяц']].map(([id,label])=>'<button type="button" data-order-period="'+id+'" aria-pressed="'+(!customOrderRange&&orderPeriod===id)+'">'+label+'</button>').join('')+'</div><details class="h90-custom-range"><summary>Выбрать период · '+esc(range.from)+' — '+esc(range.to)+'</summary><label>С <input type="date" data-order-date="from" value="'+esc(range.from)+'"></label><label>По <input type="date" data-order-date="to" value="'+esc(range.to)+'"></label><small>Доступна полученная выгрузка FBS за 35 дней. Старые доставки могут отсутствовать.</small></details><div class="h90-status-overview"><b>Статусы заказов</b><span>Всего: '+total+'</span><div class="h90-status-bar"><i style="width:'+(total?100*done/total:0)+'%"></i><i style="width:'+(total?100*transit/total:0)+'%"></i><i style="width:'+(total?100*cancelled/total:0)+'%"></i></div><small>Доставлено '+done+' · В пути '+transit+' · Отмены '+cancelled+(total-done-transit-cancelled?' · Другие '+(total-done-transit-cancelled):'')+'</small></div>';
+ const filters=panel.querySelector('.h57-filters');filters.innerHTML=[['all','Все заказы',total],['delivered','Доставлено',done],['other','В пути',transit],['cancelled','Отмены',cancelled]].map(([id,label,n])=>'<button type="button" data-filter="'+id+'" class="'+(filter===id?'h57-selected':'')+'">'+label+' ('+n+')</button>').join('');
+ const q=orderQuery.trim().toLowerCase();
+ const shown=relevant.filter(o=>(filter==='all'||filter==='delivered'&&o.delivered||filter==='other'&&isActive(o)||filter==='cancelled'&&String(o.status).toLowerCase()==='cancelled')&&(!q||[o.posting_number,...(o.products||[]).flatMap(p=>[p.name,p.offer_id,p.sku])].join(' ').toLowerCase().includes(q)));
+ shown.sort((a,b)=>(orderAscending?1:-1)*String(orderDay(a)).localeCompare(String(orderDay(b)))||(orderAscending?1:-1)*String(a.delivered?a.delivered_at:a.created_at).localeCompare(String(b.delivered?b.delivered_at:b.created_at)));
+ const count=panel.querySelector('#h57count');if(count)count.textContent='Показано: '+shown.length+' · даты по Москве';
+ const oldModal=panel.querySelector('.h90-order-dialog'),modalScroll=oldModal?.scrollTop||0;
  const cardsByIndex=shown.length?shown.map(o=>{
   const id=String(o.posting_number),open=expanded.has(id),finance=finances.get(id),p=o.products?.[0]||{};
   const name=p.name||'Товар Ozon',extra=(o.products||[]).length>1?' · ещё '+((o.products||[]).length-1)+' поз.':'';
@@ -1407,10 +1413,14 @@ function draw(){
      o.delivered&&!finance?.loading&&!ops?'<p class="h75-finance-message">Финансы появятся автоматически после загрузки.</p>':'')+
     (o.delivered&&ops&&!ops.length?'<p class="h75-finance-message">Ozon пока не передал начисления по этому отправлению.</p>':'')+
     (o.delivered&&ops?.length&&acquiringSum===null?'<p class="h75-finance-message">'+esc(finance?.acquiring_unallocated?'Ozon передал общую комиссию заказа. Без подтверждённого распределения между отправлениями она не вычитается из каждого.':finance?.acquiring_overlap?'Эквайринг требует сверки с уже учтёнными операциями; повторное списание исключено.':finance?.acquiring_lookup_status==='rate_limited'?'Эквайринг временно недоступен из-за ограничения Ozon. Сохранённые начисления остаются на экране.':'Эквайринг пока не подтверждён ответом Ozon. Показанный остаток не включает неподтверждённое удержание.')+'</p>':'');
-  return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'"><span class="h57-order-main"><span class="h57-order-meta"><em class="'+(o.delivered?'h57-done':'h57-pending')+'">'+esc(detailedStatus(o))+'</em><small>'+esc(o.delivered?(o.delivered_at?deliveryDate(o.delivered_at):'Дата доставки неизвестна'):shortDate(o.created_at))+'</small></span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((s,x)=>s+(Number(x.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><span class="h57-chevron">'+(open?'⌃':'⌄')+'</span></button>'+(open?'<div class="h50-body">'+items+'</div>':'')+'</article>';
+  const head='<div class="h90-dialog-product">'+orderPicture(o)+'<div><span class="h90-status-tag">'+esc(detailedStatus(o))+'</span><h3>'+esc(name)+esc(extra)+'</h3><small>'+esc((o.products||[]).reduce((v,l)=>v+(Number(l.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></div></div>';
+  return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'">'+orderPicture(o)+'<span class="h57-order-main"><span class="h90-status-tag">'+esc(detailedStatus(o))+'</span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((v,l)=>v+(Number(l.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><time>'+esc(o.delivered?deliveryDate(o.delivered_at):deliveryDate(o.created_at))+'</time><span class="h57-chevron">›</span></button>'+(open?'<dialog class="h90-order-dialog"><button type="button" class="h90-close" data-close-order aria-label="Закрыть заказ">×</button>'+head+'<div class="h90-order-dates"><div><small>'+(o.delivered?'Дата доставки':'Дата создания')+'</small><b>'+esc(deliveryDate(o.delivered?o.delivered_at:o.created_at))+'</b></div><div><small>Способ доставки</small><b>FBS</b></div></div><h3 class="h90-finance-heading">Финансовые показатели</h3><div class="h50-body">'+items+'</div></dialog>':'')+'</article>';
+
  }):[];
  const cards=cardsByIndex.length?cardsByIndex.join(''):'<p class="h50-note">В выбранной категории отправлений нет.</p>';
- if(filter==='delivered'&&shown.length){let idx=0;list.innerHTML=shown.map(o=>{const key=dateGroup(o);const previous=idx?dateGroup(shown[idx-1]):null;const card=cardsByIndex[idx++];return (key!==previous?'<h4 class="h76-group">'+esc(deliveryLabel(key))+'</h4>':'')+card}).join('')}else list.innerHTML=cards;
+ if(shown.length){let idx=0;list.innerHTML=shown.map(o=>{const key=orderDay(o)||'unknown',previous=idx?(orderDay(shown[idx-1])||'unknown'):null,card=cardsByIndex[idx++];return (key!==previous?'<h4 class="h76-group">'+esc(deliveryLabel(key))+'</h4>':'')+card}).join('')}else list.innerHTML=cards;
+ const modal=panel.querySelector('.h90-order-dialog');if(modal){modal.showModal?.();modal.scrollTop=modalScroll;modal.addEventListener('cancel',()=>{expanded.clear();draw()})}
+
 }
 async function load(){
  const t=token();if(!t){status.textContent='Сначала введите пароль доступа к серверу в разделе «Цены» (синхронизация каталога).';return}
@@ -1524,7 +1534,10 @@ panel.addEventListener('click',e=>{
  if(b.id==='h50refresh')load();
  if(b.dataset.filter){filter=b.dataset.filter;draw();scheduleFinances();return}
 
- if(b.dataset.open){const id=b.dataset.open;expanded.has(id)?expanded.delete(id):expanded.add(id);draw();if(expanded.has(id))scheduleFinances();return}
+ if(b.hasAttribute('data-close-order')){expanded.clear();draw();return}
+ if(b.dataset.orderPeriod){orderPeriod=b.dataset.orderPeriod;customOrderRange=null;draw();return}
+ if(b.hasAttribute('data-order-sort')){orderAscending=!orderAscending;b.textContent=orderAscending?'Сначала старые ↕':'Сначала новые ↕';draw();return}
+ if(b.dataset.open){const id=b.dataset.open;expanded.clear();expanded.add(id);draw();scheduleFinances();return}
  if(b.dataset.expenses){const id=b.dataset.expenses;const old=finances.get(id)||{};finances.set(id,{...old,detailsOpen:!old.detailsOpen});draw();return}
  if(b.dataset.finance){e.stopPropagation();financeFailures.delete(b.dataset.finance);finance(b.dataset.finance);}
 });
@@ -2144,5 +2157,6 @@ body #hd-brand button.hd-header-safe{color:#bfe6c2!important;background:#3d66354
  #premium22 .p23-status{font-size:9px!important;line-height:1.3;padding:3px 6px;margin-top:4px}
 }
 </style>
+<link rel="stylesheet" href="hogar-reference.css">
 </body></html>
 
