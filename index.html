@@ -1031,7 +1031,7 @@ host.prepend(panel);
 panel.querySelectorAll('.h44-tab').forEach((b,i)=>{const label=b.childNodes[0].textContent.trim();b.childNodes[0].remove();b.insertAdjacentHTML('afterbegin','<i class="h93-category-icon">'+adIcon(['megaphone','pause','box'][i])+'</i><span>'+label+'</span>')});
 const listEl=panel.querySelector('#h44list'),updated=panel.querySelector('#h44updated'),diagnostics=panel.querySelector('#h44diagnostics');
 const status={CAMPAIGN_STATE_RUNNING:'Активна',CAMPAIGN_STATE_PLANNED:'Запланирована',CAMPAIGN_STATE_STOPPED:'Остановлена',CAMPAIGN_STATE_INACTIVE:'Выключена',CAMPAIGN_STATE_ARCHIVED:'В архиве',CAMPAIGN_STATE_FINISHED:'Завершена'};
-let campaigns=[],selected='active',expanded=new Set();
+let campaigns=[],selected='active',expanded=new Set(),inlineCampaign=null;
 function showAdModal(){const modal=panel.querySelector('.h90-ad-dialog');if(modal){modal.showModal?.();modal.addEventListener('cancel',()=>{expanded.clear();draw()})}}
 let statistics={},period='today',statsRequest=0;
 const periodBar=document.createElement('div');periodBar.className='h46-periods';
@@ -1087,7 +1087,7 @@ function draw(){
  const counts={active:0,inactive:0,archived:0};campaigns.forEach(c=>counts[category(c)]++);
  panel.querySelectorAll('.h44-tab').forEach(b=>{b.querySelector('b').textContent=counts[b.dataset.tab];b.setAttribute('aria-selected',String(selected===b.dataset.tab))});
  summaryDraw();
- const visible=campaigns.filter(c=>category(c)===selected);
+ const visible=campaigns;
  if(!visible.length){listEl.innerHTML='<p class="h44-muted">В этой вкладке пока нет кампаний.</p>';return}
  listEl.innerHTML=visible.map(c=>{
   const id=String(c.id),open=expanded.has(id),name=esc(c.name||'Кампания № '+id);
@@ -1099,7 +1099,11 @@ function draw(){
   const metricGrid=(values,cls)=>'<div class="'+cls+'">'+values.map(([label,value,suffix],i)=>'<div><span class="h90-metric-symbol" aria-hidden="true">'+adIcon((cls==='h90-ad-primary'?['wallet','eye','cursor','cart','box','coins']:['chart','cart','box','chart','tag','tag','calculator'])[i])+'</span><small>'+label+'</small><strong>'+formatMetric(value,suffix)+'</strong></div>').join('')+'</div>';
   const stateText=esc(status[c.status]||c.status||'Статус не указан'),dates=periodDates();
   const dialog=open?'<dialog class="h90-ad-dialog"><button type="button" data-close-ad class="h90-close" aria-label="Закрыть кампанию">×</button><div class="h90-ad-hero"><span class="h90-ad-symbol" aria-hidden="true">'+adIcon('megaphone')+'</span><div><span class="h90-status-tag h94-state-'+category(c)+'">'+stateText+'</span><h2>'+name+'</h2><p>Кампания № '+esc(id)+'</p></div></div><div class="h90-ad-meta"><label><i aria-hidden="true">'+adIcon('calendar')+'</i><small>Период</small><select class="h90-ad-period" aria-label="Период кампании">'+[['today','Сегодня'],['yesterday','Вчера'],['week','7 дней'],['month','Этот месяц']].map(([id,label])=>'<option value="'+id+'" '+(period===id?'selected':'')+'>'+label+'</option>').join('')+'</select></label><div><i aria-hidden="true">'+adIcon('megaphone')+'</i><small>Тип кампании</small><b>'+esc(({SKU:'Товарная',SEARCH_PROMO:'Продвижение в поиске',BANNER:'Баннерная'})[c.type]||c.type||'Не передан Ozon')+'</b></div><div class="h94-meta-state h94-state-'+category(c)+'"><i aria-hidden="true">'+adIcon('box')+'</i><small>Статус</small><b>'+stateText+'</b></div></div><h3>Основные показатели</h3>'+metricGrid(primary,'h90-ad-primary')+'<h3>Дополнительные метрики</h3>'+metricGrid(more,'h90-ad-extra')+'<div class="h90-info"><i aria-hidden="true">'+adIcon('info')+'</i><p>Данные загружаются из Ozon. Некоторые метрики могут обновляться с задержкой. Управление и редактирование кампании недоступны.</p><small>Период: '+dates.from+' — '+dates.to+'. Сравнения доступны при наличии отчёта за предыдущий период.</small></div><button type="button" class="h90-refresh-ad" data-refresh-ad>'+adIcon('refresh')+'<span>Обновить данные</span></button></dialog>':'';
-  return '<article class="h44-card"><button type="button" class="h44-title" data-id="'+esc(id)+'" aria-expanded="'+open+'"><span class="h90-campaign-dot h90-campaign-'+category(c)+'"></span><span class="h44-text"><b>'+name+'</b><small>'+stateText+' · № '+esc(id)+'</small></span><span class="h44-chevron">⌄</span></button><div class="h44-metrics">'+metric('Расходы',spend)+metric('Корзины',val(stat.carts,''))+metric('Цена клика',cpc)+'</div>'+dialog+'</article>';
+  let photo='';
+  try{const products=JSON.parse(localStorage.getItem('ozon_products_v09')||'[]');const sku=String(c.sku||c.product_id||'');const match=products.find(p=>sku&&[p.sku,p.id,p.product_id].some(v=>String(v||'')===sku));const src=c.image_url||match?.image_url;if(typeof src==='string'&&/^https:\/\//i.test(src))photo='<img src="'+esc(src)+'" alt="Товар кампании" loading="lazy">'}catch(_){}
+  const inline=inlineCampaign===id;
+  const tiles=[['Расходы',stat.spend,' ₽','wallet'],['Показы',stat.impressions,'','eye'],['Клики',stat.clicks,'','cursor'],['Корзины',stat.carts,'','cart'],['Заказы',stat.orders,'','box'],['CTR',stat.ctr,'%','chart']].map(([label,value,suffix,icon])=>'<div class="h98-tile"><i aria-hidden="true">'+adIcon(icon)+'</i><small>'+label+'</small><strong>'+formatMetric(value,suffix)+'</strong></div>').join('');
+  return '<article class="h44-card h98-campaign '+(inline?'h98-expanded':'')+'"><button type="button" class="h44-title" data-inline="'+esc(id)+'" aria-expanded="'+inline+'"><span class="h98-photo">'+(photo||adIcon('megaphone'))+'</span><span class="h90-campaign-dot h90-campaign-'+category(c)+'"></span><span class="h44-text"><b>'+name+'</b><small>'+stateText+' · № '+esc(id)+' · '+esc(({SKU:'Товары в поиске',SEARCH_PROMO:'Продвижение в поиске',BANNER:'Баннерная'})[c.type]||c.type||'Тип не передан')+'</small></span><span class="h44-chevron">'+(inline?'⌃':'⌄')+'</span></button><div class="h98-tiles">'+tiles+'</div>'+(inline?'<button type="button" class="h98-details" data-id="'+esc(id)+'">Подробные показатели ›</button>':'')+dialog+'</article>';
  }).join('');
  showAdModal();
 }
@@ -1140,7 +1144,7 @@ async function diagnose(){
  diagnostics.innerHTML+='<p>Можно прислать скриншот: пароли и секреты в отчёте не отображаются.</p>';
 }
 panel.querySelectorAll('.h44-tab').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.tab;try{localStorage.setItem(tabKey,selected)}catch(_){}draw()}));
-listEl.addEventListener('click',e=>{if(e.target.closest('[data-close-ad]')){expanded.clear();draw();return}if(e.target.closest('[data-refresh-ad]')){loadStatistics();return}const b=e.target.closest('button[data-id]');if(!b)return;expanded.clear();expanded.add(b.dataset.id);draw()});
+listEl.addEventListener('click',e=>{const inline=e.target.closest('[data-inline]');if(inline){inlineCampaign=inlineCampaign===inline.dataset.inline?null:inline.dataset.inline;draw();return}if(e.target.closest('[data-close-ad]')){expanded.clear();draw();return}if(e.target.closest('[data-refresh-ad]')){loadStatistics();return}const b=e.target.closest('button[data-id]');if(!b)return;expanded.clear();expanded.add(b.dataset.id);draw()});
 listEl.addEventListener('change',e=>{if(e.target.matches('.h90-ad-period')){period=e.target.value;markPeriod();loadStatistics()}});
 const refreshStats=document.createElement('button');refreshStats.className='h90-refresh-ad';refreshStats.type='button';refreshStats.innerHTML=adIcon('refresh')+'<span>Обновить статистику</span>';refreshStats.addEventListener('click',()=>campaigns.length?loadStatistics():refresh());listEl.after(refreshStats);
 panel.querySelector('#h44refresh').addEventListener('click',refresh);

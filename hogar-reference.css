@@ -641,3 +641,22 @@ body:has(#tab-prices.active) main{max-width:800px!important;padding:9px 12px 24p
 #tab-prices #premium22 .p97-cost-form button{background:#f78b37!important;color:white!important;border:0!important;padding:9px 12px!important;min-height:36px!important;box-shadow:none!important;font-size:12px!important}
 @media(min-width:600px){#tab-prices #premium22 button.p22-item{grid-template-columns:67px minmax(0,1fr) 150px 12px!important;min-height:90px!important;padding:10px!important}#premium22 .p22-item .p22-icon{width:64px!important;height:70px!important}#premium22 .p22-itemtext b{font-size:15px!important}#premium22 .p22-itemtext small{font-size:12px!important}#premium22 .p97-actual strong{font-size:20px!important}#premium22 .p97-actual small{font-size:11px!important}#premium22 .p23-status{font-size:10px!important}}
 @media(max-width:360px){#tab-prices #premium22 button.p22-item{grid-template-columns:42px minmax(0,1fr) 67px 8px!important;gap:6px!important}#premium22 .p22-item .p22-icon{width:42px!important;height:52px!important;min-width:42px!important}#premium22 .p97-actual strong{font-size:13px!important}}
+
+/* Campaign list: compact six-metric cards and inline expansion. */
+#tab-ads #h44 .h44-tabs,#tab-ads #h44 .h47-summary,#tab-ads #h44 .h46-periods>span{display:none!important}
+#tab-ads #h44 .h93-campaigns-panel{padding:0;border:0;background:transparent}
+#tab-ads #h44 .h98-campaign{padding:8px!important;margin:8px 0!important;background:#fffcf6!important;border-color:#f1e4d5!important}
+#tab-ads #h44 button.h44-title.h44-title{padding:0 0 6px!important;align-items:center!important;background:transparent!important;border:0!important;gap:6px!important}
+#h44 .h98-photo{display:grid;place-items:center;width:42px;height:34px;flex:none;border-radius:6px;background:#f5ecdf;color:#c98640;overflow:hidden}
+#h44 .h98-photo img{width:100%;height:100%;object-fit:contain}#h44 .h98-photo svg{width:23px;height:23px}
+#h44 .h98-campaign .h90-campaign-dot{align-self:center;margin:0;width:8px;height:8px}
+#h44 .h98-campaign .h44-text b{font-size:12px!important}#h44 .h98-campaign .h44-text small{font-size:9px!important;font-weight:400!important}
+#h44 .h98-tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:3px}
+#h44 .h98-tile{display:grid;grid-template-columns:15px minmax(0,1fr);align-content:center;column-gap:3px;min-width:0;min-height:35px;padding:5px 3px;border:1px solid #f3e7da;border-radius:7px;background:linear-gradient(110deg,#fff8ef,#fffcf8)}
+#h44 .h98-tile i{grid-row:1/3;color:#ef8126;align-self:start}#h44 .h98-tile svg{width:14px;height:14px}
+#h44 .h98-tile small{font-size:7px!important;line-height:1.2;color:#9d8875!important;overflow-wrap:anywhere}
+#h44 .h98-tile strong{font-size:10px!important;line-height:1.3;color:#2e2923!important;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+#h44 .h98-expanded .h98-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}#h44 .h98-expanded .h98-tile{min-height:49px;padding:7px;grid-template-columns:23px minmax(0,1fr)}
+#h44 .h98-expanded .h98-tile svg{width:20px;height:20px}#h44 .h98-expanded .h98-tile small{font-size:9px!important}#h44 .h98-expanded .h98-tile strong{font-size:14px!important}
+#tab-ads #h44 .h98-details{padding:6px!important;min-height:28px!important;margin:5px 0 0!important;background:#fff2e2!important;border:1px solid #edd9c0!important;border-radius:7px!important;color:#94663f!important;font-size:10px!important;width:100%}
+@media(min-width:600px){#h44 .h98-photo{width:65px;height:48px}#h44 .h98-campaign .h44-text b{font-size:15px!important}#h44 .h98-tile{padding:8px;min-height:48px;grid-template-columns:20px minmax(0,1fr)}#h44 .h98-tile small{font-size:10px!important}#h44 .h98-tile strong{font-size:13px!important}}
