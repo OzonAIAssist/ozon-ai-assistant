@@ -589,3 +589,12 @@ body:has(#tab-catalog.active .hc-product-detail) main{padding:7px 10px 22px!impo
 #tab-orders #h50 .h90-order-dialog .h75-facts>div.h92-logistics{background:#fff6e9!important;border-color:#edddc5!important}
 #tab-orders #h50 .h90-order-dialog .h75-facts>div.h92-logistics>.h92-finance-icon{background:#ffe9cb!important;color:#97683f!important}
 #tab-orders #h50 .h90-order-dialog .h75-facts>div.h92-logistics>strong{color:#75502f!important}
+/* Delivery overview: contained labels and quieter numeric hierarchy. */
+#tab-orders #h50 .h90-stat{grid-template-rows:34px 28px minmax(32px,auto)!important;min-width:0!important;padding:9px 7px!important;gap:4px!important}
+#tab-orders #h50 .h90-stat>span{display:grid!important;grid-template-columns:21px minmax(0,1fr)!important;gap:4px!important;align-items:center!important;min-width:0!important;max-width:100%!important;font-size:9px!important;font-weight:600!important;line-height:1.25!important;white-space:normal!important;overflow-wrap:anywhere!important}
+#tab-orders #h50 .h91-stat-icon{width:21px!important;height:25px!important;min-width:0!important}
+#tab-orders #h50 .h91-stat-icon svg{width:17px!important;height:17px!important}
+#tab-orders #h50 .h90-stat>strong{font-size:25px!important;line-height:1!important;letter-spacing:-.4px!important;font-weight:650!important}
+@media(min-width:600px){#tab-orders #h50 .h90-stat{grid-template-rows:34px 31px minmax(35px,auto)!important;min-height:128px!important;padding:12px!important}#tab-orders #h50 .h90-stat>span{grid-template-columns:25px minmax(0,1fr)!important;font-size:12px!important;gap:6px!important}#tab-orders #h50 .h91-stat-icon{width:25px!important;height:28px!important}#tab-orders #h50 .h90-stat>strong{font-size:29px!important}}
+@media(max-width:360px){#tab-orders #h50 .h90-stat{padding:8px 5px!important}#tab-orders #h50 .h90-stat>span{grid-template-columns:18px minmax(0,1fr)!important;gap:3px!important;font-size:8px!important}#tab-orders #h50 .h91-stat-icon{width:18px!important;height:23px!important}#tab-orders #h50 .h90-stat>strong{font-size:23px!important}}
+#tab-orders #h50 .h90-stat>span>.h96-stat-label{display:block;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.25}
