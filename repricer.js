@@ -2,14 +2,14 @@
 // Ozon AI Assistant v0.8 — demo-only pricing safety calculator.
 // Does not connect to Ozon or change marketplace prices.
 function safePrice(input) {
-  const fields = ['cost','logistics','other','profit','commissionPct','taxPct','adsPct'];
+  const fields = ['cost','logistics','other','profit','commissionPct','adsPct'];
   for (const field of fields) {
     const value = input[field];
     if (value === '' || value === null || value === undefined || !Number.isFinite(Number(value)) || Number(value) < 0) {
       return {status:'blocked',reason:'Заполните все расходы и проценты.'};
     }
   }
-  const rate = (Number(input.commissionPct) + Number(input.taxPct) + Number(input.adsPct)) / 100;
+  const rate = (Number(input.commissionPct) + Number(input.adsPct)) / 100;
   if (rate >= 1) return {status:'blocked',reason:'Сумма процентных расходов должна быть меньше 100%.'};
   const minimum = Math.ceil((Number(input.cost) + Number(input.logistics) + Number(input.other) + Number(input.profit)) / (1-rate));
   const mode = input.mode;
@@ -32,3 +32,4 @@ function safePrice(input) {
     reason:effective > desired ? 'Расчётная нижняя граница повышена до безопасного минимума.' : 'Цена не ниже безопасного минимума.'};
 }
 if (typeof module !== 'undefined') module.exports = {safePrice};
+

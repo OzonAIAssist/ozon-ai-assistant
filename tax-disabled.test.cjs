@@ -1,0 +1,2 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),{safePrice}=require('./repricer');
+test('pricing temporarily excludes saved and missing tax rates without modifying settings',()=>{const settings={mode:'range',min:100,max:5000,cost:1000,logistics:500,other:0,profit:100,commissionPct:10,adsPct:10};for(const taxPct of [undefined,'',6,95,'invalid']){const input={...settings,taxPct};const result=safePrice(input);assert.equal(result.minimum,2000);assert.equal(result.status,'raised');assert.equal(input.taxPct,taxPct)}});
