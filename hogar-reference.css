@@ -643,7 +643,7 @@ body:has(#tab-prices.active) main{max-width:800px!important;padding:9px 12px 24p
 @media(max-width:360px){#tab-prices #premium22 button.p22-item{grid-template-columns:42px minmax(0,1fr) 67px 8px!important;gap:6px!important}#premium22 .p22-item .p22-icon{width:42px!important;height:52px!important;min-width:42px!important}#premium22 .p97-actual strong{font-size:13px!important}}
 
 /* Campaign list: compact six-metric cards and inline expansion. */
-#tab-ads #h44 .h44-tabs,#tab-ads #h44 .h47-summary,#tab-ads #h44 .h46-periods>span{display:none!important}
+#tab-ads #h44 .h47-summary,#tab-ads #h44 .h46-periods>span{display:none!important}
 #tab-ads #h44 .h93-campaigns-panel{padding:0;border:0;background:transparent}
 #tab-ads #h44 .h98-campaign{padding:8px!important;margin:8px 0!important;background:#fffcf6!important;border-color:#f1e4d5!important}
 #tab-ads #h44 button.h44-title.h44-title{padding:0 0 6px!important;align-items:center!important;background:transparent!important;border:0!important;gap:6px!important}
@@ -660,3 +660,9 @@ body:has(#tab-prices.active) main{max-width:800px!important;padding:9px 12px 24p
 #h44 .h98-expanded .h98-tile svg{width:20px;height:20px}#h44 .h98-expanded .h98-tile small{font-size:9px!important}#h44 .h98-expanded .h98-tile strong{font-size:14px!important}
 #tab-ads #h44 .h98-details{padding:6px!important;min-height:28px!important;margin:5px 0 0!important;background:#fff2e2!important;border:1px solid #edd9c0!important;border-radius:7px!important;color:#94663f!important;font-size:10px!important;width:100%}
 @media(min-width:600px){#h44 .h98-photo{width:65px;height:48px}#h44 .h98-campaign .h44-text b{font-size:15px!important}#h44 .h98-tile{padding:8px;min-height:48px;grid-template-columns:20px minmax(0,1fr)}#h44 .h98-tile small{font-size:10px!important}#h44 .h98-tile strong{font-size:13px!important}}
+
+/* Compact campaign state filters. */
+#tab-ads #h44 .h44-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px!important;margin:8px 0 0!important}
+#tab-ads #h44 .h44-tab{display:flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;min-height:34px!important;padding:8px 5px!important;font-size:11px!important;border-radius:8px!important}
+#tab-ads #h44 .h44-tab .h93-category-icon{display:none!important}
+#tab-ads #h44 .h44-tab>span{font-size:11px!important}#tab-ads #h44 .h44-tab>b{font-size:12px!important;margin:0!important}
