@@ -1376,7 +1376,7 @@ function draw(){
  const inRange=d=>d&&d>=range.from&&d<=range.to;
  const relevant=orders.filter(o=>inRange(orderDay(o))),done=relevant.filter(o=>o.delivered).length,transit=relevant.filter(isActive).length,cancelled=relevant.filter(o=>String(o.status).toLowerCase()==='cancelled').length;
  const total=relevant.length,tiles=[['Всего заказов',total,'За выбранный период'],['Доставлено',done,'По дате доставки'],['В пути',transit,'Созданы за период'],['Отмены',cancelled,'Созданы за период']];
- if(bar)bar.innerHTML='<div class="h90-order-summary">'+tiles.map(([label,n,note],i)=>'<div class="h90-stat h90-tone-'+i+'"><span><i class="h91-stat-icon">'+orderIcon(['cart','check','truck','cancel'][i])+'</i>'+label+'</span><strong>'+(orderDataLoaded?n:'—')+'</strong><small>'+note+'</small></div>').join('')+'</div><div class="h90-order-periods">'+[['today','Сегодня'],['yesterday','Вчера'],['week','7 дней'],['month','Этот месяц']].map(([id,label])=>'<button type="button" data-order-period="'+id+'" aria-pressed="'+(!customOrderRange&&orderPeriod===id)+'">'+label+'</button>').join('')+'<button type="button" data-order-range aria-expanded="false">▣ Выбрать период</button></div><details class="h90-custom-range" '+(customOrderRange?'open':'')+'><summary>Выбрать период · '+esc(range.from)+' — '+esc(range.to)+'</summary><label>С <input type="date" data-order-date="from" value="'+esc(range.from)+'"></label><label>По <input type="date" data-order-date="to" value="'+esc(range.to)+'"></label><small>Доступна полученная выгрузка FBS за 35 дней. Старые доставки могут отсутствовать.</small></details><div class="h90-status-overview"><b>Статусы заказов</b><span>Всего: '+(orderDataLoaded?total:'—')+'</span><div class="h90-status-bar"><i style="width:'+(total?100*done/total:0)+'%"></i><i style="width:'+(total?100*transit/total:0)+'%"></i><i style="width:'+(total?100*cancelled/total:0)+'%"></i></div><div class="h91-status-legend">'+[['Доставлено',done],['В пути',transit],['Отмены',cancelled]].map(([label,n],i)=>'<span><i class="h91-dot h91-dot-'+i+'"></i>'+label+' '+(orderDataLoaded?(total?Math.round(n/total*100):0)+'% · '+n:'—')+'</span>').join('')+'</div></div>';
+ if(bar)bar.innerHTML='<div class="h90-order-summary">'+tiles.map(([label,n,note],i)=>'<div class="h90-stat h90-tone-'+i+'"><span><i class="h91-stat-icon">'+orderIcon(['cart','check','truck','cancel'][i])+'</i>'+label+'</span><strong>'+(orderDataLoaded?n:'—')+'</strong><small>'+note+'</small>'+(i?'<em class="h95-share h95-share-'+i+'" aria-label="Доля '+label.toLowerCase()+' в выбранном периоде">'+['','↗','◷','↘'][i]+' '+(orderDataLoaded?(total?Math.round(n/total*100):0)+'%':'—')+'</em>':'')+'</div>').join('')+'</div><div class="h90-order-periods">'+[['today','Сегодня'],['yesterday','Вчера'],['week','7 дней'],['month','Этот месяц']].map(([id,label])=>'<button type="button" data-order-period="'+id+'" aria-pressed="'+(!customOrderRange&&orderPeriod===id)+'">'+label+'</button>').join('')+'<button type="button" data-order-range aria-expanded="false">'+orderIcon('calendar')+'<span>Выбрать период</span></button></div><details class="h90-custom-range" '+(customOrderRange?'open':'')+'><summary>Выбрать период · '+esc(range.from)+' — '+esc(range.to)+'</summary><label>С <input type="date" data-order-date="from" value="'+esc(range.from)+'"></label><label>По <input type="date" data-order-date="to" value="'+esc(range.to)+'"></label><small>Доступна полученная выгрузка FBS за 35 дней. Старые доставки могут отсутствовать.</small></details><div class="h90-status-overview"><b>Статусы заказов</b><span>Всего: '+(orderDataLoaded?total:'—')+'</span><div class="h90-status-bar"><i style="width:'+(total?100*done/total:0)+'%"></i><i style="width:'+(total?100*transit/total:0)+'%"></i><i style="width:'+(total?100*cancelled/total:0)+'%"></i></div><div class="h91-status-legend">'+[['Доставлено',done],['В пути',transit],['Отмены',cancelled]].map(([label,n],i)=>'<span><i class="h91-dot h91-dot-'+i+'"></i>'+label+' '+(orderDataLoaded?(total?Math.round(n/total*100):0)+'% · '+n:'—')+'</span>').join('')+'</div></div>';
  const filters=panel.querySelector('.h57-filters');filters.innerHTML=[['all','Все заказы',total],['delivered','Доставлено',done],['other','В пути',transit],['cancelled','Отмены',cancelled]].map(([id,label,n])=>'<button type="button" data-filter="'+id+'" class="'+(filter===id?'h57-selected':'')+'">'+label+' ('+(orderDataLoaded?n:'—')+')</button>').join('');
  const q=orderQuery.trim().toLowerCase();
  const unknownDeliveries=orders.filter(o=>o.delivered&&!orderDay(o));
@@ -2054,9 +2054,9 @@ const orders=document.getElementById('h50');if(orders){
 <link rel="stylesheet" href="hogar-catalog.css">
 <script src="product-analytics.js"></script>
 <link rel="stylesheet" href="hogar-home.css">
-<script src="dashboard-model.js?v=20261026r2"></script>
-<script src="hogar-home.js?v=20261026r2"></script>
-<script src="hogar-catalog.js?v=20261026r2"></script>
+<script src="dashboard-model.js?v=20261026r3"></script>
+<script src="hogar-home.js?v=20261026r3"></script>
+<script src="hogar-catalog.js?v=20261026r3"></script>
 <style id="hogar-compact-header-alignment">
 /* Compact brand bars and consistent text geometry across all seven tabs. */
 body > header{padding:10px 16px!important;min-height:64px!important;box-shadow:none!important}
@@ -2174,6 +2174,6 @@ body #hd-brand button.hd-header-safe{color:#bfe6c2!important;background:#3d66354
  #premium22 .p23-status{font-size:9px!important;line-height:1.3;padding:3px 6px;margin-top:4px}
 }
 </style>
-<link rel="stylesheet" href="hogar-reference.css?v=20261026r2">
+<link rel="stylesheet" href="hogar-reference.css?v=20261026r3">
 </body></html>
 
