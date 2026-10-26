@@ -866,3 +866,43 @@ body:has(#tab-prices.active) main{max-width:800px!important;padding:9px 12px 24p
 #hbDialog :is(button,input,summary):focus-visible{outline:2px solid #c27b36;outline-offset:3px}
 @media(max-width:480px){#hbDialog{padding:17px;width:calc(100vw - 16px);border-radius:21px}#hbDialog .hb-head h2{font-size:21px!important}#hbDialog .hb-head small{font-size:12px}#hbDialog .hb-notice{padding:13px}#hbDialog .hb-modes{gap:6px;grid-template-columns:repeat(4,minmax(0,1fr))}#hbDialog .hb-modes label>span{min-height:96px;padding:24px 3px 12px;gap:10px}#hbDialog .hb-modes b{font-size:10px}#hbDialog .hb-modes svg{width:25px;height:25px}#hbDialog .hb-input-grid{gap:10px}#hbDialog .hb-field{padding:11px;grid-template-columns:32px minmax(0,1fr);gap:9px;grid-template-rows:minmax(42px,auto) 42px}#hbDialog .hb-field>i{width:32px;height:38px}#hbDialog .hb-field>span{font-size:12px}#hbDialog .hb-field input{padding:8px!important}#hbDialog .hb-field input::placeholder{font-size:12px}#hbDialog .hb-switch-row{gap:10px;padding:13px}#hbDialog .hb-switch-row small{font-size:11px}#hbDialog .hb-intensity-card{padding:13px;gap:10px;grid-template-columns:32px minmax(0,1fr)}#hbDialog .hb-intensity-card>i{width:32px;height:38px}#hbDialog .hb-intensity-heading{font-size:14px}#hbDialog .hb-slider-labels{font-size:11px}#hbDialog output{font-size:21px}}
 @media(prefers-reduced-motion:reduce){#hbDialog *{transition:none!important}}
+
+/* Campaign overview: reference cards, 2 by 3 metrics and assistant status. */
+#tab-ads #h44 .h44-tabs{gap:10px!important;margin-top:12px!important}
+#tab-ads #h44 .h44-tab{flex-direction:column!important;gap:8px!important;min-height:74px!important;border-radius:13px!important;padding:12px!important;background:#fffbf5!important;border-color:#eee2d3!important;color:#8c7664!important}
+#tab-ads #h44 .h44-tab>span{font-size:14px!important;font-weight:650}
+#tab-ads #h44 .h44-tab>b{font-size:19px!important;color:#29271f!important}
+#tab-ads #h44 .h44-tab[aria-selected=true]{background:#e7f5ed!important;border-color:#bfdfce!important;color:#26845d!important;box-shadow:inset 0 0 0 1px #b9ddca40!important}
+#tab-ads #h44 .h98-campaign{padding:13px!important;border:1px solid #efe4d7!important;background:#fffdf8!important;border-radius:17px!important;margin:12px 0!important;box-shadow:0 3px 14px #8b5e2c08!important;overflow:visible}
+#tab-ads #h44 .h101-campaign-head{display:flex;gap:10px;align-items:center;margin-bottom:12px;min-width:0}
+#tab-ads #h44 .h101-campaign-head .h44-title{flex:1;min-width:0;display:flex!important;padding:0!important;gap:10px!important;text-align:left;align-items:center}
+#tab-ads #h44 .h101-campaign-head .h44-text{min-width:0;flex:1}
+#tab-ads #h44 .h101-campaign-head .h44-text b{font-size:17px!important;line-height:1.3!important;display:block;overflow-wrap:anywhere}
+#tab-ads #h44 .h101-campaign-head .h44-text small{font-size:11px!important;line-height:1.5!important;color:#95816d!important;display:block;margin-top:3px}
+#tab-ads #h44 .h98-photo{width:48px!important;height:49px!important;border-radius:10px;background:#e9e9e7;color:#8b8c88}
+#tab-ads #h44 .h98-photo svg{width:29px;height:29px}
+#tab-ads #h44 .h101-state-active .h98-photo{background:linear-gradient(120deg,#46bf90,#249e6e);color:white}
+#tab-ads #h44 .h90-campaign-dot{width:10px!important;height:10px!important;flex:0 0 10px!important}
+#tab-ads #h44 .h44-chevron{font-size:19px!important;width:18px!important;flex:0 0 18px!important;align-self:end;margin-bottom:2px}
+#tab-ads #h44 .h101-actions{display:flex;align-items:center;gap:7px;flex:none;max-width:36%}
+#tab-ads #h44 .h101-badge.h98-assistant{display:flex!important;align-items:center;justify-content:center;gap:7px;width:auto!important;min-height:37px!important;margin:0!important;padding:9px 11px!important;background:#efefeb!important;border:0!important;border-radius:12px!important;color:#898b80!important;font-size:10px!important;line-height:1.4!important;text-align:left;box-shadow:none!important}
+#tab-ads #h44 .h101-badge svg{width:21px;height:21px;flex:none}
+#tab-ads #h44 .h101-badge span{font-weight:650}
+#tab-ads #h44 .h101-running.h101-badge{color:#228762!important;background:#e4f4e9!important}
+#tab-ads #h44 .h101-attention.h101-badge{color:#cf4434!important;background:#ffebe3!important}
+#tab-ads #h44 .h101-menu{position:relative;flex:none}
+#tab-ads #h44 .h101-menu>summary{list-style:none;cursor:pointer;color:#977d62;font-size:24px;line-height:1;padding:6px;min-width:22px;text-align:center;box-sizing:border-box}
+#tab-ads #h44 .h101-menu>summary::-webkit-details-marker{display:none}
+#tab-ads #h44 .h101-menu>div{position:absolute;right:0;top:100%;z-index:6;width:210px;padding:7px;background:#fffdf9;border:1px solid #ecdecd;border-radius:12px;box-shadow:0 9px 25px #5f412a22}
+#tab-ads #h44 .h101-menu button{display:block;width:100%;padding:11px!important;margin:0!important;border:0!important;background:transparent!important;color:#775437!important;text-align:left;box-shadow:none!important;font-size:12px!important}
+#tab-ads #h44 .h101-menu button:hover{background:#fff0df!important}
+#tab-ads #h44 .h98-campaign .h98-tiles{gap:8px!important}
+#tab-ads #h44 .h98-campaign .h98-tile{grid-template-columns:30px minmax(0,1fr)!important;gap:3px 9px!important;padding:12px 10px!important;min-height:88px!important;border:1px solid #efe4d6!important;border-radius:12px!important;background:linear-gradient(115deg,#fffaf3,#fffdfa)!important;align-content:start}
+#tab-ads #h44 .h98-campaign .h98-tile i{grid-row:1/3!important;align-self:center;width:30px!important;height:34px!important}
+#tab-ads #h44 .h98-campaign .h98-tile svg{width:29px!important;height:29px!important}
+#tab-ads #h44 .h98-campaign .h98-tile small{font-size:12px!important;color:#968673!important;line-height:1.35!important}
+#tab-ads #h44 .h98-campaign .h98-tile strong{font-size:17px!important;line-height:1.35!important;overflow-wrap:anywhere;letter-spacing:-.3px}
+#tab-ads #h44 .h101-comparison{grid-column:2;font-size:10px;color:#b0a290;line-height:1.3;margin-top:2px}
+#tab-ads #h44 .h90-refresh-ad{border-radius:12px!important;min-height:45px!important;background:linear-gradient(110deg,#ffa03c,#ff721d)!important;font-size:15px!important}
+#tab-ads #h44 :is(button,summary):focus-visible{outline:2px solid #c27c3c;outline-offset:3px}
+@media(max-width:480px){#tab-ads #h44 .h98-campaign{padding:10px!important}#tab-ads #h44 .h101-campaign-head{gap:6px;flex-wrap:wrap}#tab-ads #h44 .h101-campaign-head .h44-title{flex-basis:calc(100% - 24px)}#tab-ads #h44 .h101-campaign-head .h44-text b{font-size:15px!important}#tab-ads #h44 .h98-photo{width:39px!important;height:42px!important}#tab-ads #h44 .h101-actions{max-width:none;margin-left:59px;margin-top:-3px}#tab-ads #h44 .h101-badge.h98-assistant{min-height:29px!important;font-size:10px!important;padding:6px 9px!important}#tab-ads #h44 .h101-menu>summary{font-size:23px;padding:3px 8px}#tab-ads #h44 .h98-campaign .h98-tile{grid-template-columns:24px minmax(0,1fr)!important;padding:10px 7px!important;column-gap:6px!important;min-height:83px!important}#tab-ads #h44 .h98-campaign .h98-tile svg{width:25px!important;height:25px!important}#tab-ads #h44 .h98-campaign .h98-tile small{font-size:10px!important}#tab-ads #h44 .h98-campaign .h98-tile strong{font-size:14px!important}#tab-ads #h44 .h101-comparison{font-size:9px}#tab-ads #h44 .h44-tab>span{font-size:12px!important}}
