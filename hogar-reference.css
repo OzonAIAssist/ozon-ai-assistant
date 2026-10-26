@@ -725,3 +725,5 @@ body:has(#tab-prices.active) main{max-width:800px!important;padding:9px 12px 24p
 #hbDialog .hb-strategy-description[hidden]{display:none!important}
 #hbDialog .hb-budget-apply{width:100%;margin:0 0 12px;font-size:12px}
 @media(max-width:400px){#hbDialog .hb-modes{grid-template-columns:repeat(2,minmax(0,1fr))}#hbDialog .hb-modes b{font-size:12px}#hbDialog .hb-field{padding:10px;grid-template-columns:28px minmax(0,1fr)}#hbDialog .hb-field>span{font-size:11px}}
+
+#hbDialog .hb-modes label{margin:0!important;padding:0!important}#hbDialog button.hb-mode-info{display:grid!important;place-items:center;line-height:1!important}#hbDialog .hb-modes>div{overflow:hidden;border-radius:10px}
