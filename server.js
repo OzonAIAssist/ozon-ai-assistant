@@ -254,7 +254,7 @@ async function controlRoute(req,res,url,origin){
  if(req.method!=='POST')return reply(res,405,{error:'Method not allowed'},origin);
  if(!adsBot.status(id).ready)return reply(res,503,{error:adsBot.status(id).reason,...adsBot.status(id)},origin);
  if(!String(req.headers['content-type']||'').startsWith('application/json'))return reply(res,415,{error:'Требуется JSON'},origin);
- try{let text='';for await(const chunk of req){text+=chunk;if(Buffer.byteLength(text)>20000)return reply(res,413,{error:'Слишком большой запрос'},origin);}const body=JSON.parse(text);if(['enable','stop','reconcile'].includes(body.op)&&body.confirm!==true)return reply(res,400,{error:'Подтвердите применение управления рекламой'},origin);const result=await adsBot.command(body.op,id,body.config);return reply(res,200,result,origin);}catch(e){return reply(res,400,{error:String(e.message).slice(0,300),...adsBot.status(id)},origin);}
+ try{let text='';for await(const chunk of req){text+=chunk;if(Buffer.byteLength(text)>20000)return reply(res,413,{error:'Слишком большой запрос'},origin);}const body=JSON.parse(text);if(['enable','stop','reconcile','weekly'].includes(body.op)&&body.confirm!==true)return reply(res,400,{error:'Подтвердите применение управления рекламой'},origin);const result=await adsBot.command(body.op,id,body.config);return reply(res,200,result,origin);}catch(e){return reply(res,400,{error:String(e.message).slice(0,300),...adsBot.status(id)},origin);}
 }
 
 const routes=new Set(['/api/ads/control','/api/dashboard/balance','/api/dashboard/stocks','/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check','/api/orders/posting-presence-check']);

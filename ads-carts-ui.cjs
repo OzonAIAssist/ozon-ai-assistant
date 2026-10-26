@@ -3,7 +3,7 @@ const {JSDOM,VirtualConsole}=require('jsdom');
 const root=__dirname,html=fs.readFileSync(path.join(root,'index.html'),'utf8').replace(/<script src="([^"]+)"><\/script>/g,(_,name)=>'<script>'+fs.readFileSync(path.join(root,name.split('?')[0]),'utf8')+'</script>');
 const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>{if(!/Not implemented/.test(e.message))errors.push(e.message)});
 const calls=[],storage=new Map([['hogar_fbs_finance_v770_sentinel','unchanged']]);
-const campaigns=['11','22','33'].map(id=>({id,name:'Fixture '+id,status:'CAMPAIGN_STATE_RUNNING'}));
+const campaigns=['11','22','33'].map(id=>({id,name:'Fixture '+id,payment_type:'CPC',status:'CAMPAIGN_STATE_RUNNING'}));
 const rows=[{id:'11',carts:7,cart_rate:70,spend:20,clicks:10,impressions:100,orders:3,revenue:75},{id:'22',carts:0,spend:0,clicks:0},{id:'33',carts:null,spend:2,clicks:1}];
 let unavailable=false;
 const dom=new JSDOM(html,{url:'https://ozon-ai-assistant.onrender.com/',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){
