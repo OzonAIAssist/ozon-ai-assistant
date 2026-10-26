@@ -791,3 +791,19 @@ body:has(#tab-prices.active) main{max-width:800px!important;padding:9px 12px 24p
 #premium22 #p22detail.pd-redesign .pd-manual-price summary{cursor:pointer}
 
 #premium22 #p22detail.pd-redesign .pd-boundary-note{margin:12px 0 0;padding:10px;border-radius:9px;background:#fff0dd;color:#96714d;font-size:11px;line-height:1.5}
+
+#premium22 #p22detail.pd-redesign .pd-hero-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#premium22 #p22detail.pd-redesign .pd-hero-line .pd-kicker{font-size:10px;padding:3px 6px}
+#premium22 #p22detail.pd-redesign .pd-hero-line .pd-observe{font-size:10px;line-height:1.3;padding:3px 6px;margin:0;border-radius:6px;background:#f3eddf;color:#90765b}
+#premium22 #p22detail.pd-redesign .pd-price-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+#premium22 #p22detail.pd-redesign .pd-price-pair .pd-api-price{margin:0;min-width:0;padding:11px}
+#premium22 #p22detail.pd-redesign .pd-api-top small,#premium22 #p22detail.pd-redesign .pd-card-price .pd-field>span{display:flex;align-items:center;min-height:34px;line-height:1.35;font-size:12px;font-weight:600;color:#65825c}
+#premium22 #p22detail.pd-redesign .pd-api-value{display:flex;align-items:center;min-height:42px;font-size:23px;margin:6px 0}
+#premium22 #p22detail.pd-redesign .pd-card-price .pd-field{gap:6px}
+#premium22 #p22detail.pd-redesign .pd-card-price input{font-size:17px!important;font-weight:600;padding:8px!important}
+#premium22 #p22detail.pd-redesign .pd-card-source{font-size:11px;color:#90765b;margin:8px 0;line-height:1.4}
+#premium22 #p22detail.pd-redesign .pd-check-price{margin-top:9px}
+#premium22 #p22detail.pd-redesign .pd-difference{margin-top:11px;padding:10px;background:#fbf0df;border-radius:9px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+#premium22 #p22detail.pd-redesign .pd-difference small{margin:0;font-size:11px;line-height:1.4}
+#premium22 #p22detail.pd-redesign .pd-difference strong{white-space:nowrap}
+@media(max-width:430px){#premium22 #p22detail.pd-redesign .pd-price-pair{gap:7px}#premium22 #p22detail.pd-redesign .pd-price-pair .pd-api-price{padding:9px}#premium22 #p22detail.pd-redesign .pd-card-price input{font-size:15px!important}#premium22 #p22detail.pd-redesign .pd-api-value{font-size:20px}#premium22 #p22detail.pd-redesign .pd-api-top small,#premium22 #p22detail.pd-redesign .pd-card-price .pd-field>span{font-size:11px;min-height:44px}#premium22 #p22detail.pd-redesign .pd-check-price{font-size:10px!important;padding:6px!important}}
