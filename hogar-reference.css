@@ -809,3 +809,60 @@ body:has(#tab-prices.active) main{max-width:800px!important;padding:9px 12px 24p
 @media(max-width:430px){#premium22 #p22detail.pd-redesign .pd-price-pair{gap:7px}#premium22 #p22detail.pd-redesign .pd-price-pair .pd-api-price{padding:9px}#premium22 #p22detail.pd-redesign .pd-card-price input{font-size:15px!important}#premium22 #p22detail.pd-redesign .pd-api-value{font-size:20px}#premium22 #p22detail.pd-redesign .pd-api-top small,#premium22 #p22detail.pd-redesign .pd-card-price .pd-field>span{font-size:11px;min-height:44px}#premium22 #p22detail.pd-redesign .pd-check-price{font-size:10px!important;padding:6px!important}}
 
 #premium22 #p22detail.pd-redesign .pd-auto-card-value{display:flex;align-items:center;min-height:42px;font-size:23px;color:#3e7953}#premium22 #p22detail.pd-redesign .pd-auto-card-value[hidden]{display:none!important}
+
+/* Advertising control: warm cards and accents from the supplied reference. */
+#hbDialog{box-sizing:border-box;width:min(660px,calc(100vw - 24px));padding:24px;border:1px solid #efe5d9;border-radius:24px;background:linear-gradient(150deg,#fffdf9,#fff9f1);box-shadow:0 24px 80px #3e291e33;max-height:92dvh}
+#hbDialog::backdrop{background:#382b2180;backdrop-filter:blur(4px)}
+#hbDialog .hb-head{margin-bottom:20px;gap:16px}
+#hbDialog .hb-head h2{font-size:25px!important;letter-spacing:-.5px}
+#hbDialog .hb-head small{font-size:13px;line-height:1.5;margin-top:8px}
+#hbDialog button.hb-close{width:42px;height:42px;min-height:42px!important;border-radius:12px!important;background:#fff5e8!important;border-color:#f0e3d3!important}
+#hbDialog .hb-notice{padding:16px;border-radius:16px;margin-bottom:18px;background:linear-gradient(110deg,#fff0dc,#fff7ec);gap:14px}
+#hbDialog .hb-notice>i{width:34px;height:34px}
+#hbDialog .hb-status{font-size:13px;line-height:1.55}
+#hbDialog .hb-switch-row{gap:14px;padding:16px;border-radius:16px;margin-bottom:14px;background:#fffdf9;border-color:#efe7dc;box-shadow:0 3px 12px #6f4a2110}
+#hbDialog .hb-switch-row>div{flex:1;min-width:0}
+#hbDialog .hb-switch-row b{font-size:17px;color:#30291f}
+#hbDialog .hb-switch-row small{font-size:12px;line-height:1.5;margin-top:3px}
+#hbDialog .hb-assistant-icon{display:grid;place-items:center;width:42px;height:44px;flex:none;background:#fff0dc;border-radius:12px;color:#ed8b30}
+#hbDialog .hb-assistant-icon svg{width:28px;height:28px}
+#hbDialog button.hb-toggle{width:60px!important;height:34px!important;min-height:34px!important;background:#e0d9d1!important}
+#hbDialog .hb-toggle>span{width:28px;height:28px}
+#hbDialog .hb-toggle[aria-checked=true]>span{transform:translateX(26px)}
+#hbDialog .hb-bid-now{padding:13px 16px;border-radius:15px;margin-bottom:22px;border-color:#efe5d7;background:#fffaf2;align-items:center}
+#hbDialog .hb-bid-now>div{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;align-items:center}
+#hbDialog .hb-bid-now strong{font-size:20px;grid-column:2;grid-row:1/3}
+#hbDialog .hb-bid-now small{font-size:12px}
+#hbDialog .hb-bid-now p,#hbDialog .hb-bid-now time{font-size:11px;line-height:1.5;grid-column:1/-1}
+#hbDialog .hb-strategy-title{font-size:17px;margin:0 0 14px;padding:0;background:none;color:#30291f}
+#hbDialog .hb-modes{gap:10px;margin-bottom:20px;grid-template-columns:repeat(4,minmax(0,1fr))}
+#hbDialog .hb-modes>div{border-radius:15px;box-shadow:0 3px 10px #78522c0d}
+#hbDialog .hb-modes label>span{box-sizing:border-box;min-height:108px;padding:25px 5px 14px;gap:12px;border-radius:15px;border-color:#efe5d8;background:#fffdf9;color:#786149}
+#hbDialog .hb-modes svg{width:29px;height:29px}
+#hbDialog .hb-modes b{font-size:12px;line-height:1.3;overflow-wrap:normal}
+#hbDialog .hb-modes input:checked+span{background:linear-gradient(120deg,#ff9a35,#ff721d);border-color:#ff8a29;box-shadow:inset 0 1px #ffffff40;color:white}
+#hbDialog button.hb-mode-info{top:6px!important;right:6px!important;width:22px;height:22px;min-height:22px!important;font-size:15px!important;color:#a98c70!important}
+#hbDialog .hb-input-grid{gap:14px;margin-bottom:16px}
+#hbDialog .hb-field{padding:15px;grid-template-columns:40px minmax(0,1fr);grid-template-rows:minmax(42px,auto) 44px;gap:11px 12px;border-radius:17px;border-color:#efe5d8;background:#fffdf9;box-shadow:0 3px 12px #6f4a210b}
+#hbDialog .hb-field>i,#hbDialog .hb-intensity-card>i{width:40px;height:43px;border-radius:12px;background:#fff0db;color:#e58c36}
+#hbDialog .hb-field svg,#hbDialog .hb-intensity-card>i svg{width:27px;height:27px}
+#hbDialog .hb-field>span{font-size:14px;line-height:1.4;color:#635443}
+#hbDialog .hb-field input{height:44px!important;padding:10px 12px!important;font-size:16px!important;font-weight:500;border-color:#eee7de!important;background:#fffefa!important;border-radius:10px!important}
+#hbDialog .hb-field input::placeholder{font-size:14px;font-weight:400;color:#b8afa4;opacity:1}
+#hbDialog .hb-intensity-card{grid-template-columns:40px minmax(0,1fr);padding:17px;gap:14px;border-radius:18px;border-color:#f7d6ae;background:linear-gradient(120deg,#fff4e6,#fffaf3);margin-bottom:16px;box-shadow:0 3px 12px #d8944010}
+#hbDialog .hb-intensity-heading{font-size:16px;font-weight:650;margin-bottom:12px}
+#hbDialog output{font-size:23px}
+#hbDialog #hbIntensity{height:7px!important;min-height:7px!important;background:linear-gradient(to right,#ff8a2e 0 var(--hb-fill,35%),#efe3d3 var(--hb-fill,35%) 100%)!important;margin:13px 0 17px}
+#hbDialog #hbIntensity::-webkit-slider-thumb{width:27px;height:27px;border:0;box-shadow:0 3px 12px #d48c4240}
+#hbDialog #hbIntensity::-moz-range-thumb{width:27px;height:27px;border:0;box-shadow:0 3px 12px #d48c4240}
+#hbDialog .hb-slider-labels{font-size:12px;line-height:1.45;color:#aa9278}
+#hbDialog .hb-schedule{border-color:#efe5d8;border-radius:16px;margin-bottom:16px;background:#fffdf9}
+#hbDialog .hb-schedule>summary{padding:14px;font-size:14px}
+#hbDialog button.hb-save{min-height:54px!important;padding:15px!important;border-radius:15px!important;background:linear-gradient(110deg,#ffa13d,#ff701b)!important;font-size:18px!important;font-weight:600!important;box-shadow:0 5px 16px #f5802526!important}
+#hbDialog .hb-budget-apply:disabled{display:none}
+#hbDialog .hb-strategy-description{border-color:#efdfc8;border-radius:15px;padding:14px;margin-bottom:16px}
+#hbDialog .hb-strategy-description p{font-size:12px}
+#hbDialog .hb-confirm,#hbDialog .hb-toggle-note{font-size:11px;line-height:1.5}
+#hbDialog :is(button,input,summary):focus-visible{outline:2px solid #c27b36;outline-offset:3px}
+@media(max-width:480px){#hbDialog{padding:17px;width:calc(100vw - 16px);border-radius:21px}#hbDialog .hb-head h2{font-size:21px!important}#hbDialog .hb-head small{font-size:12px}#hbDialog .hb-notice{padding:13px}#hbDialog .hb-modes{gap:6px;grid-template-columns:repeat(4,minmax(0,1fr))}#hbDialog .hb-modes label>span{min-height:96px;padding:24px 3px 12px;gap:10px}#hbDialog .hb-modes b{font-size:10px}#hbDialog .hb-modes svg{width:25px;height:25px}#hbDialog .hb-input-grid{gap:10px}#hbDialog .hb-field{padding:11px;grid-template-columns:32px minmax(0,1fr);gap:9px;grid-template-rows:minmax(42px,auto) 42px}#hbDialog .hb-field>i{width:32px;height:38px}#hbDialog .hb-field>span{font-size:12px}#hbDialog .hb-field input{padding:8px!important}#hbDialog .hb-field input::placeholder{font-size:12px}#hbDialog .hb-switch-row{gap:10px;padding:13px}#hbDialog .hb-switch-row small{font-size:11px}#hbDialog .hb-intensity-card{padding:13px;gap:10px;grid-template-columns:32px minmax(0,1fr)}#hbDialog .hb-intensity-card>i{width:32px;height:38px}#hbDialog .hb-intensity-heading{font-size:14px}#hbDialog .hb-slider-labels{font-size:11px}#hbDialog output{font-size:21px}}
+@media(prefers-reduced-motion:reduce){#hbDialog *{transition:none!important}}
