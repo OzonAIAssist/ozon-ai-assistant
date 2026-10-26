@@ -33,3 +33,13 @@ function safePrice(input) {
 }
 if (typeof module !== 'undefined') module.exports = {safePrice};
 
+// A decision only: an approval-required result never authorizes a marketplace write.
+function priceBoundsDecision(requested, bounds={}) {
+ const valid=v=>v!==''&&v!==null&&v!==undefined&&typeof v!=='boolean'&&Number.isFinite(Number(v))&&Number(v)>0;
+ const max=bounds.max??200000;
+ if(!valid(requested)||!valid(bounds.min)||!valid(max)||Number(bounds.min)>Number(max))return {status:'blocked',reason:'Укажите корректный диапазон цены продавца.'};
+ if(Number(requested)>Number(max))return {status:'blocked',reason:'Цена выше максимальной границы.',maximum:Number(max)};
+ if(Number(requested)<Number(bounds.min))return {status:'approval_required',requested:Number(requested),minimum:Number(bounds.min),region:'Москва',canApply:false};
+ return {status:'within_bounds',requested:Number(requested),region:'Москва'};
+}
+if(typeof module!=='undefined')module.exports.priceBoundsDecision=priceBoundsDecision;

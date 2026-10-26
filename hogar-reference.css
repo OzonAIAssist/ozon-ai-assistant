@@ -789,3 +789,5 @@ body:has(#tab-prices.active) main{max-width:800px!important;padding:9px 12px 24p
 #premium22 #p22detail.pd-redesign .pd-api-status{font-size:11px;color:#77886d;line-height:1.4;margin:0}
 #premium22 #p22detail.pd-redesign .pd-manual-price{margin-top:12px;font-size:12px;color:#977e63}
 #premium22 #p22detail.pd-redesign .pd-manual-price summary{cursor:pointer}
+
+#premium22 #p22detail.pd-redesign .pd-boundary-note{margin:12px 0 0;padding:10px;border-radius:9px;background:#fff0dd;color:#96714d;font-size:11px;line-height:1.5}
