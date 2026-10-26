@@ -1429,12 +1429,12 @@ function draw(){
   const afterCost=remaining!==null&&productCost!==null&&scLogistics!==null?Math.round((remaining-productCost-scLogistics)*100)/100:null;
   const fact=(kind,icon,label,value,note='')=>'<div class="h92-fact h92-'+kind+'"><i class="h92-finance-icon" aria-hidden="true">'+orderIcon(icon)+'</i><span>'+label+'</span><strong>'+esc(value)+'</strong>'+(note?'<small>'+esc(note)+'</small>':'')+'</div>';
   const pending=finance?.loading?'Загрузка…':'—';
-  const detail=ops?.length?ops.map(x=>'<div class="h752-operation"><span>'+esc(x.name||'Операция Ozon')+'</span><strong>'+esc(typeof x.amount==='number'?fmt(x.amount,' ₽'):'—')+'</strong></div>').join(''):'';
+  const operationLabel=x=>x.is_acquiring?'Эквайринг':(String(x.name||'').split(/\s+[·•]\s+/).filter(p=>/[А-Яа-яЁё]/.test(p)).at(-1)||'Операция Ozon').replace(/Drop[- ]?off/gi,'в пункте приёма');
+  const detail=ops?.length?ops.map(x=>'<div class="h752-operation"><span>'+esc(operationLabel(x))+'</span><strong>'+esc(typeof x.amount==='number'?fmt(x.amount,' ₽'):'—')+'</strong></div>').join(''):'';
   const items='<div class="h66-order-facts h75-facts">'+
     fact('sale','coins','Сумма продажи',sale!==null?fmt(sale,' ₽'):'—','Цена товара × количество')+
     '<button type="button" class="h75-expense-row h92-fact h92-expenses" data-expenses="'+esc(id)+'" aria-expanded="'+(!!finance?.detailsOpen)+'"><i class="h92-finance-icon" aria-hidden="true">'+orderIcon('wallet')+'</i><span>Расходы Ozon <span class="h75-arrow">'+(finance?.detailsOpen?'⌃':'⌄')+'</span></span><strong class="h75-expense">'+esc(expenses!==null?fmt(expenses,' ₽'):pending)+'</strong><small>Комиссии, логистика, услуги и др.</small></button>'+
     (finance?.detailsOpen?'<div class="h75-breakdown">'+(detail||'<p class="h50-note">Финансовые операции ещё не получены.</p>')+(expenses!==null?'<div class="h96-expense-total"><span>Итого расходов</span><strong>'+esc(fmt(-expenses,' ₽'))+'</strong></div>':'')+'</div>':'')+
-    fact('acquiring','wallet','Эквайринг (в расходах Ozon)',acquiringSum!==null?fmt(acquiringSum,' ₽'):'—',acquiringSum===null?'Пока не подтверждён Ozon':'Уже включён в расходы Ozon')+
     fact('remaining','chart','После удержаний',remaining!==null?fmt(remaining,' ₽'):pending,'Предварительный остаток по операциям Ozon')+
     fact('cost','bag','Себестоимость товаров',productCost!==null?fmt(productCost,' ₽'):'—',productCost!==null?'Себестоимость на дату заказа × количество':'Укажите себестоимость всех товаров в каталоге')+
     fact('logistics','truck','Доставка до СЦ',scLogistics!==null?fmt(scLogistics,' ₽'):'—','Из каталога × количество · по умолчанию 500 ₽/шт.')+
