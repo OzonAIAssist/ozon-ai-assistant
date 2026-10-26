@@ -17,6 +17,8 @@
    else{if(!Array.isArray(d.rows))throw Error('Unexpected advertising response');cache.set(id,d);adError='';try{localStorage.setItem('hogar_stats_v51_'+id,JSON.stringify(d))}catch(_){}}
   }catch(e){failures.set(id,Date.now()+15*60*1000);if(kind==='ads')adError='Реклама не обновлена: '+e.message}finally{pending.delete(id);state?.redraw?.()}
  }
+ window.addEventListener('hogar:background-refresh',()=>refresh(state,false));
+ window.addEventListener('hogar:data-cache-updated',e=>{if(['/api/dashboard/stocks','/api/dashboard/balance','/api/ads/statistics'].includes(e.detail.path))refresh(state,true)});
  let adError='';
  async function fetchBalance(token,force){const id='balance';if(pending.has(id)||(!force&&fresh(balance))||Date.now()<(failures.get(id)||0))return;pending.add(id);try{const r=await fetch(base+'/api/dashboard/balance',{headers:{Authorization:'Bearer '+token},cache:'no-store'}),d=await r.json();if(!r.ok)throw Error(r.status===404?'Требуется обновление сервера':String(d.error||'HTTP '+r.status)+(d.upstream_status?' · Ozon HTTP '+d.upstream_status:''));if(typeof d.balance!=='number'||!Number.isFinite(d.balance)||d.currency!=='RUB')throw Error('Нет подтверждённой суммы');balance=d;balanceError='';try{localStorage.setItem('hogar_dashboard_balance_v1',JSON.stringify(d))}catch(_){}}catch(e){balanceError=e.message;failures.set(id,Date.now()+15*60*1000)}finally{pending.delete(id);state?.redraw?.()}}
  window.addEventListener('hogar:ads-updated',e=>{const d=e.detail;if(!d?.from||!d?.to||!Array.isArray(d.rows))return;cache.set(key(d),d);adError='';state?.redraw?.()});
