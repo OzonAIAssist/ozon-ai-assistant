@@ -249,7 +249,7 @@ process.on?.('SIGTERM',()=>adsBot.close().finally(()=>server.close(()=>process.e
 async function controlRoute(req,res,url,origin){
  if(!authorized(req))return reply(res,401,{error:'Unauthorized'},origin);
  const id=url.searchParams.get('campaign_id')||'';if(!/^\d{1,20}$/.test(id))return reply(res,400,{error:'Некорректный ID кампании'},origin);
- if(req.method==='GET'){try{const campaign=await controlAdapter.campaign(id);return reply(res,200,{...adsBot.status(id),compatible:!capability(campaign),compatibility_reason:capability(campaign),ozon_strategy:campaign?.autopilot_in_ozon||null},origin);}catch(e){return reply(res,502,{...adsBot.status(id),error:'Не удалось проверить доступность управления в Ozon'},origin);}}
+ if(req.method==='GET'){try{const campaign=await controlAdapter.campaign(id);return reply(res,200,{...adsBot.status(id),compatible:!capability(campaign),compatibility_reason:capability(campaign),ozon_strategy:campaign?.autopilot_in_ozon||null,ozon_payment_type:campaign?.payment_type||null,ozon_campaign_type:campaign?.type||null},origin);}catch(e){return reply(res,502,{...adsBot.status(id),error:'Не удалось проверить доступность управления в Ozon'},origin);}}
  if(req.method!=='POST')return reply(res,405,{error:'Method not allowed'},origin);
  if(!adsBot.status(id).ready)return reply(res,503,{error:adsBot.status(id).reason,...adsBot.status(id)},origin);
  if(!String(req.headers['content-type']||'').startsWith('application/json'))return reply(res,415,{error:'Требуется JSON'},origin);
