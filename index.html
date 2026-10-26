@@ -1415,11 +1415,11 @@ function draw(){
   const pending=finance?.loading?'Загрузка…':'—';
   const detail=ops?.length?ops.map(x=>'<div class="h752-operation"><span>'+esc(x.name||'Операция Ozon')+'</span><strong>'+esc(typeof x.amount==='number'?fmt(x.amount,' ₽'):'—')+'</strong></div>').join(''):'';
   const items='<div class="h66-order-facts h75-facts">'+
-    fact('sale','coins','Сумма продажи',sale!==null?fmt(sale,' ₽'):'—')+
-    '<button type="button" class="h75-expense-row h92-fact h92-expenses" data-expenses="'+esc(id)+'" aria-expanded="'+(!!finance?.detailsOpen)+'"><i class="h92-finance-icon" aria-hidden="true">'+orderIcon('wallet')+'</i><span>Расходы Ozon <span class="h75-arrow">'+(finance?.detailsOpen?'⌃':'⌄')+'</span></span><strong class="h75-expense">'+esc(expenses!==null?fmt(expenses,' ₽'):pending)+'</strong></button>'+
-    (finance?.detailsOpen?'<div class="h75-breakdown">'+(detail||'<p class="h50-note">Финансовые операции ещё не получены.</p>')+'</div>':'')+
+    fact('sale','coins','Сумма продажи',sale!==null?fmt(sale,' ₽'):'—','Цена товара × количество')+
+    '<button type="button" class="h75-expense-row h92-fact h92-expenses" data-expenses="'+esc(id)+'" aria-expanded="'+(!!finance?.detailsOpen)+'"><i class="h92-finance-icon" aria-hidden="true">'+orderIcon('wallet')+'</i><span>Расходы Ozon <span class="h75-arrow">'+(finance?.detailsOpen?'⌃':'⌄')+'</span></span><strong class="h75-expense">'+esc(expenses!==null?fmt(expenses,' ₽'):pending)+'</strong><small>Комиссии, логистика, услуги и др.</small></button>'+
+    (finance?.detailsOpen?'<div class="h75-breakdown">'+(detail||'<p class="h50-note">Финансовые операции ещё не получены.</p>')+(expenses!==null?'<div class="h96-expense-total"><span>Итого расходов</span><strong>'+esc(fmt(-expenses,' ₽'))+'</strong></div>':'')+'</div>':'')+
     fact('acquiring','wallet','Эквайринг (в расходах Ozon)',acquiringSum!==null?fmt(acquiringSum,' ₽'):'—',acquiringSum===null?'Пока не подтверждён Ozon':'Уже включён в расходы Ozon')+
-    fact('remaining','chart','После удержаний',remaining!==null?fmt(remaining,' ₽'):pending)+
+    fact('remaining','chart','После удержаний',remaining!==null?fmt(remaining,' ₽'):pending,'Предварительный остаток по операциям Ozon')+
     fact('cost','bag','Себестоимость товаров',productCost!==null?fmt(productCost,' ₽'):'—',productCost!==null?'Текущая себестоимость из каталога × количество':'Укажите себестоимость всех товаров в каталоге')+
     fact('result','chart','После удержаний и себестоимости',afterCost!==null?fmt(afterCost,' ₽'):'—','До логистики до СЦ, налогов и рекламы')+'</div>'+
     (ops?.length&&finance?.cachedAt?'<p class="h75-finance-message">Финансы '+(finance.stale?'из сохранённой копии · ожидают обновления':'сохранены')+' · '+esc(new Date(finance.cachedAt).toLocaleString('ru-RU'))+'</p>':'')+
@@ -1429,7 +1429,7 @@ function draw(){
     (o.delivered&&ops&&!ops.length?'<p class="h75-finance-message">Ozon пока не передал начисления по этому отправлению.</p>':'')+
     (o.delivered&&ops?.length&&acquiringSum===null?'<p class="h75-finance-message">'+esc(finance?.acquiring_unallocated?'Ozon передал общую комиссию заказа. Без подтверждённого распределения между отправлениями она не вычитается из каждого.':finance?.acquiring_overlap?'Эквайринг требует сверки с уже учтёнными операциями; повторное списание исключено.':finance?.acquiring_lookup_status==='rate_limited'?'Эквайринг временно недоступен из-за ограничения Ozon. Сохранённые начисления остаются на экране.':'Эквайринг пока не подтверждён ответом Ozon. Показанный остаток не включает неподтверждённое удержание.')+'</p>':'');
   const head='<div class="h90-dialog-product">'+orderPicture(o)+'<div><span class="h90-status-tag h91-status-'+(o.delivered?'delivered':String(o.status).toLowerCase()==='cancelled'?'cancelled':'transit')+'">'+esc(detailedStatus(o))+'</span><h3>'+esc(name)+esc(extra)+'</h3><small>'+esc((o.products||[]).reduce((v,l)=>v+(Number(l.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></div></div>';
-  return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'">'+orderPicture(o)+'<span class="h57-order-main"><span class="h90-status-tag h91-status-'+(o.delivered?'delivered':String(o.status).toLowerCase()==='cancelled'?'cancelled':'transit')+'">'+esc(detailedStatus(o))+'</span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((v,l)=>v+(Number(l.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><time>'+esc(o.delivered?deliveryDate(o.delivered_at):deliveryDate(o.created_at))+'</time><span class="h57-chevron">›</span></button>'+(open?'<dialog class="h90-order-dialog"><button type="button" class="h90-close" data-close-order aria-label="Закрыть заказ">×</button>'+head+'<div class="h90-order-dates"><div><i aria-hidden="true">'+orderIcon('calendar')+'</i><small>'+(o.delivered?'Дата доставки':'Дата создания')+'</small><b>'+esc(deliveryDate(o.delivered?o.delivered_at:o.created_at))+'</b></div><div><i aria-hidden="true">'+orderIcon('box')+'</i><small>Способ доставки</small><b>FBS</b></div></div><h3 class="h90-finance-heading">'+orderIcon('chart')+'Финансовые показатели</h3><div class="h50-body">'+items+'</div></dialog>':'')+'</article>';
+  return '<article class="h50-order h57-order"><button type="button" data-open="'+esc(id)+'" aria-expanded="'+open+'">'+orderPicture(o)+'<span class="h57-order-main"><span class="h90-status-tag h91-status-'+(o.delivered?'delivered':String(o.status).toLowerCase()==='cancelled'?'cancelled':'transit')+'">'+esc(detailedStatus(o))+'</span><strong class="h57-product">'+esc(name)+esc(extra)+'</strong><small>'+esc((o.products||[]).reduce((v,l)=>v+(Number(l.quantity)||0),0))+' шт. · FBS · № '+esc(id)+'</small></span><time>'+esc(o.delivered?deliveryDate(o.delivered_at):deliveryDate(o.created_at))+'</time><span class="h57-chevron">›</span></button>'+(open?'<dialog class="h90-order-dialog"><button type="button" class="h90-close" data-close-order aria-label="Закрыть заказ">×</button>'+head+'<div class="h90-order-dates"><div><i aria-hidden="true">'+orderIcon('calendar')+'</i><small>'+(o.delivered?'Дата доставки':'Дата создания')+'</small><b>'+esc(deliveryDate(o.delivered?o.delivered_at:o.created_at))+'</b></div><div><i aria-hidden="true">'+orderIcon('box')+'</i><small>Способ доставки</small><b>FBS</b></div></div><div class="h96-finance-heading"><h3 class="h90-finance-heading">'+orderIcon('chart')+'Финансовые показатели</h3><small>По данным Ozon</small></div><div class="h50-body">'+items+'</div></dialog>':'')+'</article>';
 
  }):[];
  const cards=cardsByIndex.length?cardsByIndex.join(''):'<p class="h50-note">В выбранной категории отправлений нет.</p>';
@@ -2054,9 +2054,9 @@ const orders=document.getElementById('h50');if(orders){
 <link rel="stylesheet" href="hogar-catalog.css">
 <script src="product-analytics.js"></script>
 <link rel="stylesheet" href="hogar-home.css">
-<script src="dashboard-model.js?v=20261026r3"></script>
-<script src="hogar-home.js?v=20261026r3"></script>
-<script src="hogar-catalog.js?v=20261026r3"></script>
+<script src="dashboard-model.js?v=20261026r5"></script>
+<script src="hogar-home.js?v=20261026r5"></script>
+<script src="hogar-catalog.js?v=20261026r5"></script>
 <style id="hogar-compact-header-alignment">
 /* Compact brand bars and consistent text geometry across all seven tabs. */
 body > header{padding:10px 16px!important;min-height:64px!important;box-shadow:none!important}
@@ -2174,6 +2174,6 @@ body #hd-brand button.hd-header-safe{color:#bfe6c2!important;background:#3d66354
  #premium22 .p23-status{font-size:9px!important;line-height:1.3;padding:3px 6px;margin-top:4px}
 }
 </style>
-<link rel="stylesheet" href="hogar-reference.css?v=20261026r3">
+<link rel="stylesheet" href="hogar-reference.css?v=20261026r5">
 </body></html>
 
