@@ -24,7 +24,8 @@ function cors(origin){return {'Access-Control-Allow-Origin':origin,'Access-Contr
 function reply(res,status,body,origin){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...cors(origin)});res.end(JSON.stringify(body));}
 function authorized(req){const auth=req.headers.authorization||'';const supplied=auth.startsWith('Bearer ')?auth.slice(7):'';if(!supplied||!ACCESS_TOKEN)return false;const a=Buffer.from(supplied),b=Buffer.from(ACCESS_TOKEN);return a.length===b.length&&crypto.timingSafeEqual(a,b);}
 async function fetchJSON(url,options={}){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),25000);try{const response=await fetch(url,{...options,signal:controller.signal});if(!response.ok){const err=new Error('Upstream HTTP '+response.status);err.status=response.status;throw err;}return await response.json();}finally{clearTimeout(timer);}}
-async function ozon(path,body){return fetchJSON(API_BASE+path,{method:'POST',headers:{'Client-Id':CLIENT_ID,'Api-Key':API_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});}
+let financeRequestQueue=Promise.resolve(),lastFinanceRequest=0;
+async function ozon(path,body){const send=()=>fetchJSON(API_BASE+path,{method:'POST',headers:{'Client-Id':CLIENT_ID,'Api-Key':API_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});if(!path.startsWith('/v1/finance/accrual/'))return send();const request=financeRequestQueue.catch(()=>{}).then(async()=>{const delay=1250-(Date.now()-lastFinanceRequest);if(delay>0)await new Promise(resolve=>setTimeout(resolve,delay));lastFinanceRequest=Date.now();return send()});financeRequestQueue=request;return request;}
 function productSkus(item){const sources=Array.isArray(item.sources)?item.sources:[];return [...new Set([item.sku,...sources.filter(s=>!s.shipment_type||/^(?:SHIPMENT_TYPE_)?GENERAL$/i.test(s.shipment_type)).map(s=>s.sku)].filter(v=>v!=null&&/^\d+$/.test(String(v))&&Number(v)>0).map(String))];}
 async function products(){let lastId='';const all=[],seen=new Set();while(all.length<MAX_ITEMS){const data=await ozon('/v3/product/list',{filter:{visibility:'ALL'},last_id:lastId,limit:1000});const result=data.result||{};const items=Array.isArray(result.items)?result.items:[];for(const item of items){const id=String(item.product_id??'');if(!id||seen.has(id))continue;seen.add(id);all.push({product_id:id,offer_id:String(item.offer_id??'')});}const next=String(result.last_id||'');if(!next||next===lastId||!items.length)break;lastId=next;}if(all.length>=MAX_ITEMS)throw new Error('Слишком много товаров: достигнут лимит безопасности.');const names=new Map();for(let i=0;i<all.length;i+=1000){const batch=all.slice(i,i+1000);const data=await ozon('/v3/product/info/list',{product_id:batch.map(x=>Number(x.product_id))});for(const item of data.items||[]){names.set(String(item.id??item.product_id),{ozon_sku:productSkus(item)[0]||'',ozon_skus:productSkus(item),name:String(item.name||''),offer_id:String(item.offer_id||''),image_url:String(item.primary_image||(Array.isArray(item.images)?item.images[0]:'')||'')});}}return all.map(item=>({...item,name:names.get(item.product_id)?.name||'',ozon_sku:names.get(item.product_id)?.ozon_sku||'',ozon_skus:names.get(item.product_id)?.ozon_skus||[],offer_id:names.get(item.product_id)?.offer_id||item.offer_id,image_url:names.get(item.product_id)?.image_url||''}));}
 function scalar(v){return (typeof v==='string'||typeof v==='number'||typeof v==='boolean')?v:null;}
@@ -218,7 +219,7 @@ async function getAccrualTypes(){
   try{
    const t=await ozon('/v1/finance/accrual/types',{});
    if(!Array.isArray(t.accrual_types))throw Error('Unexpected accrual type response');
-   const types=new Map(t.accrual_types.filter(x=>x&&x.id!=null).map(x=>[String(x.id),String(x.description||x.name||x.type_name||x.title||'').slice(0,140)]));
+   const types=new Map(t.accrual_types.filter(x=>x&&x.id!=null).map(x=>[String(x.id),[x.name,x.description,x.type_name,x.title].filter(Boolean).join(' · ').slice(0,500)]));
    accrualTypesCache={expires:Date.now()+6*60*60*1000,types,available:true};
   }catch(e){
    console.warn('Finance type dictionary unavailable:',e.status||e.message);
@@ -514,7 +515,7 @@ if(path.pathname==='/api/orders/finance'){
  let verifiedPosting=verified?verificationCached.posting:null;
  let verifiedDeliveryDate=null;
  if(!verified)try{
-  const d=await ozon('/v3/posting/fbs/get',{posting_number:posting,with:{analytics_data:false,financial_data:false}});
+  const d=await ozon('/v3/posting/fbs/get',{posting_number:posting,with:{analytics_data:false,financial_data:false,related_postings:true}});
   verified=['delivered','delivered_to_customer'].includes(String(d.result?.status||d.status||'').toLowerCase());
   if(verified){const item=d.result||d;verifiedPosting=verificationFromPosting(item);verifiedDeliveryDate=item.delivered_at||item.delivery_date||item.delivered_date||item.delivery?.delivered_at||item.status_changed_at||null;}
   if(verified)deliveryVerificationCache.set(posting,{expires:Date.now()+30*60*1000,posting:verifiedPosting});
@@ -561,6 +562,7 @@ if(path.pathname==='/api/orders/finance'){
    try{
     acquiringLookup=await readAcquiringTransactions(ozon,posting,verifiedPosting||{},raw,Date.now(),types);
     lines.push(...acquiringLookup.lines);
+    if(acquiringLookup.status==='rate_limited')financeCooldownUntil=Date.now()+15*60*1000;
     parentLookup=acquiringLookup.status;
    }catch(e){
     if(e.status===429)financeCooldownUntil=Date.now()+15*60*1000;
@@ -574,9 +576,9 @@ if(path.pathname==='/api/orders/finance'){
    operations:lines,total_accrued:total,types_available,acquiring_from_parent:lines.filter(x=>x.is_acquiring&&x.source_posting_number===basePosting).length,verified_delivery_at:verifiedDeliveryDate,
    diagnostic:{matched_postings:matched.length,own_accruals:raw.length,parent_accruals:0,
     parent_acquiring_identified:lines.filter(x=>x.is_acquiring&&x.source_posting_number===basePosting).length,parent_unidentified:acquiringLookup.unallocated,parent_lookup:parentLookup,
-    order_created_at:verifiedPosting?.created_at||null,acquiring_lookup_status:acquiringLookup.status,
+    order_created_at:verifiedPosting?.created_at||null,acquiring_lookup_status:acquiringLookup.status,acquiring_checked_days:acquiringLookup.checked_days||[],acquiring_matched_rows:acquiringLookup.matched_rows??null,
     type_dictionary_available:types_available},
-   acquiring_version:3,acquiring_detected:lines.some(x=>x.is_acquiring),acquiring_lookup_complete:acquiringLookup.complete,acquiring_lookup_status:acquiringLookup.status,acquiring_unallocated:acquiringLookup.unallocated,acquiring_overlap:acquiringLookup.overlap,acquiring_check:'Эквайринг берётся из подтверждённых начислений либо транзакций Ozon. Общая комиссия разбитого заказа без подтверждённого распределения не вычитается из каждого отправления. Отсутствие строки не означает нулевую комиссию.',checked_at:new Date().toISOString(),finalized:false,
+   acquiring_version:4,acquiring_detected:lines.some(x=>x.is_acquiring),acquiring_lookup_complete:acquiringLookup.complete,acquiring_lookup_status:acquiringLookup.status,acquiring_unallocated:acquiringLookup.unallocated,acquiring_overlap:acquiringLookup.overlap,acquiring_checked_days:acquiringLookup.checked_days||[],acquiring_retry_after_seconds:acquiringLookup.retry_after_seconds||null,acquiring_check:'Эквайринг берётся из подтверждённых начислений либо транзакций Ozon. Общая комиссия разбитого заказа без подтверждённого распределения не вычитается из каждого отправления. Отсутствие строки не означает нулевую комиссию.',checked_at:new Date().toISOString(),finalized:false,
    note:lines.length?'Это сумма полученных начислений и удержаний, не прибыль. Ozon может обновить данные позже.':'Ozon пока не передал начисления по этому отправлению.'};
   financeCache.set(cacheKey,{data:result,expires:Date.now()+(lines.length&&result.acquiring_detected&&acquiringLookup.complete?FINANCE_TTL:10*60*1000)});
   return reply(res,200,result,ORIGIN);

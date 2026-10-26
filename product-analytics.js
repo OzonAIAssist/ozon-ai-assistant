@@ -56,8 +56,8 @@
    const assignable=!selected||lines.every(l=>match(selected,l));
    const amounts=ops?.map(op=>op.amount),complete=assignable&&amounts?.length&&amounts.every(v=>typeof v==='number'&&Number.isFinite(v));
    if(complete){x.financeKnown++;const net=amounts.reduce((s,v)=>s+v,0);x.net+=net;x.expenses+=amounts.filter(v=>v<0).reduce((s,v)=>s-v,0);
-    const acq=ops.filter(op=>op.is_acquiring||/эквайр|acquir/i.test(op.name||''));if(acq.length){x.acquiringKnown++;x.acquiring-=acq.reduce((s,op)=>s+op.amount,0)}
-    if(pricesComplete&&costComplete&&acq.length){x.contributionKnown++;x.contribution+=sales+net-cost-logistics;}
+    const acq=ops.filter(op=>op.is_acquiring||/эквайр|acquir/i.test(op.name||''));if(acq.length&&f.acquiring_lookup_complete!==false){x.acquiringKnown++;x.acquiring-=acq.reduce((s,op)=>s+op.amount,0)}
+    if(pricesComplete&&costComplete&&acq.length&&f.acquiring_lookup_complete!==false){x.contributionKnown++;x.contribution+=sales+net-cost-logistics;}
    }
   }
   return x;

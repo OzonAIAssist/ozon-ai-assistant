@@ -7,7 +7,7 @@ function rubles(value){
  const n=Number(raw);return Number.isFinite(n)?Math.round(n*100)/100:null;
 }
 function verificationFromPosting(item){
- return {created_at:item.in_process_at||item.created_at||'',skus:(Array.isArray(item.products)?item.products:[]).map(p=>String(p.sku??p.product_id??'')).filter(Boolean),related_posting_numbers:Array.isArray(item.related_postings?.related_posting_numbers)?item.related_postings.related_posting_numbers.map(String):null,parent_posting_number:typeof item.parent_posting_number==='string'?item.parent_posting_number:null};
+ return {created_at:item.created_at||item.order_date||item.in_process_at||'',skus:(Array.isArray(item.products)?item.products:[]).map(p=>String(p.sku??p.product_id??'')).filter(Boolean),related_posting_numbers:Array.isArray(item.related_postings?.related_posting_numbers)?item.related_postings.related_posting_numbers.map(String):null,parent_posting_number:typeof item.parent_posting_number==='string'?item.parent_posting_number:null};
 }
 function acquiringMonths(created,now){
  const start=new Date(created),end=new Date(now);
@@ -73,3 +73,4 @@ async function readAcquiringTransactions(ozon,posting,verification,existing,now=
  return {...result,complete:!result.unallocated&&!result.overlap,status:result.unallocated?'unallocated_parent':result.overlap?'unresolved_overlap':'ok'};
 }
 module.exports={ACQUIRING_TYPE,rubles,verificationFromPosting,acquiringMonths,normalizeAcquiring,readAcquiringTransactions};
+
