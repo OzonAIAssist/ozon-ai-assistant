@@ -807,3 +807,5 @@ body:has(#tab-prices.active) main{max-width:800px!important;padding:9px 12px 24p
 #premium22 #p22detail.pd-redesign .pd-difference small{margin:0;font-size:11px;line-height:1.4}
 #premium22 #p22detail.pd-redesign .pd-difference strong{white-space:nowrap}
 @media(max-width:430px){#premium22 #p22detail.pd-redesign .pd-price-pair{gap:7px}#premium22 #p22detail.pd-redesign .pd-price-pair .pd-api-price{padding:9px}#premium22 #p22detail.pd-redesign .pd-card-price input{font-size:15px!important}#premium22 #p22detail.pd-redesign .pd-api-value{font-size:20px}#premium22 #p22detail.pd-redesign .pd-api-top small,#premium22 #p22detail.pd-redesign .pd-card-price .pd-field>span{font-size:11px;min-height:44px}#premium22 #p22detail.pd-redesign .pd-check-price{font-size:10px!important;padding:6px!important}}
+
+#premium22 #p22detail.pd-redesign .pd-auto-card-value{display:flex;align-items:center;min-height:42px;font-size:23px;color:#3e7953}#premium22 #p22detail.pd-redesign .pd-auto-card-value[hidden]{display:none!important}
