@@ -1,6 +1,6 @@
 # Server-managed advertising on the existing Render service
 
-Status: code prepared; disabled unless explicitly configured. This is a single-tenant, single-instance controller for CPC campaigns using Ozon TARGET_BIDS and an existing native weekly budget. It never migrates the native campaign strategy or creates campaigns. Adaptive, autopilot, funnel and conversion modes are deterministic policies, not an LLM.
+Status: code prepared; disabled unless explicitly configured. This is a single-tenant, single-instance controller for CPC campaigns using Ozon TARGET_BIDS and an existing native weekly budget. It never migrates the native campaign strategy or creates campaigns. Adaptive, autopilot, funnel and conversion modes are deterministic policies, not an LLM. Control does not use a target DRR. Bid increases require enough observed orders and a non-deteriorating comparison with the previous seven-day baseline; missing baseline data never enables growth.
 
 ## Required infrastructure
 
@@ -18,13 +18,13 @@ Retain existing APP_ACCESS_TOKEN and Ozon Performance credentials. Do not expose
 
 ## Activation per campaign
 
-Open Advertising → Assistant → Server control. Read compatibility and reason. Select policy, min/max CPC, intensity, weekly cap, daily stop threshold, target DRR and Moscow weekday hours. Save server settings while the bot is off. Verify the saved settings and confirm application to Ozon before enabling. Enabling pauses the campaign, applies and rereads the native weekly cap, clamps and rereads product bids. Activation occurs only on a later verified worker cycle inside schedule and below spend thresholds.
+Open Advertising → Assistant → Server control. Read compatibility and reason. Select policy, min/max CPC, intensity, weekly cap, daily stop threshold, Moscow weekday hours. Save server settings while the bot is off. Verify the saved settings and confirm application to Ozon before enabling. Enabling pauses the campaign, applies and rereads the native weekly cap, clamps and rereads product bids. Activation occurs only on a later verified worker cycle inside schedule and below spend thresholds.
 
 The Ozon bid update method may overwrite phrases/stop words according to the official documentation. The UI discloses this before confirmation. No product is added or removed. Unsupported native strategies/CPO/archived states remain blocked.
 
 ## Runtime behavior and limits
 
-Schedule/spend checks run every 60 seconds; bid decisions at most every 15 minutes. Decisions use the previous seven completed Moscow days, preserve unknown metrics, and limit per-step movement to -10% / +0–5%, clamped to user bounds. Budget is never automatically raised. At 90% of the daily threshold or 95% of the weekly threshold, the controller pauses. Native weekly Ozon cap is checked each cycle. Provider reporting latency means daily spend cannot be guaranteed to the kopeck; delayed costs may arrive after pause. This must remain visible to the user.
+Schedule/spend checks run every 60 seconds; bid decisions at most every 15 minutes. Decisions use the previous seven completed Moscow days, compare the previous seven-day baseline, preserve unknown metrics, and limit per-step movement to -10% / +0–5%, clamped to user bounds. Budget is never automatically raised. At 90% of the daily threshold or 95% of the weekly threshold, the controller pauses. Native weekly Ozon cap is checked each cycle. Provider reporting latency means daily spend cannot be guaranteed to the kopeck; delayed costs may arrive after pause. This must remain visible to the user.
 
 Writes have a persisted intent before request and a readback after acknowledgment. Timeouts/rejected or mismatched writes halt control without replay. Journal is persisted with configuration. On read/API errors control halts; advertisements may remain running under the last Ozon configuration and native cap. UI discloses this. User can stop bot and advertising, or reconcile (stops advertising, reads state, records it, clears error, keeps bot disabled) before explicitly reenabling.
 
