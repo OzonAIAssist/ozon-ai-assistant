@@ -103,6 +103,8 @@ async function performanceDaily(from,to){
   }
   groups.set(id,old);
  }
+ // Spend completeness belongs to the daily report, before cart-only enrichment.
+ const spendComplete=(Array.isArray(data)||['rows','data','result'].some(k=>Array.isArray(data?.[k])||Array.isArray(data?.[k]?.rows)))&&!diagnostic.warning&&rows.length===rows.filter(r=>r&&/^\d+$/.test(String(r.campaignId??r.campaign_id??r.id??r.campaign?.id??''))&&pick(r,aliases.spend)!==null).length;
  // Join only carts by campaign ID and the exact same date bounds.
  // Do not mix the other campaign totals into the existing daily sums.
  try{
@@ -131,7 +133,7 @@ async function performanceDaily(from,to){
    avg_cpc:spend!==null&&clicks!==null&&clicks>0?round(spend/clicks):null,
    ctr:ratio(clicks,impressions),cart_rate:ratio(carts,clicks),order_rate:ratio(orders,clicks),
    drr:ratio(spend,revenue),roas:spend!==null&&revenue!==null&&spend>0?round(revenue/spend):null};
- }),raw_count:rows.length,parsed_count:groups.size,diagnostic};
+ }),raw_count:rows.length,parsed_count:groups.size,spend_complete:spendComplete,diagnostic};
 
 }
 if(!CLIENT_ID||!API_KEY||!ACCESS_TOKEN){console.error('Missing required environment variables: OZON_CLIENT_ID, OZON_API_KEY, APP_ACCESS_TOKEN');process.exit(1);}
@@ -596,4 +598,5 @@ if(path.pathname==='/api/prices/ozon-card'){const sku=path.searchParams.get('sku
 if(path.pathname==='/api/price-diagnostic'){const offerId=path.searchParams.get('offer_id')||'';if(!offerId||offerId.length>120||/[\x00-\x1f]/.test(offerId))return reply(res,400,{error:'Укажите корректный offer_id'},ORIGIN);try{return reply(res,200,{checked_at:new Date().toISOString(),source:'Ozon Seller API /v5/product/info/prices',...(await priceDiagnostic(offerId))},ORIGIN);}catch(error){console.error('Price diagnostic failed:',error.message);return reply(res,502,{error:'Не удалось получить цены из Ozon',details:error.message.startsWith('Upstream HTTP ')?error.message:undefined},ORIGIN);}}
 try{const items=await products();return reply(res,200,{count:items.length,items},ORIGIN);}catch(error){console.error('Product import failed:',error.message);return reply(res,502,{error:'Не удалось загрузить товары из Ozon. Проверьте права ключа и журнал сервера.'},ORIGIN);}});
 server.listen(PORT,'0.0.0.0',()=>console.log('Ozon read-only API server listening on port '+PORT));
+
 

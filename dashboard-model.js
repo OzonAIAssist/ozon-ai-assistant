@@ -9,7 +9,8 @@
   const known=key=>rows.filter(r=>num(r[key])!==null);
   const sum=key=>known(key).length?known(key).reduce((s,r)=>s+num(r[key]),0):null;
   const spendKnown=known('spend').length,revenueKnown=known('revenue').length;
-  return {spend:duplicate?null:sum('spend'),revenue:duplicate?null:sum('revenue'),spendKnown,revenueKnown,rows:rows.length,partial:spendKnown<rows.length||revenueKnown<rows.length,complete:!duplicate&&rows.length>0&&spendKnown===rows.length};
+  const spendComplete=!duplicate&&(data.spend_complete===true||(rows.length>0&&spendKnown===rows.length));
+  return {spend:duplicate?null:(sum('spend')??(spendComplete?0:null)),revenue:duplicate?null:sum('revenue'),spendKnown,revenueKnown,rows:rows.length,partial:!spendComplete,complete:spendComplete};
  }
  function build({orders=[],products=[],range,finance=()=>null,hasOrders=false,partial=false,ads=null,checked='',now=new Date()}){
   const s=A.summarize(orders,products,range,finance),a=adTotals(ads),issues=[];
@@ -37,12 +38,15 @@
   if(!a.complete)issues.push('Не получены полные рекламные расходы за период');if(adOverlap)issues.push('Требуется сверить пересечение рекламы с удержаниями Ozon');
   const profit=finComplete&&a.complete&&!adOverlap?s.contribution-other-a.spend:null;
   const expenses=profit!==null&&revenue!==null?revenue-profit:null;
+  const estimatedProfit=finComplete&&!adOverlap&&a.spend!==null?s.contribution-other-a.spend:null;
+  const knownExpenses=s.expenses+s.cost+s.logistics+other+(a.spend??0);
   const first=checked?A.day(new Date(new Date(checked).getTime()-34*86400000)):'';
-  return {summary:s,range,ads:a,issues,profit,revenue,expenses,other,tax:0,taxExcluded:true,cost:s.unmatched?null:s.cost,logistics:s.unmatched?null:s.logistics,ozon:s.financeKnown===s.deliveredPostings&&hasOrders?s.expenses:null,acquiring:s.acquiringKnown?s.acquiring:null,
+  return {summary:s,range,ads:a,issues,profit,revenue,expenses,estimatedProfit,estimatedMargin:estimatedProfit!==null&&revenue>0?estimatedProfit/revenue*100:null,knownExpenses:hasOrders?knownExpenses:null,other,tax:0,taxExcluded:true,cost:s.unmatched?null:s.cost,logistics:s.unmatched?null:s.logistics,ozon:s.financeKnown===s.deliveredPostings&&hasOrders?s.expenses:null,acquiring:s.acquiringKnown?s.acquiring:null,
    margin:profit!==null&&revenue>0?profit/revenue*100:null,average:revenue!==null&&delivered>0?revenue/delivered:null,
    newOrders:hasOrders?newOrders:null,inTransit:hasOrders?inTransit:null,delivered:complete?delivered:null,cancelled:hasOrders?cancelled:null,
    previousCovered:!!first&&previous(range).from>first&&!partial,stockAsOf:A.day(now),checked};
  }
  return {build,adTotals,previous,change};
 });
+
 

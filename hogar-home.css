@@ -10,3 +10,6 @@ body:has(#tab-home.active) main{max-width:800px!important;padding:18px 20px 25px
 @media(prefers-reduced-motion:reduce){.hd-root button{transition:none}}
 
 .hd-spark-caption{position:absolute;top:145px;right:22px;width:36%;text-align:right;font-size:8px;color:#bba48d;pointer-events:none}@media(max-width:580px){.hd-spark-caption{top:126px;right:14px;width:34%;font-size:7px}}
+
+
+.hd-dialog .hd-dialog-head{align-items:center!important}.hd-dialog .hd-dialog-head button[data-close]{display:grid!important;place-items:center!important;flex:0 0 36px!important;width:36px!important;min-width:36px!important;max-width:36px!important;height:36px!important;min-height:36px!important;max-height:36px!important;aspect-ratio:1!important;border-radius:11px!important;line-height:1!important;margin:0!important;padding:0!important;outline:none!important}.hd-dialog .hd-dialog-head button[data-close]:focus-visible{outline:2px solid #cc7c42!important;outline-offset:2px}.hd-estimate-notice{padding:12px;border:1px solid #efd5b6;border-radius:12px;background:#fff0dc;font-size:12px}.hd-dialog dl>div{align-items:baseline}.hd-dialog dt{min-width:0}.hd-dialog dd{font-variant-numeric:tabular-nums}
