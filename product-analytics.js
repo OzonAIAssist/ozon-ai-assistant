@@ -10,6 +10,8 @@
   return {from:d.toISOString().slice(0,10),to:end};
  }
  function settings(p){const s=p?.settings||{};return {cost:number(s.cost),logistics:number(s.logistics)??500};}
+ function costAt(p,created){const history=Array.isArray(p?.cost_history)?p.cost_history:[];if(!history.length)return settings(p).cost;const at=Date.parse(created);if(!Number.isFinite(at))return null;const entries=history.filter(x=>Number.isFinite(x.from)&&x.from<=at).sort((a,b)=>b.from-a.from);return entries.length?number(entries[0].cost):null;}
+ function setCost(p,value,at=Date.now()){const next=number(value);if(next===null||next<0||!Number.isFinite(at))throw Error('Некорректная себестоимость');const old=settings(p).cost;if(old===next)return p;if(!Array.isArray(p.cost_history)||!p.cost_history.length)p.cost_history=[{from:0,cost:old}];p.cost_history=p.cost_history.filter(x=>x.from!==at);p.cost_history.push({from:at,cost:next});p.settings={...p.settings,cost:String(next)};return p;}
  function match(p,line){return !!((line.sku&&[p.ozon_sku,...(Array.isArray(p.ozon_skus)?p.ozon_skus:[])].filter(Boolean).map(String).includes(String(line.sku)))||(p.sku&&line.offer_id&&String(p.sku)===String(line.offer_id)));}
  function mergeProducts(current,items){
   const next=current.map(p=>({...p}));
@@ -46,7 +48,7 @@
    let sales=0,pricesComplete=true,costComplete=true,cost=0,logistics=0;
    for(const l of chosen){const p=price(l),q=quantity(l);if(p===null)pricesComplete=false;else{x.deliveredRevenue+=p*q;x.deliveredRevenueKnown++;sales+=p*q}
     const candidates=products.filter(p=>match(p,l)),product=selected|| (candidates.length===1?candidates[0]:null);
-    const s=product?settings(product):null;if(!s||s.cost===null){costComplete=false;x.unmatched++}else cost+=s.cost*q;
+    const s=product?{...settings(product),cost:costAt(product,o.created_at)}:null;if(!s||s.cost===null){costComplete=false;x.unmatched++}else cost+=s.cost*q;
     if(s)logistics+=s.logistics*q;else costComplete=false;
    }
    x.cost+=cost;x.logistics+=logistics;
@@ -60,5 +62,6 @@
   }
   return x;
  }
- return {number,day,period,settings,match,mergeProducts,summarize};
+ return {number,day,period,settings,costAt,setCost,match,mergeProducts,summarize};
 });
+

@@ -1,7 +1,9 @@
 'use strict';
 const http=require('node:http');
 const crypto=require('node:crypto');
-const {verificationFromPosting,readAcquiringTransactions}=require('./acquiring');
+const {verificationFromPosting}=require('./acquiring');
+const {createAcquiringDailyReader}=require('./acquiring-daily');
+const readAcquiringTransactions=createAcquiringDailyReader();
 const {readStocks}=require('./dashboard-stocks');
 let dashboardStockCache=null,dashboardStockPending=null,dashboardStockPause=0;
 let balanceCache=null,balancePending=null,balancePause=0;
@@ -230,7 +232,7 @@ const server=http.createServer(async(req,res)=>{const origin=req.headers.origin|
 // Balance is the closing balance of the official rolling report, not a payout.
 if(path.pathname==='/api/dashboard/balance'){
  if(balanceCache&&Date.now()-balanceCache.at<10*60*1000)return reply(res,200,{...balanceCache.data,cache_status:'fresh'},ORIGIN);
- if(Date.now()<Math.max(balancePause,financeCooldownUntil))return balanceCache?reply(res,200,{...balanceCache.data,cache_status:'stale'},ORIGIN):reply(res,429,{error:'Обновление баланса на паузе после ограничения Ozon',read_only:true},ORIGIN);
+ if(Date.now()<balancePause)return balanceCache?reply(res,200,{...balanceCache.data,cache_status:'stale'},ORIGIN):reply(res,429,{error:'Обновление баланса на паузе после ограничения Ozon',read_only:true},ORIGIN);
  try{
   if(!balancePending)balancePending=(async()=>{
    const end=new Date(),start=new Date(end);start.setUTCDate(start.getUTCDate()-29);
@@ -242,7 +244,7 @@ if(path.pathname==='/api/dashboard/balance'){
    balanceCache={at:Date.now(),data};return data;
   })().finally(()=>{balancePending=null});
   return reply(res,200,await balancePending,ORIGIN);
- }catch(e){balancePause=Date.now()+15*60*1000;if(e.status===429)financeCooldownUntil=Math.max(financeCooldownUntil,balancePause);if(balanceCache)return reply(res,200,{...balanceCache.data,cache_status:'stale'},ORIGIN);return reply(res,e.status===429?429:502,{error:'Ozon не передал подтверждённый баланс',read_only:true,upstream_status:Number.isInteger(e.status)?e.status:null},ORIGIN)}
+ }catch(e){console.warn('Balance unavailable:',Number.isInteger(e.status)?e.status:'unconfirmed_response');balancePause=Date.now()+15*60*1000;if(balanceCache)return reply(res,200,{...balanceCache.data,cache_status:'stale'},ORIGIN);return reply(res,e.status===429?429:502,{error:e.status===403?'Ozon запретил доступ к отчёту баланса':e.status===429?'Ozon ограничил обновление баланса. Повторите позже':'Ozon не передал подтверждённый баланс',read_only:true,retry_after_seconds:900,upstream_status:Number.isInteger(e.status)?e.status:null},ORIGIN)}
 }
 // Safe read-only delivery diagnosis: no raw Ozon response, buyer data, or credentials exposed.
 if(path.pathname==='/api/dashboard/stocks'){
@@ -504,7 +506,7 @@ if(path.pathname==='/api/orders/finance'){
   // Acquiring is read separately from bank transaction operations below.
   let parentLookup='not_needed';
   // The type dictionary may be unavailable to this API key; raw type IDs still work.
-  const typeInfo=raw.length?await getAccrualTypes():{types:new Map(),available:false};
+  const typeInfo=await getAccrualTypes();
   const types=typeInfo.types,types_available=typeInfo.available;
   const amount=v=>{
    const rawValue=v&&typeof v==='object'?v.amount:v;
@@ -524,7 +526,7 @@ if(path.pathname==='/api/orders/finance'){
   let acquiringLookup={complete:true,status:'already_in_accruals',unallocated:0,overlap:0};
   if(!lines.some(x=>x.is_acquiring)){
    try{
-    acquiringLookup=await readAcquiringTransactions(ozon,posting,verifiedPosting||{},raw);
+    acquiringLookup=await readAcquiringTransactions(ozon,posting,verifiedPosting||{},raw,Date.now(),types);
     lines.push(...acquiringLookup.lines);
     parentLookup=acquiringLookup.status;
    }catch(e){
@@ -535,13 +537,13 @@ if(path.pathname==='/api/orders/finance'){
   }
   const complete=lines.every(x=>x.amount!==null&&x.currency==='RUB');
   const total=lines.length&&complete?Math.round(lines.reduce((sum,x)=>sum+x.amount,0)*100)/100:null;
-  const result={read_only:true,posting_number:posting,source:'Ozon Seller API /v1/finance/accrual/postings + /v3/finance/transaction/list (эквайринг)',
+  const result={read_only:true,posting_number:posting,source:'Ozon Seller API /v1/finance/accrual/postings + /v1/finance/accrual/by-day (эквайринг)',
    operations:lines,total_accrued:total,types_available,acquiring_from_parent:lines.filter(x=>x.is_acquiring&&x.source_posting_number===basePosting).length,verified_delivery_at:verifiedDeliveryDate,
    diagnostic:{matched_postings:matched.length,own_accruals:raw.length,parent_accruals:0,
     parent_acquiring_identified:lines.filter(x=>x.is_acquiring&&x.source_posting_number===basePosting).length,parent_unidentified:acquiringLookup.unallocated,parent_lookup:parentLookup,
     order_created_at:verifiedPosting?.created_at||null,acquiring_lookup_status:acquiringLookup.status,
     type_dictionary_available:types_available},
-   acquiring_version:2,acquiring_detected:lines.some(x=>x.is_acquiring),acquiring_lookup_complete:acquiringLookup.complete,acquiring_lookup_status:acquiringLookup.status,acquiring_unallocated:acquiringLookup.unallocated,acquiring_overlap:acquiringLookup.overlap,acquiring_check:'Эквайринг берётся из подтверждённых начислений либо транзакций Ozon. Общая комиссия разбитого заказа без подтверждённого распределения не вычитается из каждого отправления. Отсутствие строки не означает нулевую комиссию.',checked_at:new Date().toISOString(),finalized:false,
+   acquiring_version:3,acquiring_detected:lines.some(x=>x.is_acquiring),acquiring_lookup_complete:acquiringLookup.complete,acquiring_lookup_status:acquiringLookup.status,acquiring_unallocated:acquiringLookup.unallocated,acquiring_overlap:acquiringLookup.overlap,acquiring_check:'Эквайринг берётся из подтверждённых начислений либо транзакций Ozon. Общая комиссия разбитого заказа без подтверждённого распределения не вычитается из каждого отправления. Отсутствие строки не означает нулевую комиссию.',checked_at:new Date().toISOString(),finalized:false,
    note:lines.length?'Это сумма полученных начислений и удержаний, не прибыль. Ozon может обновить данные позже.':'Ozon пока не передал начисления по этому отправлению.'};
   financeCache.set(cacheKey,{data:result,expires:Date.now()+(lines.length&&result.acquiring_detected&&acquiringLookup.complete?FINANCE_TTL:10*60*1000)});
   return reply(res,200,result,ORIGIN);

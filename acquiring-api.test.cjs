@@ -8,9 +8,9 @@ function harness(options={}){
  if(pathname==='/v3/posting/fbs/get')value={result:{status:options.status||'delivered',in_process_at:created,products:[{sku:123}],parent_posting_number:'',related_postings:{related_posting_numbers:options.related||[]}}};
  else if(pathname==='/v1/finance/accrual/postings'){assert.equal(body.posting_numbers[0],posting,'never send parent ID to accruals');value={posting_accruals:[{posting_number:posting,accruals:own}]};}
  else if(pathname==='/v1/finance/accrual/types')value={accrual_types:[{id:1,description:'Комиссия Ozon'},{id:2,description:'Эквайринг'}]};
- else if(pathname==='/v3/finance/transaction/list'){
+ else if(pathname==='/v1/finance/accrual/by-day'){
   if(options.txStatus)return {ok:false,status:options.txStatus};
-  value={result:{page_count:1,operations:[{operation_id:1001,operation_type:acquiring.ACQUIRING_TYPE,operation_date:created.slice(0,10)+' 10:00:00',posting:{posting_number:options.txPosting||'28142819-0371'},items:[{sku:123}],amount:-200}]}};
+  value={last_id:'',accruals:[{accrual_id:1001,date:created.slice(0,10),unit_number:options.txPosting||'28142819-0371',non_item_fee:{type_id:2,accrued:{amount:'-200',currency:'RUB'}}}]};
  }else throw Error('Unexpected endpoint '+pathname);
  return {ok:true,json:async()=>value};
  }};
@@ -19,10 +19,10 @@ function harness(options={}){
  return {call,calls,created};
 }
 test('delivered finance includes confirmed fee once in total and cache; transaction date uses verified order',async()=>{
- const h=harness();let r=await h.call();assert.equal(r.status,200);assert.equal(r.data.total_accrued,-1700);assert.equal(r.data.operations.filter(x=>x.is_acquiring).length,1);assert.equal(r.data.acquiring_version,2);assert.equal(r.data.acquiring_detected,true);assert.equal(r.data.acquiring_lookup_complete,true);const tx=h.calls.find(x=>x.pathname==='/v3/finance/transaction/list');assert.ok(tx.body.filter.date.from.startsWith(h.created.slice(0,7)));const count=h.calls.length;r=await h.call();assert.equal(r.data.cached,true);assert.equal(h.calls.length,count);
+ const h=harness();let r=await h.call();assert.equal(r.status,200);assert.equal(r.data.total_accrued,-1700);assert.equal(r.data.operations.filter(x=>x.is_acquiring).length,1);assert.equal(r.data.acquiring_version,3);assert.equal(r.data.acquiring_detected,true);assert.equal(r.data.acquiring_lookup_complete,true);const tx=h.calls.find(x=>x.pathname==='/v1/finance/accrual/by-day');assert.equal(tx.body.date,h.created.slice(0,10));const count=h.calls.length;r=await h.call();assert.equal(r.data.cached,true);assert.equal(h.calls.length,count);
 });
 test('existing own acquiring does not trigger or double-add transaction fallback',async()=>{
- const h=harness({own:[{type_id:2,accrued:{amount:'-200',currency:'RUB'}}]});const r=await h.call();assert.equal(r.data.total_accrued,-200);assert.equal(r.data.acquiring_detected,true);assert.ok(!h.calls.some(x=>x.pathname==='/v3/finance/transaction/list'));
+ const h=harness({own:[{type_id:2,accrued:{amount:'-200',currency:'RUB'}}]});const r=await h.call();assert.equal(r.data.total_accrued,-200);assert.equal(r.data.acquiring_detected,true);assert.ok(!h.calls.some(x=>x.pathname==='/v1/finance/accrual/by-day'));
 });
 test('optional transaction failure preserves accruals; 429 cooldown blocks new financial reads',async()=>{
  for(const txStatus of [403,429,500]){const h=harness({txStatus});const r=await h.call();assert.equal(r.status,200);assert.equal(r.data.total_accrued,-1500);assert.equal(r.data.operations.length,1);assert.equal(r.data.acquiring_detected,false);assert.equal(r.data.acquiring_lookup_complete,false);assert.equal(r.data.acquiring_lookup_status,txStatus===429?'rate_limited':'unavailable');if(txStatus===429){const count=h.calls.length;const next=await h.call({number:'99999999-1234-1'});assert.equal(next.status,429);assert.equal(h.calls.length,count);}}
@@ -33,3 +33,4 @@ test('split parent order fee is not deducted from each posting',async()=>{
 test('delivery verification, authorization and CORS remain mandatory',async()=>{
  const h=harness();assert.equal((await h.call({token:'wrong'})).status,401);assert.equal((await h.call({origin:'https://foreign.test'})).status,403);assert.equal((await h.call({delivered:'false'})).status,409);assert.equal(h.calls.length,0);const denied=harness({status:'delivering'});assert.equal((await denied.call()).status,409);assert.equal(denied.calls.length,1);
 });
+
