@@ -8,6 +8,8 @@ const {verificationFromPosting}=require('./acquiring');
 const {createAcquiringDailyReader}=require('./acquiring-daily');
 const readAcquiringTransactions=createAcquiringDailyReader();
 const {readStocks}=require('./dashboard-stocks');
+const {createLedgerReader}=require('./finance-ledger-reader');
+const ledgerReader=createLedgerReader();
 let dashboardStockCache=null,dashboardStockPending=null,dashboardStockPause=0;
 let balanceCache=null,balancePending=null,balancePause=0;
 const PORT=Number(process.env.PORT||10000);
@@ -225,7 +227,7 @@ async function getAccrualTypes(){
    accrualTypesCache={expires:Date.now()+6*60*60*1000,types,available:true};
   }catch(e){
    console.warn('Finance type dictionary unavailable:',e.status||e.message);
-   accrualTypesCache={expires:Date.now()+15*60*1000,types:new Map(),available:false};
+   accrualTypesCache={expires:Date.now()+15*60*1000,types:new Map(),available:false,upstream_status:Number.isInteger(e.status)?e.status:null};
   }
   return accrualTypesCache;
  })();
@@ -262,8 +264,17 @@ async function controlRoute(req,res,url,origin){
  try{let text='';for await(const chunk of req){text+=chunk;if(Buffer.byteLength(text)>20000)return reply(res,413,{error:'Слишком большой запрос'},origin);}const body=JSON.parse(text);if(['enable','stop','reconcile','weekly'].includes(body.op)&&body.confirm!==true)return reply(res,400,{error:'Подтвердите применение управления рекламой'},origin);const result=await adsBot.command(body.op,id,body.config);return reply(res,200,result,origin);}catch(e){return reply(res,400,{error:String(e.message).slice(0,300),...adsBot.status(id)},origin);}
 }
 
-const routes=new Set(['/api/prices/ozon-card','/api/ads/control','/api/dashboard/balance','/api/dashboard/stocks','/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check','/api/orders/posting-presence-check']);
+const routes=new Set(['/api/finance/ledger','/api/prices/ozon-card','/api/ads/control','/api/dashboard/balance','/api/dashboard/stocks','/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check','/api/orders/posting-presence-check']);
 const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||ALLOWED_ORIGINS.has(origin);const ORIGIN=allowed?origin:'';const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),...(path.pathname==='/api/ads/control'?{'Access-Control-Allow-Methods':'GET, POST, OPTIONS'}:{}),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(path.pathname==='/api/ads/control')return controlRoute(req,res,path,ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
+
+// Whole-store accruals, one day per request. No arbitrary upstream proxy or writes.
+if(path.pathname==='/api/finance/ledger'){
+ const date=path.searchParams.get('date');
+ if(!require('./finance-ledger').valid(date)||date>require('./finance-ledger').today())return reply(res,400,{error:'Укажите существующий день не позднее сегодня'},ORIGIN);
+ if(Date.now()<financeCooldownUntil)return reply(res,429,{error:'Финансовые запросы на паузе после ограничения Ozon',retry_after_seconds:Math.ceil((financeCooldownUntil-Date.now())/1000)},ORIGIN);
+ try{const info=await getAccrualTypes();if(info.upstream_status===429)throw Object.assign(Error('Type dictionary limited'),{status:429});const data=await ledgerReader.read(ozon,date,info.types);if(data.upstream_status===429)financeCooldownUntil=Date.now()+Math.max(1,data.retry_after_seconds||900)*1000;return reply(res,200,{...data,types_available:info.available,account:crypto.createHash('sha256').update(CLIENT_ID).digest('hex').slice(0,24)},ORIGIN)}
+ catch(e){if(e.status===429)financeCooldownUntil=Date.now()+15*60*1000;console.warn('Finance ledger unavailable:',Number.isInteger(e.status)?e.status:'invalid_response');return reply(res,e.status===429?429:502,{error:e.status===403?'Ozon запретил доступ к начислениям':e.status===429?'Ozon ограничил финансовые запросы':'Не удалось подтвердить начисления Ozon',retry_after_seconds:ledgerReader.paused()||60},ORIGIN)}
+}
 
 // Balance is the closing balance of the official rolling report, not a payout.
 if(path.pathname==='/api/dashboard/balance'){
