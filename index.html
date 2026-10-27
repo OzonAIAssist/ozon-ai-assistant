@@ -1033,8 +1033,8 @@ const listEl=panel.querySelector('#h44list'),updated=panel.querySelector('#h44up
 const status={CAMPAIGN_STATE_RUNNING:'Активна',CAMPAIGN_STATE_PLANNED:'Запланирована',CAMPAIGN_STATE_STOPPED:'Остановлена',CAMPAIGN_STATE_INACTIVE:'Выключена',CAMPAIGN_STATE_ARCHIVED:'В архиве',CAMPAIGN_STATE_FINISHED:'Завершена'};
 let campaigns=[],selected='active',expanded=new Set(),inlineCampaign=null;
 const assistantStates=new Map();
-function assistantBadge(id){const a=assistantStates.get(id);return a?.error?['attention','Требует внимания']:a?.enabled?['running','Ассистент работает']:a?['off','Ассистент выключен']:['unknown','Статус не получен']}
-document.addEventListener('hogar:ad-control-state',e=>{const x=e.detail;if(!x||!x.id)return;assistantStates.set(String(x.id),{enabled:x.enabled===true,error:!!x.error});draw()});
+function assistantBadge(id){const a=assistantStates.get(id);if(!a)return ['unknown','Статус неизвестен'];if(a.error)return ['attention','Проблема'];if(!a.enabled)return ['off','Выключен'];const verified=a.ready&&!a.pending&&a.lastAction&&Date.now()-Date.parse(a.lastAction.at)<20*60000;return verified?['running','Ассистент работает']:['unknown','Включён · проверка'];}
+document.addEventListener('hogar:ad-control-state',e=>{const x=e.detail;if(!x||!x.id)return;assistantStates.set(String(x.id),{enabled:x.enabled===true,error:!!x.error,ready:x.ready===true,pending:!!x.pending,lastAction:x.lastAction||null});draw()});
 function showAdModal(){const modal=panel.querySelector('.h90-ad-dialog');if(modal){modal.showModal?.();modal.addEventListener('cancel',()=>{expanded.clear();draw()})}}
 let statistics={},period='today',statsRequest=0;
 const periodBar=document.createElement('div');periodBar.className='h46-periods';
@@ -1107,7 +1107,7 @@ function draw(){
   const inline=inlineCampaign===id;
   const tiles=[['Расходы',stat.spend,' ₽','wallet'],['Показы',stat.impressions,'','eye'],['Клики',stat.clicks,'','cursor'],['Корзины',stat.carts,'','cart'],['Заказы',stat.orders,'','box'],['CTR',stat.ctr,'%','chart']].map(([label,value,suffix,icon])=>'<div class="h98-tile"><i aria-hidden="true">'+adIcon(icon)+'</i><small>'+label+'</small><strong>'+formatMetric(value,suffix)+'</strong><span class="h101-comparison">Сравнение недоступно</span></div>').join('');
   const badge=assistantBadge(id);
-  return '<article class="h44-card h98-campaign h101-state-'+category(c)+' '+(inline?'h98-expanded':'')+'"><div class="h101-campaign-head"><button type="button" class="h44-title" data-inline="'+esc(id)+'" aria-expanded="'+inline+'"><span class="h98-photo">'+(photo||adIcon('megaphone'))+'</span><span class="h44-text"><b>'+name+'</b><small>№ '+esc(id)+' · '+stateText+' · '+esc(({SKU:'Товары в поиске',SEARCH_PROMO:'Продвижение в поиске',BANNER:'Баннерная'})[c.type]||c.type||'Тип не передан')+'</small></span></button><span class="h101-badge h101-'+badge[0]+'">'+adIcon('chart')+'<span>'+badge[1]+'</span><i aria-hidden="true"></i></span></div><div class="h98-tiles">'+tiles+'</div><div class="h102-card-actions"><button type="button" class="h102-config" data-assistant="'+esc(id)+'"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="m12 1 3.2 7.8L23 12l-7.8 3.2L12 23l-3.2-7.8L1 12l7.8-3.2Z"/><path d="m21 0 .8 2.2L24 3l-2.2.8L21 6l-.8-2.2L18 3l2.2-.8Z"/></svg><span>Настроить ассистента</span><b aria-hidden="true">›</b></button><button type="button" class="h102-details" data-id="'+esc(id)+'">'+adIcon('chart')+'<span>Подробнее</span><b aria-hidden="true">›</b></button></div>'+dialog+'</article>';
+  return '<article class="h44-card h98-campaign h101-state-'+category(c)+' '+(inline?'h98-expanded':'')+'"><div class="h101-campaign-head"><div class="h44-title"><span class="h98-photo">'+(photo||adIcon('megaphone'))+'</span><span class="h44-text"><b>'+name+'</b><small>№ '+esc(id)+' · '+stateText+' · '+esc(({SKU:'Товары в поиске',SEARCH_PROMO:'Продвижение в поиске',BANNER:'Баннерная'})[c.type]||c.type||'Тип не передан')+'</small></span></div><span class="h101-badge h101-'+badge[0]+'">'+adIcon('chart')+'<span>'+badge[1]+'</span><i aria-hidden="true"></i></span></div><div class="h98-tiles">'+tiles+'</div><div class="h102-card-actions"><button type="button" class="h102-config" data-assistant="'+esc(id)+'"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="m12 1 3.2 7.8L23 12l-7.8 3.2L12 23l-3.2-7.8L1 12l7.8-3.2Z"/><path d="m21 0 .8 2.2L24 3l-2.2.8L21 6l-.8-2.2L18 3l2.2-.8Z"/></svg><span>Настроить ассистента</span><b aria-hidden="true">›</b></button><button type="button" class="h102-details" data-id="'+esc(id)+'">'+adIcon('chart')+'<span>Подробнее</span><b aria-hidden="true">›</b></button></div>'+dialog+'</article>';
  }).join('');
  showAdModal();
 }
@@ -2078,7 +2078,7 @@ const orders=document.getElementById('h50');if(orders){
 <script src="product-analytics.js?v=20261027r33"></script>
 <link rel="stylesheet" href="hogar-home.css">
 <script src="dashboard-model-cache-v1.js?v=20261027r33"></script>
-<script src="hogar-home-cache-v1.js?v=20261027r33"></script>
+<script src="hogar-home-cache-v1.js?v=20261027d2"></script>
 <script src="hogar-catalog.js?v=20261027r33"></script>
 <style id="hogar-compact-header-alignment">
 /* Compact brand bars and consistent text geometry across all seven tabs. */
@@ -2257,7 +2257,7 @@ body #hd-brand button.hd-header-safe{color:#bfe6c2!important;background:#3d66354
 @media(max-width:480px){#tab-ads #h44 .h101-campaign-head{grid-template-columns:minmax(0,1fr) auto!important}#tab-ads #h44 .h101-badge{max-width:105px!important;font-size:8px!important;padding:6px!important}#tab-ads #h44 .h44-text b{font-size:15px!important}#tab-ads #h44 .h98-tile{grid-template-columns:22px minmax(0,1fr)!important;padding:8px 6px!important;column-gap:5px!important}#tab-ads #h44 .h98-tile strong{font-size:14px!important}#tab-ads #h44 .h102-card-actions button{font-size:11px!important;padding:7px!important}}
 
 </style>
-<script>window.addEventListener("hogar:background-refresh",()=>document.getElementById("v10sync")?.click());</script></body></html>
+<script>window.addEventListener("hogar:background-refresh",()=>document.getElementById("v10sync")?.click());</script><link rel="stylesheet" href="design-update.css?v=20261027d2"><script src="analytics-design-model.js?v=20261027d2"></script><script src="analytics-design-ui.js?v=20261027d2"></script></body></html>
 
 
 
