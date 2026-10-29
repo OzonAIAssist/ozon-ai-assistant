@@ -8,6 +8,8 @@ const {verificationFromPosting}=require('./acquiring');
 const {createAcquiringDailyReader}=require('./acquiring-daily');
 const readAcquiringTransactions=createAcquiringDailyReader();
 const {readStocks}=require('./dashboard-stocks');
+const {createLedgerReader}=require('./finance-ledger-reader');
+const ledgerReader=createLedgerReader();
 let dashboardStockCache=null,dashboardStockPending=null,dashboardStockPause=0;
 let balanceCache=null,balancePending=null,balancePause=0;
 const PORT=Number(process.env.PORT||10000);
@@ -23,9 +25,10 @@ const MAX_ITEMS=20000;
 function cors(origin){return {'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Max-Age':'600','Vary':'Origin'};}
 function reply(res,status,body,origin){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...cors(origin)});res.end(JSON.stringify(body));}
 function authorized(req){const auth=req.headers.authorization||'';const supplied=auth.startsWith('Bearer ')?auth.slice(7):'';if(!supplied||!ACCESS_TOKEN)return false;const a=Buffer.from(supplied),b=Buffer.from(ACCESS_TOKEN);return a.length===b.length&&crypto.timingSafeEqual(a,b);}
-async function fetchJSON(url,options={}){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),25000);try{const response=await fetch(url,{...options,signal:controller.signal});if(!response.ok){const err=new Error('Upstream HTTP '+response.status);err.status=response.status;throw err;}return await response.json();}finally{clearTimeout(timer);}}
-let financeRequestQueue=Promise.resolve(),lastFinanceRequest=0;
-async function ozon(path,body){const send=()=>fetchJSON(API_BASE+path,{method:'POST',headers:{'Client-Id':CLIENT_ID,'Api-Key':API_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});if(!path.startsWith('/v1/finance/accrual/'))return send();const request=financeRequestQueue.catch(()=>{}).then(async()=>{const delay=1250-(Date.now()-lastFinanceRequest);if(delay>0)await new Promise(resolve=>setTimeout(resolve,delay));lastFinanceRequest=Date.now();return send()});financeRequestQueue=request;return request;}
+async function fetchJSON(url,options={}){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),25000);try{const response=await fetch(url,{...options,signal:controller.signal});if(!response.ok){const err=new Error('Upstream HTTP '+response.status);err.status=response.status;const retry=response.headers?.get?.('Retry-After');if(retry){const seconds=Number(retry),at=Date.parse(retry);err.retryAfter=Number.isFinite(seconds)?seconds:Number.isFinite(at)?Math.max(0,Math.ceil((at-Date.now())/1000)):undefined}throw err;}return await response.json();}finally{clearTimeout(timer);}}
+const financeTransport=require('./finance-transport').createFinanceTransport({send:(path,body)=>fetchJSON(API_BASE+path,{method:'POST',headers:{'Client-Id':CLIENT_ID,'Api-Key':API_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)})});
+const financeRetryMs=e=>Math.max(60,Number(e?.retryAfter)||financeTransport.waitSeconds()||900)*1000;
+async function ozon(path,body){if(path.startsWith('/v1/finance/accrual/'))return financeTransport.read(path,body);return fetchJSON(API_BASE+path,{method:'POST',headers:{'Client-Id':CLIENT_ID,'Api-Key':API_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)})}
 function productSkus(item){const sources=Array.isArray(item.sources)?item.sources:[];return [...new Set([item.sku,...sources.filter(s=>!s.shipment_type||/^(?:SHIPMENT_TYPE_)?GENERAL$/i.test(s.shipment_type)).map(s=>s.sku)].filter(v=>v!=null&&/^\d+$/.test(String(v))&&Number(v)>0).map(String))];}
 async function products(){let lastId='';const all=[],seen=new Set();while(all.length<MAX_ITEMS){const data=await ozon('/v3/product/list',{filter:{visibility:'ALL'},last_id:lastId,limit:1000});const result=data.result||{};const items=Array.isArray(result.items)?result.items:[];for(const item of items){const id=String(item.product_id??'');if(!id||seen.has(id))continue;seen.add(id);all.push({product_id:id,offer_id:String(item.offer_id??'')});}const next=String(result.last_id||'');if(!next||next===lastId||!items.length)break;lastId=next;}if(all.length>=MAX_ITEMS)throw new Error('Слишком много товаров: достигнут лимит безопасности.');const names=new Map();for(let i=0;i<all.length;i+=1000){const batch=all.slice(i,i+1000);const data=await ozon('/v3/product/info/list',{product_id:batch.map(x=>Number(x.product_id))});for(const item of data.items||[]){names.set(String(item.id??item.product_id),{ozon_sku:productSkus(item)[0]||'',ozon_skus:productSkus(item),name:String(item.name||''),offer_id:String(item.offer_id||''),image_url:String(item.primary_image||(Array.isArray(item.images)?item.images[0]:'')||'')});}}return all.map(item=>({...item,name:names.get(item.product_id)?.name||'',ozon_sku:names.get(item.product_id)?.ozon_sku||'',ozon_skus:names.get(item.product_id)?.ozon_skus||[],offer_id:names.get(item.product_id)?.offer_id||item.offer_id,image_url:names.get(item.product_id)?.image_url||''}));}
 function scalar(v){return (typeof v==='string'||typeof v==='number'||typeof v==='boolean')?v:null;}
@@ -225,7 +228,7 @@ async function getAccrualTypes(){
    accrualTypesCache={expires:Date.now()+6*60*60*1000,types,available:true};
   }catch(e){
    console.warn('Finance type dictionary unavailable:',e.status||e.message);
-   accrualTypesCache={expires:Date.now()+15*60*1000,types:new Map(),available:false};
+   accrualTypesCache={expires:Date.now()+(e.status===429?financeRetryMs(e):15*60*1000),types:new Map(),available:false,upstream_status:Number.isInteger(e.status)?e.status:null,retry_after_seconds:e.status===429?Math.ceil(financeRetryMs(e)/1000):undefined};
   }
   return accrualTypesCache;
  })();
@@ -262,8 +265,17 @@ async function controlRoute(req,res,url,origin){
  try{let text='';for await(const chunk of req){text+=chunk;if(Buffer.byteLength(text)>20000)return reply(res,413,{error:'Слишком большой запрос'},origin);}const body=JSON.parse(text);if(['enable','stop','reconcile','weekly'].includes(body.op)&&body.confirm!==true)return reply(res,400,{error:'Подтвердите применение управления рекламой'},origin);const result=await adsBot.command(body.op,id,body.config);return reply(res,200,result,origin);}catch(e){return reply(res,400,{error:String(e.message).slice(0,300),...adsBot.status(id)},origin);}
 }
 
-const routes=new Set(['/api/prices/ozon-card','/api/ads/control','/api/dashboard/balance','/api/dashboard/stocks','/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check','/api/orders/posting-presence-check']);
+const routes=new Set(['/api/finance/ledger','/api/prices/ozon-card','/api/ads/control','/api/dashboard/balance','/api/dashboard/stocks','/api/products','/api/price-diagnostic','/api/ads/campaigns','/api/ads/statistics','/api/orders','/api/orders/finance','/api/orders/delivery-diagnostic','/api/orders/status-date-check','/api/orders/posting-presence-check']);
 const server=http.createServer(async(req,res)=>{const origin=req.headers.origin||'';const allowed=!origin||ALLOWED_ORIGINS.has(origin);const ORIGIN=allowed?origin:'';const path=new URL(req.url||'/','http://localhost');console.log('[request]',req.method,path.pathname,'origin:',origin||'(none)','allowed:',allowed);if(!allowed)return reply(res,403,{error:'Origin not allowed'},ORIGIN);if(req.method==='OPTIONS'){if(!routes.has(path.pathname)&&path.pathname!=='/health')return reply(res,404,{error:'Not found'},ORIGIN);res.writeHead(204,{...cors(ORIGIN),...(path.pathname==='/api/ads/control'?{'Access-Control-Allow-Methods':'GET, POST, OPTIONS'}:{}),'Cache-Control':'no-store'});return res.end();}if(path.pathname==='/health'&&req.method==='GET')return reply(res,200,{status:'ok'},ORIGIN);if(path.pathname==='/api/ads/control')return controlRoute(req,res,path,ORIGIN);if(req.method!=='GET'||!routes.has(path.pathname))return reply(res,404,{error:'Not found'},ORIGIN);if(!authorized(req))return reply(res,401,{error:'Unauthorized'},ORIGIN);
+
+// Whole-store accruals, one day per request. No arbitrary upstream proxy or writes.
+if(path.pathname==='/api/finance/ledger'){
+ const date=path.searchParams.get('date');
+ if(!require('./finance-ledger').valid(date)||date>require('./finance-ledger').today())return reply(res,400,{error:'Укажите существующий день не позднее сегодня'},ORIGIN);
+ if(Date.now()<financeCooldownUntil)return reply(res,429,{error:'Финансовые запросы на паузе после ограничения Ozon',retry_after_seconds:Math.ceil((financeCooldownUntil-Date.now())/1000)},ORIGIN);
+ try{const info=await getAccrualTypes();if(info.upstream_status===429)throw Object.assign(Error('Type dictionary limited'),{status:429,retryAfter:info.retry_after_seconds});const data=await ledgerReader.read(ozon,date,info.types);if(data.upstream_status===429)financeCooldownUntil=Date.now()+Math.max(1,data.retry_after_seconds||900)*1000;return reply(res,200,{...data,types_available:info.available,account:crypto.createHash('sha256').update(CLIENT_ID).digest('hex').slice(0,24)},ORIGIN)}
+ catch(e){if(e.status===429)financeCooldownUntil=Date.now()+financeRetryMs(e);console.warn('Finance ledger unavailable:',Number.isInteger(e.status)?e.status:'invalid_response');return reply(res,e.status===429?429:502,{error:e.status===403?'Ozon запретил доступ к начислениям':e.status===429?'Ozon ограничил финансовые запросы':'Не удалось подтвердить начисления Ozon',retry_after_seconds:ledgerReader.paused()||60},ORIGIN)}
+}
 
 // Balance is the closing balance of the official rolling report, not a payout.
 if(path.pathname==='/api/dashboard/balance'){
@@ -564,10 +576,10 @@ if(path.pathname==='/api/orders/finance'){
    try{
     acquiringLookup=await readAcquiringTransactions(ozon,posting,verifiedPosting||{},raw,Date.now(),types);
     lines.push(...acquiringLookup.lines);
-    if(acquiringLookup.status==='rate_limited')financeCooldownUntil=Date.now()+15*60*1000;
+    if(acquiringLookup.status==='rate_limited')financeCooldownUntil=Date.now()+Math.max(60,acquiringLookup.retry_after_seconds||900)*1000;
     parentLookup=acquiringLookup.status;
    }catch(e){
-    if(e.status===429)financeCooldownUntil=Date.now()+15*60*1000;
+    if(e.status===429)financeCooldownUntil=Date.now()+financeRetryMs(e);
     acquiringLookup={complete:false,status:e.status===429?'rate_limited':'unavailable',unallocated:0,overlap:0};parentLookup=acquiringLookup.status;
     console.warn('Optional acquiring transactions unavailable:',Number.isInteger(e.status)?e.status:null);
    }
@@ -584,7 +596,7 @@ if(path.pathname==='/api/orders/finance'){
    note:lines.length?'Это сумма полученных начислений и удержаний, не прибыль. Ozon может обновить данные позже.':'Ozon пока не передал начисления по этому отправлению.'};
   financeCache.set(cacheKey,{data:result,expires:Date.now()+(lines.length&&result.acquiring_detected&&acquiringLookup.complete?FINANCE_TTL:10*60*1000)});
   return reply(res,200,result,ORIGIN);
- }catch(e){if(e.status===429)financeCooldownUntil=Date.now()+15*60*1000;console.error('Order finance accruals failed:',e.status||e.message);
+ }catch(e){if(e.status===429)financeCooldownUntil=Date.now()+financeRetryMs(e);console.error('Order finance accruals failed:',e.status||e.message);
   return reply(res,e.status===429?429:502,{retry_after_seconds:e.status===429?Math.ceil((financeCooldownUntil-Date.now())/1000):undefined,error:'Не удалось получить начисления Ozon',diagnostic:{stage:'Начисления по отправлению',code:Number.isInteger(e.status)?e.status:null,
    reason:e.status===400?'Ozon отклонил параметры запроса':e.status===401||e.status===403?'Нет доступа к финансовым начислениям Seller API':e.status===429?'Ozon временно ограничил частоту запросов':e.status===404?'Финансовый метод недоступен для данного подключения':'Проверьте ответ Ozon в журнале Render'}},ORIGIN)}
 }
