@@ -1,0 +1,39 @@
+name: Hogar Telegram relay availability
+
+on:
+  schedule:
+    - cron: '7,17,27,37,47,57 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: hogar-telegram-relay-availability
+  cancel-in-progress: false
+
+jobs:
+  check-relay:
+    if: github.repository == 'OzonAIAssist/ozon-ai-assistant' && github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wake relay and check readiness without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+            --connect-timeout 10 --max-time 100 \
+            --retry 1 --retry-delay 5 --retry-max-time 210 \
+            --output "$response_file" \
+            'https://hogar-telegram-probe.onrender.com/health'
+          python3 - "$response_file" <<'PY'
+          import json
+          import sys
+          with open(sys.argv[1], encoding="utf-8") as response:
+              data = json.load(response)
+          if not isinstance(data, dict) or data.get("ok") is not True:
+              raise SystemExit("Relay readiness check failed")
+          print("Relay is reachable and ready. No bot credentials were used.")
+          PY
